@@ -25,7 +25,7 @@ export function ModuleViewer({ module, moduleIndex, totalModules }: ModuleViewer
       if (res.ok) {
         const learning = await res.json()
         const isCurrentlyLearning = learning.some(
-          (l: any) => l.moduleId === module.moduleId && l.status === 'learning'
+          (l: any) => l.moduleId === module.id && l.status === 'learning'
         )
         setIsLearning(isCurrentlyLearning)
       }
@@ -38,7 +38,7 @@ export function ModuleViewer({ module, moduleIndex, totalModules }: ModuleViewer
     if (!user) return
     checkLearningStatus()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, module.moduleId])
+  }, [user?.id, module.id])
 
   const toggleLearning = async () => {
     if (!user) return
@@ -48,7 +48,7 @@ export function ModuleViewer({ module, moduleIndex, totalModules }: ModuleViewer
         const res = await fetch('/api/learning', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: user.id, moduleId: module.moduleId })
+          body: JSON.stringify({ userId: user.id, moduleId: module.id })
         })
         if (!res.ok) throw new Error('Failed to remove from learning')
         setIsLearning(false)
@@ -75,7 +75,7 @@ export function ModuleViewer({ module, moduleIndex, totalModules }: ModuleViewer
         const res = await fetch('/api/learning', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: user.id, moduleId: module.moduleId })
+          body: JSON.stringify({ userId: user.id, moduleId: module.id })
         })
         if (!res.ok) {
           const error = await res.json()
