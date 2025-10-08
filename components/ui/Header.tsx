@@ -63,6 +63,21 @@ export function Header() {
               modules
             </Link>
             <Link
+              href="/network"
+              style={{
+                fontSize: 'clamp(13px, 2vw, 14px)',
+                textTransform: 'uppercase',
+                letterSpacing: '1.5px',
+                color: '#fff',
+                textDecoration: 'none',
+                fontWeight: 500,
+                transition: 'opacity 0.3s ease'
+              }}
+              className="hover:opacity-70"
+            >
+              network
+            </Link>
+            <Link
               href="/about"
               style={{
                 fontSize: 'clamp(13px, 2vw, 14px)',

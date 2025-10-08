@@ -12,9 +12,58 @@ interface ModuleViewerProps {
 }
 
 export function ModuleViewer({ module, moduleIndex, totalModules }: ModuleViewerProps) {
-  const { updateProgress, addNote, getSlideNotes, isAuthenticated } = useAuth()
+  const { updateProgress, addNote, getSlideNotes, isAuthenticated, user } = useAuth()
   const [activeSlideNote, setActiveSlideNote] = useState<number | null>(null)
   const [noteContent, setNoteContent] = useState('')
+  const [isLearning, setIsLearning] = useState(false)
+  const [loadingLearning, setLoadingLearning] = useState(false)
+
+  useEffect(() => {
+    if (!user) return
+    checkLearningStatus()
+  }, [user, module])
+
+  const checkLearningStatus = async () => {
+    if (!user) return
+    try {
+      const res = await fetch(`/api/learning?userId=${user.id}`)
+      if (res.ok) {
+        const learning = await res.json()
+        const isCurrentlyLearning = learning.some(
+          (l: any) => l.moduleId === module.moduleId && l.status === 'learning'
+        )
+        setIsLearning(isCurrentlyLearning)
+      }
+    } catch (err) {
+      console.error('Error checking learning status:', err)
+    }
+  }
+
+  const toggleLearning = async () => {
+    if (!user) return
+    setLoadingLearning(true)
+    try {
+      if (isLearning) {
+        await fetch('/api/learning', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.id, moduleId: module.moduleId })
+        })
+        setIsLearning(false)
+      } else {
+        await fetch('/api/learning', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.id, moduleId: module.moduleId })
+        })
+        setIsLearning(true)
+      }
+    } catch (err) {
+      console.error('Error toggling learning:', err)
+    } finally {
+      setLoadingLearning(false)
+    }
+  }
 
   useEffect(() => {
     if (!isAuthenticated) return
@@ -94,7 +143,8 @@ export function ModuleViewer({ module, moduleIndex, totalModules }: ModuleViewer
             display: 'flex',
             gap: '24px',
             flexWrap: 'wrap',
-            marginBottom: '50px',
+            alignItems: 'center',
+            marginBottom: '30px',
             fontSize: '14px',
             color: '#999'
           }}>
@@ -106,6 +156,48 @@ export function ModuleViewer({ module, moduleIndex, totalModules }: ModuleViewer
             <span>•</span>
             <span>{module.slides.length} sections</span>
           </div>
+
+          {/* Learning Status Button */}
+          {isAuthenticated && (
+            <div style={{ marginBottom: '50px' }}>
+              <button
+                onClick={toggleLearning}
+                disabled={loadingLearning}
+                style={{
+                  padding: '14px 32px',
+                  background: isLearning ? '#000' : '#fff',
+                  color: isLearning ? '#fff' : '#000',
+                  border: '3px solid #000',
+                  borderRadius: '12px',
+                  fontSize: '14px',
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  letterSpacing: '1.5px',
+                  cursor: loadingLearning ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.3s ease',
+                  fontFamily: 'inherit',
+                  opacity: loadingLearning ? 0.6 : 1
+                }}
+                onMouseEnter={(e) => {
+                  if (!loadingLearning) {
+                    e.currentTarget.style.transform = 'translateY(-2px)'
+                    e.currentTarget.style.boxShadow = '0 6px 20px rgba(0, 0, 0, 0.2)'
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)'
+                  e.currentTarget.style.boxShadow = 'none'
+                }}
+              >
+                {loadingLearning
+                  ? '...'
+                  : isLearning
+                    ? '✓ currently learning'
+                    : '+ add to learning'
+                }
+              </button>
+            </div>
+          )}
 
           {/* Video Container */}
           <div style={{
