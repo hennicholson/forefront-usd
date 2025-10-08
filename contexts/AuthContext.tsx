@@ -5,6 +5,16 @@ interface User {
   id: string
   name: string
   email: string
+  bio?: string
+  interests?: string[]
+  meetingLink?: string
+  profileImage?: string
+  socialLinks?: {
+    linkedin?: string
+    twitter?: string
+    github?: string
+  }
+  availability?: string
   isAdmin?: boolean
 }
 
