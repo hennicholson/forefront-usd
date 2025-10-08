@@ -36,24 +36,25 @@ export default function LandingPage() {
       {/* Hero Section */}
       <div className="section" style={{ minHeight: '85vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div className="content center-text" style={{ maxWidth: '900px' }}>
-          <div className="title-large" style={{ marginBottom: '24px' }}>[forefront]</div>
+          <div className="title-large" style={{ marginBottom: '32px' }}>[forefront]</div>
           <div className="subtitle" style={{
-            marginBottom: '16px',
-            fontSize: 'clamp(18px, 3vw, 24px)',
-            fontWeight: 600,
-            letterSpacing: '1px'
+            marginBottom: '20px',
+            fontSize: 'clamp(20px, 3.5vw, 28px)',
+            fontWeight: 700,
+            letterSpacing: '-0.5px',
+            textTransform: 'lowercase'
           }}>
-            ai learning network
+            students teaching students
           </div>
           <div style={{
             fontSize: 'clamp(15px, 2.5vw, 18px)',
             color: '#666',
-            maxWidth: '650px',
+            maxWidth: '550px',
             margin: '0 auto 48px auto',
-            lineHeight: 1.7,
+            lineHeight: 1.6,
             fontWeight: 400
           }}>
-            pilot network at university of san diego → student-taught courses on practical ai
+            practical ai courses from university of san diego
           </div>
 
           <a href="#modules" className="btn btn-primary" style={{
