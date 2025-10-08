@@ -8,16 +8,16 @@ interface PageProps {
 
 export default async function ModulePage({ params }: PageProps) {
   const { slug } = await params
-  const module = modules.find(m => m.slug === slug)
+  const currentModule = modules.find(m => m.slug === slug)
 
-  if (!module) notFound()
+  if (!currentModule) notFound()
 
-  const moduleIndex = modules.findIndex(m => m.id === module.id)
+  const moduleIndex = modules.findIndex(m => m.id === currentModule.id)
 
   return (
     <main className="bg-black text-white">
       <ModuleViewer
-        module={module}
+        module={currentModule}
         moduleIndex={moduleIndex}
         totalModules={modules.length}
       />
