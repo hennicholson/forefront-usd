@@ -54,7 +54,7 @@ export default function LandingPage() {
             lineHeight: 1.6,
             fontWeight: 400
           }}>
-            practical ai courses from university of san diego
+            practical ai courses
           </div>
 
           <a href="#modules" className="btn btn-primary" style={{
