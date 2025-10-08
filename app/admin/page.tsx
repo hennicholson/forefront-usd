@@ -229,6 +229,21 @@ Please return ONLY the valid JSON, no additional explanation.`
             gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
             gap: '16px'
           }}>
+            <Link href="/admin/dashboard">
+              <div className="card" style={{ padding: '28px', cursor: 'pointer', height: '100%' }}>
+                <div style={{
+                  fontSize: '20px',
+                  fontWeight: 700,
+                  marginBottom: '8px',
+                  textTransform: 'uppercase'
+                }}>
+                  Dashboard
+                </div>
+                <div style={{ fontSize: '14px', color: '#666' }}>
+                  Manage modules, users & more
+                </div>
+              </div>
+            </Link>
             <Link href="/admin/newsletter">
               <div className="card" style={{ padding: '28px', cursor: 'pointer', height: '100%' }}>
                 <div style={{
@@ -252,10 +267,10 @@ Please return ONLY the valid JSON, no additional explanation.`
                   marginBottom: '8px',
                   textTransform: 'uppercase'
                 }}>
-                  Modules
+                  Add Module
                 </div>
                 <div style={{ fontSize: '14px', color: '#666' }}>
-                  View and edit all modules
+                  Add new module via JSON
                 </div>
               </div>
             </Link>

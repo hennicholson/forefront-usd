@@ -37,6 +37,38 @@ export async function POST(request: Request) {
   }
 }
 
+export async function PUT(request: Request) {
+  try {
+    const moduleData = await request.json()
+
+    const [updatedModule] = await db
+      .update(modules)
+      .set({
+        title: moduleData.title,
+        description: moduleData.description,
+        duration: moduleData.duration,
+        skillLevel: moduleData.skillLevel,
+        instructor: moduleData.instructor,
+        slides: moduleData.slides,
+        learningObjectives: moduleData.learningObjectives,
+        keyTakeaways: moduleData.keyTakeaways,
+        introVideo: moduleData.introVideo,
+        slug: moduleData.slug,
+        updatedAt: new Date()
+      })
+      .where(eq(modules.id, moduleData.id))
+      .returning()
+
+    return NextResponse.json(updatedModule)
+  } catch (error: any) {
+    console.error('Error updating module:', error)
+    return NextResponse.json(
+      { error: 'Failed to update module', details: error.message },
+      { status: 500 }
+    )
+  }
+}
+
 export async function DELETE(request: Request) {
   try {
     const { moduleId } = await request.json()
