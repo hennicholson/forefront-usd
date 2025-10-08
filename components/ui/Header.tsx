@@ -158,6 +158,30 @@ export function Header() {
                       dashboard
                     </Link>
                     <Link
+                      href="/profile"
+                      onClick={() => setShowUserMenu(false)}
+                      style={{
+                        display: 'block',
+                        padding: '16px 20px',
+                        fontSize: '14px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '1px',
+                        color: '#000',
+                        textDecoration: 'none',
+                        fontWeight: 500,
+                        borderBottom: '1px solid #e0e0e0',
+                        transition: 'background 0.2s ease'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = '#fafafa'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'transparent'
+                      }}
+                    >
+                      profile settings
+                    </Link>
+                    <Link
                       href="/submit"
                       onClick={() => setShowUserMenu(false)}
                       style={{

@@ -18,11 +18,6 @@ export function ModuleViewer({ module, moduleIndex, totalModules }: ModuleViewer
   const [isLearning, setIsLearning] = useState(false)
   const [loadingLearning, setLoadingLearning] = useState(false)
 
-  useEffect(() => {
-    if (!user) return
-    checkLearningStatus()
-  }, [user, module])
-
   const checkLearningStatus = async () => {
     if (!user) return
     try {
@@ -39,27 +34,58 @@ export function ModuleViewer({ module, moduleIndex, totalModules }: ModuleViewer
     }
   }
 
+  useEffect(() => {
+    if (!user) return
+    checkLearningStatus()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, module.moduleId])
+
   const toggleLearning = async () => {
     if (!user) return
     setLoadingLearning(true)
     try {
       if (isLearning) {
-        await fetch('/api/learning', {
+        const res = await fetch('/api/learning', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userId: user.id, moduleId: module.moduleId })
         })
+        if (!res.ok) throw new Error('Failed to remove from learning')
         setIsLearning(false)
       } else {
-        await fetch('/api/learning', {
+        // First, sync user to database if needed
+        const syncRes = await fetch('/api/users/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            bio: user.bio || null,
+            interests: user.interests || [],
+            isAdmin: user.isAdmin || false
+          })
+        })
+
+        if (!syncRes.ok) {
+          throw new Error('Failed to sync user account')
+        }
+
+        // Then add to learning
+        const res = await fetch('/api/learning', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userId: user.id, moduleId: module.moduleId })
         })
+        if (!res.ok) {
+          const error = await res.json()
+          throw new Error(error.error || 'Failed to add to learning')
+        }
         setIsLearning(true)
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error toggling learning:', err)
+      alert(err.message || 'Something went wrong. Please try again.')
     } finally {
       setLoadingLearning(false)
     }

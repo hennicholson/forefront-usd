@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import Link from 'next/link'
+import { UserProfileModal } from '@/components/profile/UserProfileModal'
 
 interface LearningNode {
   id: number
@@ -33,6 +34,8 @@ export default function NetworkPage() {
   const [clusters, setClusters] = useState<TopicCluster[]>([])
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
+  const [showProfileModal, setShowProfileModal] = useState(false)
 
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -235,6 +238,10 @@ export default function NetworkPage() {
                       {cluster.users.map((user) => (
                         <div
                           key={user.userId}
+                          onClick={() => {
+                            setSelectedUserId(user.userId)
+                            setShowProfileModal(true)
+                          }}
                           style={{
                             background: '#fff',
                             border: '2px solid #e0e0e0',
@@ -308,6 +315,18 @@ export default function NetworkPage() {
           )}
         </div>
       </div>
+
+      {/* User Profile Modal */}
+      {selectedUserId && (
+        <UserProfileModal
+          userId={selectedUserId}
+          isOpen={showProfileModal}
+          onClose={() => {
+            setShowProfileModal(false)
+            setSelectedUserId(null)
+          }}
+        />
+      )}
     </main>
   )
 }

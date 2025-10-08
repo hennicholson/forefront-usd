@@ -6,8 +6,13 @@ export const users = pgTable('users', {
   name: text('name').notNull(),
   bio: text('bio'),
   interests: jsonb('interests').default('[]'),
+  meetingLink: text('meeting_link'),
+  profileImage: text('profile_image'),
+  socialLinks: jsonb('social_links').default('{}'),
+  availability: text('availability'),
   isAdmin: boolean('is_admin').default(false),
   createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
 })
 
 export const modules = pgTable('modules', {

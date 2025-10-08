@@ -8,6 +8,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get('userId')
+    const debug = searchParams.get('debug')
 
     if (userId) {
       // Get specific user's learning modules
@@ -17,6 +18,12 @@ export async function GET(request: Request) {
         .where(eq(learning.userId, userId))
 
       return NextResponse.json(userLearning)
+    }
+
+    // Debug mode - return raw learning data
+    if (debug === 'true') {
+      const rawLearning = await db.select().from(learning)
+      return NextResponse.json({ rawLearning, count: rawLearning.length })
     }
 
     // Get all users with their learning modules (for mind map)
@@ -52,13 +59,26 @@ export async function GET(request: Request) {
 // Add module to learning
 export async function POST(request: Request) {
   try {
-    const { userId, moduleId, status = 'learning' } = await request.json()
+    const body = await request.json()
+    console.log('POST /api/learning - Body:', body)
+
+    const { userId, moduleId, status = 'learning' } = body
+
+    if (!userId || !moduleId) {
+      console.error('Missing userId or moduleId:', { userId, moduleId })
+      return NextResponse.json(
+        { error: 'userId and moduleId are required' },
+        { status: 400 }
+      )
+    }
 
     // Check if already exists
     const existing = await db
       .select()
       .from(learning)
       .where(and(eq(learning.userId, userId), eq(learning.moduleId, moduleId)))
+
+    console.log('Existing learning records:', existing)
 
     if (existing.length > 0) {
       // Update status
@@ -68,6 +88,7 @@ export async function POST(request: Request) {
         .where(eq(learning.id, existing[0].id))
         .returning()
 
+      console.log('Updated learning:', updated)
       return NextResponse.json(updated)
     }
 
@@ -77,6 +98,7 @@ export async function POST(request: Request) {
       .values({ userId, moduleId, status })
       .returning()
 
+    console.log('Created new learning:', newLearning)
     return NextResponse.json(newLearning)
   } catch (error: any) {
     console.error('Error adding learning:', error)
