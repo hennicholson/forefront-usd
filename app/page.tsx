@@ -34,37 +34,54 @@ export default function LandingPage() {
   return (
     <main className="bg-black text-white min-h-screen">
       {/* Hero Section */}
-      <div className="section">
-        <div className="content center-text">
-          <div className="title-large">[forefront]</div>
-          <div className="subtitle" style={{ marginBottom: '12px' }}>
+      <div className="section" style={{ minHeight: '85vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="content center-text" style={{ maxWidth: '900px' }}>
+          <div className="title-large" style={{ marginBottom: '24px' }}>[forefront]</div>
+          <div className="subtitle" style={{
+            marginBottom: '16px',
+            fontSize: 'clamp(18px, 3vw, 24px)',
+            fontWeight: 600,
+            letterSpacing: '1px'
+          }}>
             ai learning network
           </div>
-          <div className="subtitle" style={{ fontSize: 'clamp(14px, 2vw, 16px)', color: '#666', maxWidth: '600px', margin: '0 auto 40px auto' }}>
+          <div style={{
+            fontSize: 'clamp(15px, 2.5vw, 18px)',
+            color: '#666',
+            maxWidth: '650px',
+            margin: '0 auto 48px auto',
+            lineHeight: 1.7,
+            fontWeight: 400
+          }}>
             pilot network at university of san diego → student-taught courses on practical ai
           </div>
 
-          <a href="#modules" className="btn btn-primary">
-            view all modules
+          <a href="#modules" className="btn btn-primary" style={{
+            fontSize: 'clamp(14px, 2vw, 16px)',
+            padding: '16px 40px'
+          }}>
+            explore modules →
           </a>
         </div>
       </div>
 
       {/* Module List */}
-      <div className="section white" id="modules">
+      <div className="section white" id="modules" style={{ paddingTop: '80px', paddingBottom: '120px' }}>
         <div className="content">
-          <div className="section-label">available modules ({modules.length})</div>
+          <div className="section-label" style={{ marginBottom: '48px' }}>
+            available modules ({modules.length})
+          </div>
 
           {loading ? (
-            <div style={{ padding: '60px', textAlign: 'center', color: '#666' }}>
+            <div style={{ padding: '80px', textAlign: 'center', color: '#666', fontSize: '18px' }}>
               Loading modules...
             </div>
           ) : modules.length === 0 ? (
-            <div style={{ padding: '60px', textAlign: 'center', color: '#666' }}>
+            <div style={{ padding: '80px', textAlign: 'center', color: '#666', fontSize: '18px' }}>
               No modules available yet. Check back soon!
             </div>
           ) : (
-            <div style={{ display: 'grid', gap: '20px', marginTop: '40px' }}>
+            <div style={{ display: 'grid', gap: '24px' }}>
               {modules.map((module, index) => {
               const handleClick = (e: React.MouseEvent) => {
                 if (!isAuthenticated) {
@@ -76,15 +93,46 @@ export default function LandingPage() {
 
               return (
                 <Link key={module.id} href={`/modules/${module.slug}`} onClick={handleClick}>
-                  <div className="card" style={{ padding: '40px', cursor: 'pointer' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: '32px', alignItems: 'center' }}>
+                  <div
+                    className="card"
+                    style={{
+                      padding: 'clamp(24px, 5vw, 48px)',
+                      cursor: 'pointer',
+                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'translateY(-4px)'
+                      e.currentTarget.style.boxShadow = '0 12px 40px rgba(0, 0, 0, 0.12)'
+                      const arrow = e.currentTarget.querySelector('.module-arrow') as HTMLElement
+                      if (arrow) {
+                        arrow.style.opacity = '1'
+                        arrow.style.transform = 'translateX(8px)'
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'translateY(0)'
+                      e.currentTarget.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.08)'
+                      const arrow = e.currentTarget.querySelector('.module-arrow') as HTMLElement
+                      if (arrow) {
+                        arrow.style.opacity = '0.3'
+                        arrow.style.transform = 'translateX(0)'
+                      }
+                    }}
+                  >
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'auto 1fr auto',
+                      gap: 'clamp(20px, 4vw, 40px)',
+                      alignItems: 'center'
+                    }}>
                     {/* Module Number */}
                     <div style={{
-                      fontSize: 'clamp(36px, 5vw, 52px)',
-                      fontWeight: 700,
+                      fontSize: 'clamp(32px, 5vw, 56px)',
+                      fontWeight: 800,
                       color: '#000',
-                      width: '80px',
-                      opacity: 0.4
+                      width: 'clamp(60px, 8vw, 90px)',
+                      opacity: 0.15,
+                      lineHeight: 1
                     }}>
                       {String(index + 1).padStart(2, '0')}
                     </div>
@@ -92,29 +140,33 @@ export default function LandingPage() {
                     {/* Content */}
                     <div>
                       <div style={{
-                        fontSize: 'clamp(22px, 4vw, 36px)',
-                        fontWeight: 600,
+                        fontSize: 'clamp(20px, 4vw, 32px)',
+                        fontWeight: 700,
                         marginBottom: '12px',
                         textTransform: 'lowercase',
-                        letterSpacing: '-1px',
-                        color: '#000'
+                        letterSpacing: '-0.5px',
+                        color: '#000',
+                        lineHeight: 1.2
                       }}>
                         {module.title}
                       </div>
                       <div style={{
-                        fontSize: 'clamp(14px, 2vw, 16px)',
-                        color: '#666',
+                        fontSize: 'clamp(14px, 2vw, 17px)',
+                        color: '#555',
                         marginBottom: '16px',
                         lineHeight: 1.6
                       }}>
                         {module.description}
                       </div>
                       <div style={{
-                        fontSize: 'clamp(12px, 1.5vw, 14px)',
+                        fontSize: 'clamp(11px, 1.5vw, 13px)',
                         color: '#999',
                         display: 'flex',
-                        gap: '16px',
-                        flexWrap: 'wrap'
+                        gap: '12px',
+                        flexWrap: 'wrap',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                        fontWeight: 600
                       }}>
                         <span>{module.instructor.name}</span>
                         <span>•</span>
@@ -125,13 +177,16 @@ export default function LandingPage() {
                     </div>
 
                       {/* Arrow */}
-                      <div style={{
-                        fontSize: '28px',
-                        fontWeight: 700,
-                        color: '#000',
-                        opacity: 0.3,
-                        transition: 'all 0.3s ease'
-                      }}>
+                      <div
+                        className="module-arrow"
+                        style={{
+                          fontSize: '32px',
+                          fontWeight: 700,
+                          color: '#000',
+                          opacity: 0.3,
+                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                        }}
+                      >
                         →
                       </div>
                     </div>
