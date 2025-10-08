@@ -148,13 +148,18 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
                 borderRadius: '8px',
                 outline: 'none',
                 transition: 'all 0.2s ease',
-                fontFamily: 'inherit'
+                fontFamily: 'inherit',
+                background: '#fff',
+                color: '#000',
+                WebkitTextFillColor: '#000'
               }}
               onFocus={(e) => {
                 e.target.style.borderColor = '#000'
+                e.target.style.background = '#fafafa'
               }}
               onBlur={(e) => {
                 e.target.style.borderColor = '#e0e0e0'
+                e.target.style.background = '#fff'
               }}
             />
           </div>
@@ -185,13 +190,18 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
                   borderRadius: '8px',
                   outline: 'none',
                   transition: 'all 0.2s ease',
-                  fontFamily: 'inherit'
+                  fontFamily: 'inherit',
+                  background: '#fff',
+                  color: '#000',
+                  WebkitTextFillColor: '#000'
                 }}
                 onFocus={(e) => {
                   e.target.style.borderColor = '#000'
+                  e.target.style.background = '#fafafa'
                 }}
                 onBlur={(e) => {
                   e.target.style.borderColor = '#e0e0e0'
+                  e.target.style.background = '#fff'
                 }}
               />
             </div>
@@ -222,13 +232,18 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
                 borderRadius: '8px',
                 outline: 'none',
                 transition: 'all 0.2s ease',
-                fontFamily: 'inherit'
+                fontFamily: 'inherit',
+                background: '#fff',
+                color: '#000',
+                WebkitTextFillColor: '#000'
               }}
               onFocus={(e) => {
                 e.target.style.borderColor = '#000'
+                e.target.style.background = '#fafafa'
               }}
               onBlur={(e) => {
                 e.target.style.borderColor = '#e0e0e0'
+                e.target.style.background = '#fff'
               }}
             />
           </div>
