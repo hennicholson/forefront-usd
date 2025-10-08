@@ -43,6 +43,7 @@ export default function AdminDashboardPage() {
     }
     window.scrollTo(0, 0)
     loadData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, user, router])
 
   const loadData = async () => {
