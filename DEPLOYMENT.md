@@ -39,7 +39,7 @@ netlify login
 netlify init
 
 # Set environment variables
-netlify env:set GEMINI_API_KEY "AIzaSyD7Uk1g-kt94TR1-SlBVHfaYLKyVOPEuW4"
+netlify env:set GEMINI_API_KEY "your-gemini-api-key"
 netlify env:set DATABASE_URL "your-neon-connection-string"
 
 # Deploy
@@ -56,7 +56,7 @@ netlify deploy --prod
    - Build command: `npm run build`
    - Publish directory: `.next`
 6. Add environment variables:
-   - `GEMINI_API_KEY`: `AIzaSyD7Uk1g-kt94TR1-SlBVHfaYLKyVOPEuW4`
+   - `GEMINI_API_KEY`: Your Gemini API key
    - `DATABASE_URL`: Your Neon connection string
 7. Click "Deploy"
 
@@ -96,7 +96,7 @@ The platform uses these tables:
 ## Environment Variables
 
 ```bash
-GEMINI_API_KEY=AIzaSyD7Uk1g-kt94TR1-SlBVHfaYLKyVOPEuW4
+GEMINI_API_KEY=your-gemini-api-key
 DATABASE_URL=postgresql://...
 ```
 
