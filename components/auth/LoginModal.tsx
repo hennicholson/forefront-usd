@@ -11,35 +11,54 @@ interface LoginModalProps {
 export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [name, setName] = useState('')
   const [error, setError] = useState('')
   const [isSignup, setIsSignup] = useState(false)
-  const { login } = useAuth()
+  const [loading, setLoading] = useState(false)
+  const { login, signup } = useAuth()
 
   if (!isOpen) return null
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setLoading(true)
 
     if (!email || !password) {
       setError('please fill in all fields')
+      setLoading(false)
       return
     }
 
     if (password.length < 6) {
       setError('password must be at least 6 characters')
+      setLoading(false)
       return
     }
 
-    const success = login(email, password)
-    if (success) {
-      setEmail('')
-      setPassword('')
-      setError('')
-      onSuccess?.()
-      onClose()
-    } else {
-      setError('invalid credentials')
+    try {
+      let success = false
+
+      if (isSignup) {
+        success = await signup(email, password, name || undefined)
+      } else {
+        success = await login(email, password)
+      }
+
+      if (success) {
+        setEmail('')
+        setPassword('')
+        setName('')
+        setError('')
+        onSuccess?.()
+        onClose()
+      } else {
+        setError(isSignup ? 'signup failed - user may already exist' : 'login failed')
+      }
+    } catch (err) {
+      setError('an error occurred')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -140,6 +159,44 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
             />
           </div>
 
+          {isSignup && (
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{
+                display: 'block',
+                fontSize: '12px',
+                textTransform: 'uppercase',
+                letterSpacing: '2px',
+                marginBottom: '8px',
+                fontWeight: 600,
+                color: '#333'
+              }}>
+                name (optional)
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="your name"
+                style={{
+                  width: '100%',
+                  padding: '14px 16px',
+                  fontSize: '16px',
+                  border: '2px solid #e0e0e0',
+                  borderRadius: '8px',
+                  outline: 'none',
+                  transition: 'all 0.2s ease',
+                  fontFamily: 'inherit'
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = '#000'
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = '#e0e0e0'
+                }}
+              />
+            </div>
+          )}
+
           <div style={{ marginBottom: '24px' }}>
             <label style={{
               display: 'block',
@@ -194,13 +251,15 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
           <button
             type="submit"
             className="btn btn-primary"
+            disabled={loading}
             style={{
               width: '100%',
               marginBottom: '16px',
-              cursor: 'pointer'
+              cursor: loading ? 'not-allowed' : 'pointer',
+              opacity: loading ? 0.6 : 1
             }}
           >
-            {isSignup ? 'create account' : 'sign in'} →
+            {loading ? 'loading...' : `${isSignup ? 'create account' : 'sign in'} →`}
           </button>
 
           <button

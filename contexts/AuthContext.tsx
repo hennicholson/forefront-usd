@@ -24,7 +24,8 @@ interface ModuleNote {
 
 interface AuthContextType {
   user: User | null
-  login: (email: string, password: string) => boolean
+  login: (email: string, password: string) => Promise<boolean>
+  signup: (email: string, password: string, name?: string) => Promise<boolean>
   logout: () => void
   isAuthenticated: boolean
   progress: ModuleProgress[]
@@ -53,23 +54,59 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (storedNotes) setNotes(JSON.parse(storedNotes))
   }, [])
 
-  const login = (email: string, password: string): boolean => {
-    // Simple demo auth - in production this would call an API
-    if (email && password.length >= 6) {
-      // Check if admin credentials (you can change these)
+  const login = async (email: string, password: string): Promise<boolean> => {
+    try {
+      // Check if admin credentials
       const isAdmin = email === 'admin@forefront.network' && password === 'admin123'
 
-      const newUser = {
-        id: Math.random().toString(36).substr(2, 9),
-        name: email.split('@')[0],
-        email,
-        isAdmin
+      // Try to get existing user from database
+      const res = await fetch(`/api/users?email=${encodeURIComponent(email)}`)
+
+      if (res.ok) {
+        const { user: existingUser } = await res.json()
+        setUser(existingUser)
+        localStorage.setItem('user', JSON.stringify(existingUser))
+        return true
       }
+
+      // If user doesn't exist, create new user (auto-signup on first login)
+      if (res.status === 404 && password.length >= 6) {
+        return await signup(email, password)
+      }
+
+      return false
+    } catch (error) {
+      console.error('Login error:', error)
+      return false
+    }
+  }
+
+  const signup = async (email: string, password: string, name?: string): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          password,
+          name: name || email.split('@')[0]
+        })
+      })
+
+      if (!res.ok) {
+        const error = await res.json()
+        console.error('Signup error:', error)
+        return false
+      }
+
+      const { user: newUser } = await res.json()
       setUser(newUser)
       localStorage.setItem('user', JSON.stringify(newUser))
       return true
+    } catch (error) {
+      console.error('Signup error:', error)
+      return false
     }
-    return false
   }
 
   const logout = () => {
@@ -150,6 +187,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         login,
+        signup,
         logout,
         isAuthenticated: !!user,
         progress,
