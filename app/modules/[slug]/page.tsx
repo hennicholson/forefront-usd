@@ -1,25 +1,63 @@
-import { modules } from '@/lib/data/modules'
-import { notFound } from 'next/navigation'
+'use client'
+import { useEffect, useState, useCallback } from 'react'
+import { notFound, useParams } from 'next/navigation'
 import { ModuleViewer } from '@/components/module/ModuleViewer'
 
-interface PageProps {
-  params: Promise<{ slug: string }>
-}
+export default function ModulePage() {
+  const params = useParams()
+  const slug = params?.slug as string
+  const [currentModule, setCurrentModule] = useState<any>(null)
+  const [moduleIndex, setModuleIndex] = useState(0)
+  const [totalModules, setTotalModules] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [notFoundFlag, setNotFoundFlag] = useState(false)
 
-export default async function ModulePage({ params }: PageProps) {
-  const { slug } = await params
-  const currentModule = modules.find(m => m.slug === slug)
+  const loadModule = useCallback(async () => {
+    try {
+      const res = await fetch('/api/modules')
+      if (res.ok) {
+        const modules = await res.json()
+        const foundModule = modules.find((m: any) => m.slug === slug)
 
-  if (!currentModule) notFound()
+        if (!foundModule) {
+          setNotFoundFlag(true)
+          return
+        }
 
-  const moduleIndex = modules.findIndex(m => m.id === currentModule.id)
+        const index = modules.findIndex((m: any) => m.moduleId === foundModule.moduleId)
+        setCurrentModule(foundModule)
+        setModuleIndex(index)
+        setTotalModules(modules.length)
+      }
+    } catch (err) {
+      console.error('Error loading module:', err)
+    } finally {
+      setLoading(false)
+    }
+  }, [slug])
+
+  useEffect(() => {
+    loadModule()
+  }, [loadModule])
+
+  if (loading) {
+    return (
+      <main className="bg-black text-white min-h-screen flex items-center justify-center">
+        <div style={{ color: '#666' }}>Loading module...</div>
+      </main>
+    )
+  }
+
+  if (notFoundFlag || !currentModule) {
+    notFound()
+  }
 
   return (
     <main className="bg-black text-white">
       <ModuleViewer
         module={currentModule}
         moduleIndex={moduleIndex}
-        totalModules={modules.length}
+        totalModules={totalModules}
       />
     </main>
   )

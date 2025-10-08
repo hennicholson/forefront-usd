@@ -1,21 +1,37 @@
 'use client'
 import { useAuth } from '@/contexts/AuthContext'
-import { modules } from '@/lib/data/modules'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 export default function DashboardPage() {
   const { user, isAuthenticated, progress } = useAuth()
   const router = useRouter()
+  const [modules, setModules] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!isAuthenticated) {
       router.push('/')
+      return
     }
-    // Scroll to top on mount
     window.scrollTo(0, 0)
+    loadModules()
   }, [isAuthenticated, router])
+
+  const loadModules = async () => {
+    try {
+      const res = await fetch('/api/modules')
+      if (res.ok) {
+        const data = await res.json()
+        setModules(data)
+      }
+    } catch (err) {
+      console.error('Error loading modules:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   if (!isAuthenticated) {
     return null
@@ -29,7 +45,7 @@ export default function DashboardPage() {
 
   const inProgressModules = progress.filter(p => !p.completed && p.completedSlides.length > 0)
   const continueModule = inProgressModules.length > 0
-    ? modules.find(m => m.id === inProgressModules[0].moduleId)
+    ? modules.find(m => m.moduleId === inProgressModules[0].moduleId)
     : null
 
   return (

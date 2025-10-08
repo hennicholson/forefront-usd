@@ -1,7 +1,6 @@
 'use client'
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
-import { modules } from '@/lib/data/modules'
 import { useAuth } from '@/contexts/AuthContext'
 import { LoginModal } from '@/components/auth/LoginModal'
 import { useRouter } from 'next/navigation'
@@ -10,11 +9,28 @@ export default function LandingPage() {
   const { isAuthenticated } = useAuth()
   const [showLoginModal, setShowLoginModal] = useState(false)
   const [pendingModuleSlug, setPendingModuleSlug] = useState<string | null>(null)
+  const [modules, setModules] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const router = useRouter()
 
   useEffect(() => {
     window.scrollTo(0, 0)
+    loadModules()
   }, [])
+
+  const loadModules = async () => {
+    try {
+      const res = await fetch('/api/modules')
+      if (res.ok) {
+        const data = await res.json()
+        setModules(data)
+      }
+    } catch (err) {
+      console.error('Error loading modules:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
   return (
     <main className="bg-black text-white min-h-screen">
       {/* Hero Section */}
@@ -39,8 +55,17 @@ export default function LandingPage() {
         <div className="content">
           <div className="section-label">available modules ({modules.length})</div>
 
-          <div style={{ display: 'grid', gap: '20px', marginTop: '40px' }}>
-            {modules.map((module, index) => {
+          {loading ? (
+            <div style={{ padding: '60px', textAlign: 'center', color: '#666' }}>
+              Loading modules...
+            </div>
+          ) : modules.length === 0 ? (
+            <div style={{ padding: '60px', textAlign: 'center', color: '#666' }}>
+              No modules available yet. Check back soon!
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gap: '20px', marginTop: '40px' }}>
+              {modules.map((module, index) => {
               const handleClick = (e: React.MouseEvent) => {
                 if (!isAuthenticated) {
                   e.preventDefault()
@@ -114,7 +139,8 @@ export default function LandingPage() {
                 </Link>
               )
             })}
-          </div>
+            </div>
+          )}
         </div>
       </div>
 
