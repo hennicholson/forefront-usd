@@ -181,7 +181,7 @@ GEMINI_API_KEY=AIzaSyD7Uk1g-kt94TR1-SlBVHfaYLKyVOPEuW4
 
 **Admin Access:**
 - Email: `admin@forefront.network`
-- Password: `admin123`
+- Password: `123456`
 - Automatically flagged as `isAdmin: true` in database
 
 **Features:**
@@ -241,7 +241,7 @@ Environment variables needed:
 **Option 1: AI-Generated from Submission (Recommended)**
 
 1. Student submits course at `/submit`
-2. Admin logs in at `/admin` (admin@forefront.network / admin123)
+2. Admin logs in at `/admin` (admin@forefront.network / 123456)
 3. Click **"Auto-Generate with AI"** on submission
 4. Gemini 2.0 Flash generates complete module structure
 5. Preview generated module
@@ -450,7 +450,7 @@ New users auto-created on signup/login.
 ### Add a Module as Admin
 1. Go to https://forefrontusd.netlify.app/submit
 2. Fill out course submission form
-3. Login as admin (admin@forefront.network / admin123)
+3. Login as admin (admin@forefront.network / 123456)
 4. Go to /admin
 5. Click "Auto-Generate with AI"
 6. Review and save

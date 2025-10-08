@@ -57,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
       // Check if admin credentials
-      const isAdmin = email === 'admin@forefront.network' && password === 'admin123'
+      const isAdmin = email === 'admin@forefront.network' && password === '123456'
 
       // Try to get existing user from database
       const res = await fetch(`/api/users?email=${encodeURIComponent(email)}`)
