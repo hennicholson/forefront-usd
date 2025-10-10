@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
-type Tab = 'modules' | 'users' | 'submissions' | 'newsletters'
+type Tab = 'overview' | 'modules' | 'users' | 'submissions' | 'newsletters'
 
 interface Module {
   id: number
@@ -26,15 +26,29 @@ interface User {
   createdAt: string
 }
 
+interface Submission {
+  id: number
+  userId: string
+  title: string
+  description: string
+  content: string
+  skillLevel: string
+  estimatedDuration: string
+  status: string
+  submittedAt: string
+}
+
 export default function AdminDashboardPage() {
   const { user, isAuthenticated } = useAuth()
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<Tab>('modules')
+  const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [modules, setModules] = useState<Module[]>([])
   const [users, setUsers] = useState<User[]>([])
+  const [submissions, setSubmissions] = useState<Submission[]>([])
   const [loading, setLoading] = useState(true)
   const [editingModule, setEditingModule] = useState<Module | null>(null)
   const [saving, setSaving] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   useEffect(() => {
     if (!isAuthenticated || !user?.isAdmin) {
@@ -50,7 +64,8 @@ export default function AdminDashboardPage() {
     setLoading(true)
     await Promise.all([
       loadModules(),
-      loadUsers()
+      loadUsers(),
+      loadSubmissions()
     ])
     setLoading(false)
   }
@@ -76,6 +91,18 @@ export default function AdminDashboardPage() {
       }
     } catch (err) {
       console.error('Error loading users:', err)
+    }
+  }
+
+  const loadSubmissions = async () => {
+    try {
+      const res = await fetch('/api/submissions')
+      if (res.ok) {
+        const data = await res.json()
+        setSubmissions(data)
+      }
+    } catch (err) {
+      console.error('Error loading submissions:', err)
     }
   }
 
@@ -130,94 +157,381 @@ export default function AdminDashboardPage() {
     }
   }
 
+  const handleApproveSubmission = async (submissionId: number) => {
+    try {
+      const res = await fetch('/api/submissions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: submissionId, status: 'approved' })
+      })
+
+      if (res.ok) {
+        await loadSubmissions()
+        alert('Submission approved!')
+      }
+    } catch (err) {
+      console.error('Error approving submission:', err)
+      alert('Failed to approve submission')
+    }
+  }
+
+  const handleRejectSubmission = async (submissionId: number) => {
+    if (!confirm('Are you sure you want to reject this submission?')) return
+
+    try {
+      const res = await fetch('/api/submissions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: submissionId, status: 'rejected' })
+      })
+
+      if (res.ok) {
+        await loadSubmissions()
+        alert('Submission rejected')
+      }
+    } catch (err) {
+      console.error('Error rejecting submission:', err)
+      alert('Failed to reject submission')
+    }
+  }
+
   if (!isAuthenticated || !user?.isAdmin) {
     return null
   }
 
+  const navItems = [
+    { id: 'overview' as Tab, label: 'Overview', icon: '◉' },
+    { id: 'modules' as Tab, label: 'Modules', icon: '⬚' },
+    { id: 'users' as Tab, label: 'Users', icon: '◎' },
+    { id: 'submissions' as Tab, label: 'Submissions', icon: '✓' },
+    { id: 'newsletters' as Tab, label: 'Newsletters', icon: '✉' }
+  ]
+
+  const pendingSubmissions = submissions.filter(s => s.status === 'pending').length
+
   return (
-    <main className="bg-black text-white min-h-screen">
-      {/* Header */}
-      <div className="section" style={{ paddingTop: '80px', paddingBottom: '40px', minHeight: 'auto' }}>
-        <div className="content">
-          <Link
-            href="/"
-            style={{
-              fontSize: '12px',
-              textTransform: 'uppercase',
-              letterSpacing: '2px',
-              color: '#666',
-              textDecoration: 'none',
-              fontWeight: 700,
-              marginBottom: '20px',
-              display: 'inline-block'
-            }}
-          >
-            ← back to home
-          </Link>
-          <div style={{
-            fontSize: '12px',
-            textTransform: 'uppercase',
-            letterSpacing: '2px',
-            color: '#666',
-            marginTop: '16px',
-            marginBottom: '16px',
-            fontWeight: 700
-          }}>
-            admin dashboard
-          </div>
-          <h1 style={{
-            fontSize: 'clamp(36px, 6vw, 64px)',
+    <main style={{
+      display: 'flex',
+      minHeight: '100vh',
+      background: '#000',
+      color: '#fff'
+    }}>
+      {/* Sidebar */}
+      <aside style={{
+        width: sidebarCollapsed ? '80px' : '280px',
+        background: '#0a0a0a',
+        borderRight: '1px solid #1a1a1a',
+        display: 'flex',
+        flexDirection: 'column',
+        transition: 'width 0.3s ease',
+        position: 'fixed',
+        height: '100vh',
+        zIndex: 100
+      }}>
+        {/* Logo */}
+        <div style={{
+          padding: '32px 24px',
+          borderBottom: '1px solid #1a1a1a'
+        }}>
+          <Link href="/" style={{
+            fontSize: sidebarCollapsed ? '20px' : '24px',
             fontWeight: 900,
             textTransform: 'lowercase',
-            letterSpacing: '-2px',
-            marginBottom: '32px'
+            letterSpacing: '-1px',
+            color: '#fff',
+            textDecoration: 'none',
+            display: 'block',
+            transition: 'all 0.3s'
           }}>
-            manage platform
-          </h1>
+            {sidebarCollapsed ? 'ff' : 'forefront'}
+          </Link>
+          {!sidebarCollapsed && (
+            <div style={{
+              fontSize: '11px',
+              textTransform: 'uppercase',
+              letterSpacing: '1.5px',
+              color: '#666',
+              marginTop: '8px',
+              fontWeight: 700
+            }}>
+              admin
+            </div>
+          )}
+        </div>
 
-          {/* Tabs */}
+        {/* Navigation */}
+        <nav style={{
+          flex: 1,
+          padding: '24px 0',
+          overflowY: 'auto'
+        }}>
+          {navItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setActiveTab(item.id)}
+              style={{
+                width: '100%',
+                padding: '14px 24px',
+                background: activeTab === item.id ? '#fff' : 'transparent',
+                color: activeTab === item.id ? '#000' : '#666',
+                border: 'none',
+                textAlign: 'left',
+                fontSize: '14px',
+                fontWeight: activeTab === item.id ? 700 : 600,
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                fontFamily: 'inherit',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                position: 'relative'
+              }}
+              onMouseEnter={(e) => {
+                if (activeTab !== item.id) {
+                  e.currentTarget.style.background = '#1a1a1a'
+                  e.currentTarget.style.color = '#fff'
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (activeTab !== item.id) {
+                  e.currentTarget.style.background = 'transparent'
+                  e.currentTarget.style.color = '#666'
+                }
+              }}
+            >
+              <span style={{ fontSize: '16px', opacity: 0.8 }}>{item.icon}</span>
+              {!sidebarCollapsed && <span>{item.label}</span>}
+              {!sidebarCollapsed && item.id === 'submissions' && pendingSubmissions > 0 && (
+                <span style={{
+                  marginLeft: 'auto',
+                  padding: '2px 8px',
+                  background: '#fff',
+                  color: '#000',
+                  fontSize: '11px',
+                  borderRadius: '12px',
+                  fontWeight: 700
+                }}>
+                  {pendingSubmissions}
+                </span>
+              )}
+            </button>
+          ))}
+        </nav>
+
+        {/* Collapse Button */}
+        <button
+          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          style={{
+            padding: '20px',
+            background: '#1a1a1a',
+            color: '#666',
+            border: 'none',
+            borderTop: '1px solid #1a1a1a',
+            fontSize: '18px',
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+            fontFamily: 'inherit'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = '#222'
+            e.currentTarget.style.color = '#fff'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = '#1a1a1a'
+            e.currentTarget.style.color = '#666'
+          }}
+        >
+          {sidebarCollapsed ? '→' : '←'}
+        </button>
+      </aside>
+
+      {/* Main Content */}
+      <div style={{
+        flex: 1,
+        marginLeft: sidebarCollapsed ? '80px' : '280px',
+        transition: 'margin-left 0.3s ease'
+      }}>
+        {/* Top Bar */}
+        <div style={{
+          background: '#000',
+          borderBottom: '1px solid #1a1a1a',
+          padding: '24px 48px',
+          position: 'sticky',
+          top: 0,
+          zIndex: 50
+        }}>
           <div style={{
-            display: 'flex',
-            gap: '12px',
-            borderBottom: '2px solid #333',
-            paddingBottom: '2px',
-            flexWrap: 'wrap'
+            fontSize: '28px',
+            fontWeight: 900,
+            textTransform: 'lowercase',
+            letterSpacing: '-1px'
           }}>
-            {(['modules', 'users', 'submissions', 'newsletters'] as Tab[]).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                style={{
-                  padding: '12px 24px',
-                  background: activeTab === tab ? '#fff' : 'transparent',
-                  color: activeTab === tab ? '#000' : '#666',
-                  border: 'none',
-                  borderRadius: '8px 8px 0 0',
-                  fontSize: '14px',
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  letterSpacing: '1px',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  fontFamily: 'inherit'
-                }}
-              >
-                {tab}
-              </button>
-            ))}
+            {navItems.find(item => item.id === activeTab)?.label || 'Dashboard'}
           </div>
         </div>
-      </div>
 
-      {/* Tab Content */}
-      <div className="section white" style={{ paddingTop: '60px', paddingBottom: '80px' }}>
-        <div className="content">
+        {/* Content Area */}
+        <div style={{
+          padding: '48px',
+          minHeight: 'calc(100vh - 100px)'
+        }}>
           {loading ? (
-            <div style={{ padding: '60px', textAlign: 'center', color: '#666' }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '400px',
+              color: '#666',
+              fontSize: '14px'
+            }}>
               Loading...
             </div>
           ) : (
             <>
+              {/* Overview Tab */}
+              {activeTab === 'overview' && (
+                <div>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                    gap: '24px',
+                    marginBottom: '48px'
+                  }}>
+                    {/* Stats Cards */}
+                    <div style={{
+                      background: '#0a0a0a',
+                      border: '1px solid #1a1a1a',
+                      borderRadius: '16px',
+                      padding: '32px',
+                      transition: 'all 0.3s'
+                    }}>
+                      <div style={{
+                        fontSize: '48px',
+                        fontWeight: 900,
+                        marginBottom: '12px'
+                      }}>
+                        {modules.length}
+                      </div>
+                      <div style={{
+                        fontSize: '14px',
+                        color: '#666',
+                        textTransform: 'uppercase',
+                        letterSpacing: '1px',
+                        fontWeight: 700
+                      }}>
+                        Total Modules
+                      </div>
+                    </div>
+
+                    <div style={{
+                      background: '#0a0a0a',
+                      border: '1px solid #1a1a1a',
+                      borderRadius: '16px',
+                      padding: '32px'
+                    }}>
+                      <div style={{
+                        fontSize: '48px',
+                        fontWeight: 900,
+                        marginBottom: '12px'
+                      }}>
+                        {users.length}
+                      </div>
+                      <div style={{
+                        fontSize: '14px',
+                        color: '#666',
+                        textTransform: 'uppercase',
+                        letterSpacing: '1px',
+                        fontWeight: 700
+                      }}>
+                        Total Users
+                      </div>
+                    </div>
+
+                    <div style={{
+                      background: '#0a0a0a',
+                      border: pendingSubmissions > 0 ? '1px solid #fff' : '1px solid #1a1a1a',
+                      borderRadius: '16px',
+                      padding: '32px'
+                    }}>
+                      <div style={{
+                        fontSize: '48px',
+                        fontWeight: 900,
+                        marginBottom: '12px'
+                      }}>
+                        {pendingSubmissions}
+                      </div>
+                      <div style={{
+                        fontSize: '14px',
+                        color: '#666',
+                        textTransform: 'uppercase',
+                        letterSpacing: '1px',
+                        fontWeight: 700
+                      }}>
+                        Pending Reviews
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Quick Actions */}
+                  <div style={{
+                    fontSize: '18px',
+                    fontWeight: 700,
+                    marginBottom: '24px',
+                    color: '#fff'
+                  }}>
+                    Quick Actions
+                  </div>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                    gap: '16px'
+                  }}>
+                    <Link href="/admin/modules" style={{ textDecoration: 'none' }}>
+                      <div style={{
+                        background: '#fff',
+                        color: '#000',
+                        borderRadius: '12px',
+                        padding: '24px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        border: '1px solid #fff'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-2px)'
+                        e.currentTarget.style.boxShadow = '0 8px 24px rgba(255,255,255,0.1)'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0)'
+                        e.currentTarget.style.boxShadow = 'none'
+                      }}>
+                        <div style={{ fontSize: '24px', marginBottom: '8px' }}>+</div>
+                        <div style={{ fontSize: '14px', fontWeight: 700 }}>Create Module</div>
+                      </div>
+                    </Link>
+
+                    <div onClick={() => setActiveTab('submissions')} style={{
+                      background: '#0a0a0a',
+                      border: '1px solid #1a1a1a',
+                      borderRadius: '12px',
+                      padding: '24px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'translateY(-2px)'
+                      e.currentTarget.style.borderColor = '#fff'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'translateY(0)'
+                      e.currentTarget.style.borderColor = '#1a1a1a'
+                    }}>
+                      <div style={{ fontSize: '24px', marginBottom: '8px' }}>✓</div>
+                      <div style={{ fontSize: '14px', fontWeight: 700, color: '#fff' }}>Review Submissions</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Modules Tab */}
               {activeTab === 'modules' && (
                 <div>
@@ -227,23 +541,44 @@ export default function AdminDashboardPage() {
                     alignItems: 'center',
                     marginBottom: '32px'
                   }}>
-                    <h2 style={{
-                      fontSize: 'clamp(24px, 4vw, 32px)',
-                      fontWeight: 700,
-                      textTransform: 'lowercase'
+                    <div style={{
+                      fontSize: '14px',
+                      color: '#666',
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px',
+                      fontWeight: 700
                     }}>
-                      modules ({modules.length})
-                    </h2>
+                      {modules.length} Total Modules
+                    </div>
                     <Link href="/admin/modules">
-                      <button className="btn btn-primary" style={{ cursor: 'pointer' }}>
-                        + add new module
+                      <button style={{
+                        padding: '12px 24px',
+                        background: '#fff',
+                        color: '#000',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontSize: '13px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                        fontFamily: 'inherit',
+                        transition: 'all 0.2s'
+                      }}>
+                        + New Module
                       </button>
                     </Link>
                   </div>
 
-                  <div style={{ display: 'grid', gap: '20px' }}>
+                  <div style={{ display: 'grid', gap: '16px' }}>
                     {modules.map((module) => (
-                      <div key={module.id} className="card" style={{ padding: '32px' }}>
+                      <div key={module.id} style={{
+                        background: '#0a0a0a',
+                        border: '1px solid #1a1a1a',
+                        borderRadius: '12px',
+                        padding: '32px',
+                        transition: 'all 0.2s'
+                      }}>
                         {editingModule?.id === module.id ? (
                           <div>
                             <input
@@ -251,13 +586,15 @@ export default function AdminDashboardPage() {
                               onChange={(e) => setEditingModule({ ...editingModule, title: e.target.value })}
                               style={{
                                 width: '100%',
-                                padding: '12px',
-                                fontSize: '24px',
+                                padding: '16px',
+                                fontSize: '20px',
                                 fontWeight: 700,
-                                border: '2px solid #e0e0e0',
+                                border: '1px solid #333',
                                 borderRadius: '8px',
                                 marginBottom: '16px',
-                                fontFamily: 'inherit'
+                                fontFamily: 'inherit',
+                                background: '#000',
+                                color: '#fff'
                               }}
                             />
                             <textarea
@@ -265,30 +602,55 @@ export default function AdminDashboardPage() {
                               onChange={(e) => setEditingModule({ ...editingModule, description: e.target.value })}
                               style={{
                                 width: '100%',
-                                padding: '12px',
-                                fontSize: '16px',
-                                border: '2px solid #e0e0e0',
+                                padding: '16px',
+                                fontSize: '14px',
+                                border: '1px solid #333',
                                 borderRadius: '8px',
                                 marginBottom: '16px',
                                 minHeight: '100px',
-                                fontFamily: 'inherit'
+                                fontFamily: 'inherit',
+                                background: '#000',
+                                color: '#fff',
+                                lineHeight: 1.6
                               }}
                             />
                             <div style={{ display: 'flex', gap: '12px' }}>
                               <button
                                 onClick={() => handleUpdateModule(editingModule)}
-                                className="btn btn-primary"
-                                style={{ cursor: 'pointer' }}
                                 disabled={saving}
+                                style={{
+                                  padding: '12px 24px',
+                                  background: '#fff',
+                                  color: '#000',
+                                  border: 'none',
+                                  borderRadius: '8px',
+                                  fontSize: '13px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.5px',
+                                  fontFamily: 'inherit'
+                                }}
                               >
-                                {saving ? 'saving...' : 'save changes'}
+                                {saving ? 'Saving...' : 'Save'}
                               </button>
                               <button
                                 onClick={() => setEditingModule(null)}
-                                className="btn btn-secondary"
-                                style={{ cursor: 'pointer' }}
+                                style={{
+                                  padding: '12px 24px',
+                                  background: 'transparent',
+                                  color: '#666',
+                                  border: '1px solid #333',
+                                  borderRadius: '8px',
+                                  fontSize: '13px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.5px',
+                                  fontFamily: 'inherit'
+                                }}
                               >
-                                cancel
+                                Cancel
                               </button>
                             </div>
                           </div>
@@ -298,31 +660,36 @@ export default function AdminDashboardPage() {
                               display: 'flex',
                               justifyContent: 'space-between',
                               alignItems: 'start',
-                              marginBottom: '16px'
+                              gap: '24px'
                             }}>
-                              <div>
+                              <div style={{ flex: 1 }}>
                                 <h3 style={{
-                                  fontSize: 'clamp(20px, 3vw, 28px)',
+                                  fontSize: '22px',
                                   fontWeight: 700,
-                                  marginBottom: '8px',
-                                  textTransform: 'lowercase'
+                                  marginBottom: '12px',
+                                  textTransform: 'lowercase',
+                                  letterSpacing: '-0.5px',
+                                  color: '#fff'
                                 }}>
                                   {module.title}
                                 </h3>
                                 <p style={{
                                   fontSize: '14px',
-                                  color: '#666',
-                                  marginBottom: '12px',
+                                  color: '#999',
+                                  marginBottom: '16px',
                                   lineHeight: 1.6
                                 }}>
                                   {module.description}
                                 </p>
                                 <div style={{
-                                  fontSize: '13px',
-                                  color: '#999',
+                                  fontSize: '12px',
+                                  color: '#666',
                                   display: 'flex',
-                                  gap: '16px',
-                                  flexWrap: 'wrap'
+                                  gap: '12px',
+                                  flexWrap: 'wrap',
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.5px',
+                                  fontWeight: 600
                                 }}>
                                   <span>{module.instructor?.name || 'Unknown'}</span>
                                   <span>•</span>
@@ -333,58 +700,48 @@ export default function AdminDashboardPage() {
                                   <span>{module.slides?.length || 0} slides</span>
                                 </div>
                               </div>
-                              <div style={{ display: 'flex', gap: '8px' }}>
-                                <button
-                                  onClick={() => setEditingModule(module)}
-                                  style={{
-                                    padding: '8px 16px',
-                                    background: '#000',
-                                    color: '#fff',
-                                    border: 'none',
-                                    borderRadius: '6px',
-                                    fontSize: '12px',
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '1px',
-                                    cursor: 'pointer',
-                                    fontWeight: 600,
-                                    fontFamily: 'inherit'
-                                  }}
-                                >
-                                  edit
-                                </button>
+                              <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                                <Link href={`/admin/modules/edit/${module.moduleId}`}>
+                                  <button
+                                    style={{
+                                      padding: '10px 20px',
+                                      background: '#fff',
+                                      color: '#000',
+                                      border: 'none',
+                                      borderRadius: '8px',
+                                      fontSize: '12px',
+                                      textTransform: 'uppercase',
+                                      letterSpacing: '0.5px',
+                                      cursor: 'pointer',
+                                      fontWeight: 700,
+                                      fontFamily: 'inherit',
+                                      transition: 'all 0.2s'
+                                    }}
+                                  >
+                                    Edit
+                                  </button>
+                                </Link>
                                 <button
                                   onClick={() => handleDeleteModule(module.moduleId)}
                                   style={{
-                                    padding: '8px 16px',
+                                    padding: '10px 20px',
                                     background: 'transparent',
-                                    border: '1px solid #e0e0e0',
-                                    borderRadius: '6px',
+                                    border: '1px solid #333',
+                                    borderRadius: '8px',
                                     fontSize: '12px',
                                     textTransform: 'uppercase',
-                                    letterSpacing: '1px',
+                                    letterSpacing: '0.5px',
                                     cursor: 'pointer',
-                                    fontWeight: 600,
-                                    color: '#999',
-                                    fontFamily: 'inherit'
+                                    fontWeight: 700,
+                                    color: '#666',
+                                    fontFamily: 'inherit',
+                                    transition: 'all 0.2s'
                                   }}
                                 >
-                                  delete
+                                  Delete
                                 </button>
                               </div>
                             </div>
-                            <Link
-                              href={`/modules/${module.slug}`}
-                              style={{
-                                fontSize: '13px',
-                                textTransform: 'uppercase',
-                                letterSpacing: '1px',
-                                color: '#000',
-                                textDecoration: 'underline',
-                                fontWeight: 600
-                              }}
-                            >
-                              view module →
-                            </Link>
                           </div>
                         )}
                       </div>
@@ -396,49 +753,65 @@ export default function AdminDashboardPage() {
               {/* Users Tab */}
               {activeTab === 'users' && (
                 <div>
-                  <h2 style={{
-                    fontSize: 'clamp(24px, 4vw, 32px)',
+                  <div style={{
+                    fontSize: '14px',
+                    color: '#666',
+                    textTransform: 'uppercase',
+                    letterSpacing: '1px',
                     fontWeight: 700,
-                    marginBottom: '32px',
-                    textTransform: 'lowercase'
+                    marginBottom: '32px'
                   }}>
-                    users ({users.length})
-                  </h2>
+                    {users.length} Total Users
+                  </div>
 
                   <div style={{ display: 'grid', gap: '16px' }}>
                     {users.map((user) => (
-                      <div key={user.id} className="card" style={{
-                        padding: '24px',
+                      <div key={user.id} style={{
+                        background: '#0a0a0a',
+                        border: '1px solid #1a1a1a',
+                        borderRadius: '12px',
+                        padding: '32px',
                         display: 'flex',
                         justifyContent: 'space-between',
-                        alignItems: 'center'
+                        alignItems: 'center',
+                        transition: 'all 0.2s'
                       }}>
                         <div>
                           <div style={{
-                            fontSize: '18px',
+                            fontSize: '22px',
                             fontWeight: 700,
-                            marginBottom: '4px'
+                            marginBottom: '8px',
+                            textTransform: 'lowercase',
+                            letterSpacing: '-0.5px',
+                            color: '#fff'
                           }}>
                             {user.name}
                             {user.isAdmin && (
                               <span style={{
                                 marginLeft: '12px',
-                                padding: '4px 8px',
-                                background: '#000',
-                                color: '#fff',
+                                padding: '4px 12px',
+                                background: '#fff',
+                                color: '#000',
                                 fontSize: '10px',
-                                borderRadius: '4px',
+                                borderRadius: '6px',
                                 textTransform: 'uppercase',
-                                letterSpacing: '1px'
+                                letterSpacing: '1px',
+                                fontWeight: 700
                               }}>
                                 admin
                               </span>
                             )}
                           </div>
-                          <div style={{ fontSize: '14px', color: '#666' }}>
+                          <div style={{ fontSize: '14px', color: '#999', marginBottom: '4px' }}>
                             {user.email}
                           </div>
-                          <div style={{ fontSize: '12px', color: '#999', marginTop: '4px' }}>
+                          <div style={{
+                            fontSize: '12px',
+                            color: '#666',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px',
+                            fontWeight: 600
+                          }}>
                             Joined {new Date(user.createdAt).toLocaleDateString()}
                           </div>
                         </div>
@@ -446,17 +819,18 @@ export default function AdminDashboardPage() {
                           <button
                             onClick={() => handleDeleteUser(user.id)}
                             style={{
-                              padding: '8px 16px',
+                              padding: '10px 20px',
                               background: 'transparent',
-                              border: '1px solid #e0e0e0',
-                              borderRadius: '6px',
+                              border: '1px solid #333',
+                              borderRadius: '8px',
                               fontSize: '12px',
                               textTransform: 'uppercase',
-                              letterSpacing: '1px',
+                              letterSpacing: '0.5px',
                               cursor: 'pointer',
-                              fontWeight: 600,
-                              color: '#999',
-                              fontFamily: 'inherit'
+                              fontWeight: 700,
+                              color: '#666',
+                              fontFamily: 'inherit',
+                              transition: 'all 0.2s'
                             }}
                           >
                             delete
@@ -470,26 +844,206 @@ export default function AdminDashboardPage() {
 
               {/* Submissions Tab */}
               {activeTab === 'submissions' && (
-                <div style={{ padding: '60px', textAlign: 'center', color: '#666' }}>
-                  <div style={{ fontSize: '18px', marginBottom: '16px' }}>
-                    submissions stored in localStorage
+                <div>
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '32px'
+                  }}>
+                    <div style={{
+                      fontSize: '14px',
+                      color: '#666',
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px',
+                      fontWeight: 700
+                    }}>
+                      {submissions.length} Total Submissions
+                    </div>
+                    <Link href="/admin">
+                      <button style={{
+                        padding: '12px 24px',
+                        background: '#fff',
+                        color: '#000',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontSize: '13px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                        fontFamily: 'inherit',
+                        transition: 'all 0.2s'
+                      }}>
+                        AI Generator →
+                      </button>
+                    </Link>
                   </div>
-                  <Link href="/admin">
-                    <button className="btn btn-primary" style={{ cursor: 'pointer' }}>
-                      view submissions →
-                    </button>
-                  </Link>
+
+                  {submissions.length === 0 ? (
+                    <div style={{
+                      background: '#0a0a0a',
+                      border: '1px solid #1a1a1a',
+                      borderRadius: '12px',
+                      padding: '60px',
+                      textAlign: 'center',
+                      color: '#666',
+                      fontSize: '14px'
+                    }}>
+                      No submissions yet
+                    </div>
+                  ) : (
+                    <div style={{ display: 'grid', gap: '16px' }}>
+                      {submissions.map((submission) => (
+                        <div key={submission.id} style={{
+                          background: '#0a0a0a',
+                          border: '1px solid #1a1a1a',
+                          borderRadius: '12px',
+                          padding: '32px',
+                          transition: 'all 0.2s'
+                        }}>
+                          <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'start',
+                            marginBottom: '16px',
+                            gap: '24px'
+                          }}>
+                            <div style={{ flex: 1 }}>
+                              <h3 style={{
+                                fontSize: '22px',
+                                fontWeight: 700,
+                                marginBottom: '12px',
+                                textTransform: 'lowercase',
+                                letterSpacing: '-0.5px',
+                                color: '#fff'
+                              }}>
+                                {submission.title}
+                              </h3>
+                              <p style={{
+                                fontSize: '14px',
+                                color: '#999',
+                                marginBottom: '16px',
+                                lineHeight: 1.6
+                              }}>
+                                {submission.description}
+                              </p>
+                              <div style={{
+                                fontSize: '12px',
+                                color: '#666',
+                                display: 'flex',
+                                gap: '12px',
+                                flexWrap: 'wrap',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.5px',
+                                fontWeight: 600
+                              }}>
+                                <span>{submission.skillLevel}</span>
+                                <span>•</span>
+                                <span>{submission.estimatedDuration}</span>
+                                <span>•</span>
+                                <span>{new Date(submission.submittedAt).toLocaleDateString()}</span>
+                              </div>
+                            </div>
+                            <div style={{
+                              padding: '6px 12px',
+                              borderRadius: '6px',
+                              fontSize: '11px',
+                              textTransform: 'uppercase',
+                              letterSpacing: '1px',
+                              fontWeight: 700,
+                              background: submission.status === 'pending' ? '#fff' : submission.status === 'approved' ? '#fff' : '#fff',
+                              color: '#000',
+                              whiteSpace: 'nowrap',
+                              flexShrink: 0
+                            }}>
+                              {submission.status}
+                            </div>
+                          </div>
+
+                          {submission.status === 'pending' && (
+                            <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
+                              <button
+                                onClick={() => handleApproveSubmission(submission.id)}
+                                style={{
+                                  padding: '10px 20px',
+                                  background: '#fff',
+                                  color: '#000',
+                                  border: 'none',
+                                  borderRadius: '8px',
+                                  fontSize: '12px',
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.5px',
+                                  cursor: 'pointer',
+                                  fontWeight: 700,
+                                  fontFamily: 'inherit',
+                                  transition: 'all 0.2s'
+                                }}
+                              >
+                                Approve
+                              </button>
+                              <button
+                                onClick={() => handleRejectSubmission(submission.id)}
+                                style={{
+                                  padding: '10px 20px',
+                                  background: 'transparent',
+                                  color: '#666',
+                                  border: '1px solid #333',
+                                  borderRadius: '8px',
+                                  fontSize: '12px',
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.5px',
+                                  cursor: 'pointer',
+                                  fontWeight: 700,
+                                  fontFamily: 'inherit',
+                                  transition: 'all 0.2s'
+                                }}
+                              >
+                                Reject
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* Newsletters Tab */}
               {activeTab === 'newsletters' && (
-                <div style={{ padding: '60px', textAlign: 'center', color: '#666' }}>
-                  <div style={{ fontSize: '18px', marginBottom: '16px' }}>
+                <div style={{
+                  background: '#0a0a0a',
+                  border: '1px solid #1a1a1a',
+                  borderRadius: '12px',
+                  padding: '60px',
+                  textAlign: 'center'
+                }}>
+                  <div style={{
+                    fontSize: '18px',
+                    fontWeight: 700,
+                    marginBottom: '24px',
+                    color: '#fff',
+                    textTransform: 'lowercase',
+                    letterSpacing: '-0.5px'
+                  }}>
                     manage newsletters
                   </div>
                   <Link href="/admin/newsletter">
-                    <button className="btn btn-primary" style={{ cursor: 'pointer' }}>
+                    <button style={{
+                      padding: '12px 24px',
+                      background: '#fff',
+                      color: '#000',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                      fontFamily: 'inherit',
+                      transition: 'all 0.2s'
+                    }}>
                       edit newsletter →
                     </button>
                   </Link>

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import Link from 'next/link'
 import { UserProfileModal } from '@/components/profile/UserProfileModal'
+import { NetworkMindmap } from '@/components/network/NetworkMindmap'
 
 interface LearningNode {
   id: number
@@ -36,6 +37,7 @@ export default function NetworkPage() {
   const [loading, setLoading] = useState(true)
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
   const [showProfileModal, setShowProfileModal] = useState(false)
+  const [viewMode, setViewMode] = useState<'mindmap' | 'grid'>('mindmap')
 
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -125,7 +127,7 @@ export default function NetworkPage() {
         </div>
       </div>
 
-      {/* Mind Map Grid */}
+      {/* Interactive Mindmap */}
       <div className="section white" style={{ paddingTop: '60px', paddingBottom: '120px' }}>
         <div className="content">
           {loading ? (
@@ -148,169 +150,237 @@ export default function NetworkPage() {
             </div>
           ) : (
             <>
-              {/* Topic Filter */}
+              {/* View Toggle & Topic Filter */}
               <div style={{
                 display: 'flex',
-                gap: '12px',
-                marginBottom: '48px',
-                flexWrap: 'wrap',
+                justifyContent: 'space-between',
+                alignItems: 'flex-start',
+                marginBottom: '32px',
                 paddingBottom: '20px',
-                borderBottom: '2px solid #e0e0e0'
+                borderBottom: '2px solid #e0e0e0',
+                flexWrap: 'wrap',
+                gap: '16px'
               }}>
-                <button
-                  onClick={() => setSelectedTopic(null)}
-                  style={{
-                    padding: '12px 24px',
-                    background: selectedTopic === null ? '#000' : '#fff',
-                    color: selectedTopic === null ? '#fff' : '#000',
-                    border: '2px solid #000',
-                    borderRadius: '8px',
-                    fontSize: '13px',
-                    fontWeight: 700,
-                    textTransform: 'uppercase',
-                    letterSpacing: '1px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    fontFamily: 'inherit'
-                  }}
-                >
-                  all topics ({learningData.length})
-                </button>
-                {clusters.map((cluster, index) => (
+                {/* Topic Filter */}
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', flex: 1 }}>
                   <button
-                    key={cluster.topic}
-                    onClick={() => setSelectedTopic(cluster.topic)}
+                    onClick={() => setSelectedTopic(null)}
                     style={{
                       padding: '12px 24px',
-                      background: selectedTopic === cluster.topic ? '#000' : '#fff',
-                      color: selectedTopic === cluster.topic ? '#fff' : '#666',
-                      border: '2px solid #e0e0e0',
+                      background: selectedTopic === null ? '#000' : '#fff',
+                      color: selectedTopic === null ? '#fff' : '#000',
+                      border: '2px solid #000',
                       borderRadius: '8px',
                       fontSize: '13px',
-                      fontWeight: 600,
-                      textTransform: 'lowercase',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px',
                       cursor: 'pointer',
                       transition: 'all 0.2s ease',
                       fontFamily: 'inherit'
                     }}
                   >
-                    {cluster.topic} ({cluster.users.length})
+                    all topics ({learningData.length})
                   </button>
-                ))}
-              </div>
+                  {clusters.map((cluster) => (
+                    <button
+                      key={cluster.topic}
+                      onClick={() => setSelectedTopic(cluster.topic)}
+                      style={{
+                        padding: '12px 24px',
+                        background: selectedTopic === cluster.topic ? '#000' : '#fff',
+                        color: selectedTopic === cluster.topic ? '#fff' : '#666',
+                        border: '2px solid #e0e0e0',
+                        borderRadius: '8px',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        textTransform: 'lowercase',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        fontFamily: 'inherit'
+                      }}
+                    >
+                      {cluster.topic} ({cluster.users.length})
+                    </button>
+                  ))}
+                </div>
 
-              {/* Mind Map Grid */}
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-                gap: '32px'
-              }}>
-                {(selectedTopic
-                  ? clusters.filter(c => c.topic === selectedTopic)
-                  : clusters
-                ).map((cluster, clusterIndex) => (
-                  <div
-                    key={cluster.topic}
+                {/* View Mode Toggle */}
+                <div style={{
+                  display: 'flex',
+                  gap: '4px',
+                  background: '#f5f5f5',
+                  padding: '4px',
+                  borderRadius: '10px',
+                  border: '2px solid #e0e0e0'
+                }}>
+                  <button
+                    onClick={() => setViewMode('mindmap')}
                     style={{
-                      background: '#fafafa',
-                      border: '3px solid #000',
-                      borderRadius: '16px',
-                      padding: '24px',
-                      position: 'relative'
-                    }}
-                  >
-                    {/* Topic Header */}
-                    <div style={{
-                      fontSize: '18px',
-                      fontWeight: 800,
-                      marginBottom: '20px',
-                      textTransform: 'lowercase',
-                      color: '#000',
-                      letterSpacing: '-0.5px',
-                      paddingBottom: '16px',
-                      borderBottom: '2px solid #e0e0e0'
-                    }}>
-                      {cluster.topic}
-                    </div>
-
-                    {/* User Nodes */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      {cluster.users.map((user) => (
-                        <div
-                          key={user.userId}
-                          onClick={() => {
-                            setSelectedUserId(user.userId)
-                            setShowProfileModal(true)
-                          }}
-                          style={{
-                            background: '#fff',
-                            border: '2px solid #e0e0e0',
-                            borderRadius: '12px',
-                            padding: '16px',
-                            transition: 'all 0.3s ease',
-                            cursor: 'pointer'
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.borderColor = '#000'
-                            e.currentTarget.style.transform = 'translateY(-2px)'
-                            e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.borderColor = '#e0e0e0'
-                            e.currentTarget.style.transform = 'translateY(0)'
-                            e.currentTarget.style.boxShadow = 'none'
-                          }}
-                        >
-                          <div style={{
-                            fontSize: '16px',
-                            fontWeight: 700,
-                            marginBottom: '4px',
-                            color: '#000'
-                          }}>
-                            {user.userName}
-                          </div>
-                          {user.userBio && (
-                            <div style={{
-                              fontSize: '13px',
-                              color: '#666',
-                              marginBottom: '8px',
-                              lineHeight: 1.4
-                            }}>
-                              {user.userBio}
-                            </div>
-                          )}
-                          {user.modules.length > 1 && (
-                            <div style={{
-                              fontSize: '11px',
-                              color: '#999',
-                              textTransform: 'uppercase',
-                              letterSpacing: '1px',
-                              fontWeight: 600
-                            }}>
-                              +{user.modules.length - 1} more topic{user.modules.length > 2 ? 's' : ''}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Cluster Stats */}
-                    <div style={{
-                      marginTop: '16px',
-                      paddingTop: '16px',
-                      borderTop: '2px solid #e0e0e0',
-                      fontSize: '12px',
-                      color: '#999',
-                      textAlign: 'center',
+                      padding: '10px 20px',
+                      background: viewMode === 'mindmap' ? '#000' : 'transparent',
+                      color: viewMode === 'mindmap' ? '#fff' : '#666',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontSize: '13px',
+                      fontWeight: 700,
                       textTransform: 'uppercase',
                       letterSpacing: '1px',
-                      fontWeight: 600
-                    }}>
-                      {cluster.users.length} learner{cluster.users.length !== 1 ? 's' : ''}
-                    </div>
-                  </div>
-                ))}
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      fontFamily: 'inherit'
+                    }}
+                  >
+                    🗺️ mindmap
+                  </button>
+                  <button
+                    onClick={() => setViewMode('grid')}
+                    style={{
+                      padding: '10px 20px',
+                      background: viewMode === 'grid' ? '#000' : 'transparent',
+                      color: viewMode === 'grid' ? '#fff' : '#666',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      fontFamily: 'inherit'
+                    }}
+                  >
+                    ⊞ grid
+                  </button>
+                </div>
               </div>
+
+              {/* Mindmap View */}
+              {viewMode === 'mindmap' && (
+                <NetworkMindmap
+                  clusters={clusters}
+                  onUserClick={(userId) => {
+                    setSelectedUserId(userId)
+                    setShowProfileModal(true)
+                  }}
+                  selectedTopic={selectedTopic}
+                />
+              )}
+
+              {/* Grid View */}
+              {viewMode === 'grid' && (
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+                  gap: '32px'
+                }}>
+                  {(selectedTopic
+                    ? clusters.filter(c => c.topic === selectedTopic)
+                    : clusters
+                  ).map((cluster, clusterIndex) => (
+                    <div
+                      key={cluster.topic}
+                      style={{
+                        background: '#fafafa',
+                        border: '3px solid #000',
+                        borderRadius: '16px',
+                        padding: '24px',
+                        position: 'relative'
+                      }}
+                    >
+                      {/* Topic Header */}
+                      <div style={{
+                        fontSize: '18px',
+                        fontWeight: 800,
+                        marginBottom: '20px',
+                        textTransform: 'lowercase',
+                        color: '#000',
+                        letterSpacing: '-0.5px',
+                        paddingBottom: '16px',
+                        borderBottom: '2px solid #e0e0e0'
+                      }}>
+                        {cluster.topic}
+                      </div>
+
+                      {/* User Cards */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {cluster.users.map((user) => (
+                          <div
+                            key={user.userId}
+                            onClick={() => {
+                              setSelectedUserId(user.userId)
+                              setShowProfileModal(true)
+                            }}
+                            style={{
+                              background: '#fff',
+                              border: '2px solid #e0e0e0',
+                              borderRadius: '12px',
+                              padding: '16px',
+                              transition: 'all 0.3s ease',
+                              cursor: 'pointer'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.borderColor = '#000'
+                              e.currentTarget.style.transform = 'translateY(-2px)'
+                              e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.borderColor = '#e0e0e0'
+                              e.currentTarget.style.transform = 'translateY(0)'
+                              e.currentTarget.style.boxShadow = 'none'
+                            }}
+                          >
+                            <div style={{
+                              fontSize: '16px',
+                              fontWeight: 700,
+                              marginBottom: '4px',
+                              color: '#000'
+                            }}>
+                              {user.userName}
+                            </div>
+                            {user.userBio && (
+                              <div style={{
+                                fontSize: '13px',
+                                color: '#666',
+                                marginBottom: '8px',
+                                lineHeight: 1.4
+                              }}>
+                                {user.userBio}
+                              </div>
+                            )}
+                            {user.modules.length > 1 && (
+                              <div style={{
+                                fontSize: '11px',
+                                color: '#999',
+                                textTransform: 'uppercase',
+                                letterSpacing: '1px',
+                                fontWeight: 600
+                              }}>
+                                +{user.modules.length - 1} more topic{user.modules.length > 2 ? 's' : ''}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Cluster Stats */}
+                      <div style={{
+                        marginTop: '16px',
+                        paddingTop: '16px',
+                        borderTop: '2px solid #e0e0e0',
+                        fontSize: '12px',
+                        color: '#999',
+                        textAlign: 'center',
+                        textTransform: 'uppercase',
+                        letterSpacing: '1px',
+                        fontWeight: 600
+                      }}>
+                        {cluster.users.length} learner{cluster.users.length !== 1 ? 's' : ''}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </>
           )}
         </div>

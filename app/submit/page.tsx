@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
 
 export default function SubmitPage() {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, user } = useAuth()
   const router = useRouter()
   const [formData, setFormData] = useState({
     title: '',
@@ -14,6 +14,8 @@ export default function SubmitPage() {
     estimatedDuration: ''
   })
   const [submitted, setSubmitted] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -25,24 +27,71 @@ export default function SubmitPage() {
     return null
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    // Store submission in localStorage (in production this would go to a backend/database)
-    const submissions = JSON.parse(localStorage.getItem('courseSubmissions') || '[]')
-    const newSubmission = {
-      ...formData,
-      id: Math.random().toString(36).substr(2, 9),
-      submittedAt: Date.now(),
-      status: 'pending'
+    if (!user) {
+      setError('You must be logged in to submit a course')
+      return
     }
-    submissions.push(newSubmission)
-    localStorage.setItem('courseSubmissions', JSON.stringify(submissions))
 
-    setSubmitted(true)
-    setTimeout(() => {
-      router.push('/dashboard')
-    }, 3000)
+    setSubmitting(true)
+    setError('')
+
+    try {
+      // First, sync user to database if needed
+      const syncRes = await fetch('/api/users/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          bio: user.bio || null,
+          interests: user.interests || [],
+          isAdmin: user.isAdmin || false
+        })
+      })
+
+      if (!syncRes.ok) {
+        const syncError = await syncRes.json()
+        console.error('Sync error:', syncError)
+        throw new Error('Failed to sync user account')
+      }
+
+      console.log('User synced successfully')
+
+      // Small delay to ensure database is updated
+      await new Promise(resolve => setTimeout(resolve, 500))
+
+      // Submit to database
+      const res = await fetch('/api/submissions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          ...formData
+        })
+      })
+
+      if (!res.ok) {
+        const errorData = await res.json()
+        console.error('Submission error:', errorData)
+        throw new Error(errorData.error || 'Failed to submit course')
+      }
+
+      console.log('Submission successful!')
+
+      setSubmitted(true)
+      setTimeout(() => {
+        router.push('/dashboard')
+      }, 3000)
+    } catch (err: any) {
+      console.error('Submission error:', err)
+      setError(err.message || 'Failed to submit course. Please try again.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   if (submitted) {
@@ -356,20 +405,37 @@ real-world applications
                 </ul>
               </div>
 
+              {/* Error Message */}
+              {error && (
+                <div style={{
+                  padding: '16px',
+                  background: '#fff3cd',
+                  border: '1px solid #ffc107',
+                  borderRadius: '8px',
+                  marginBottom: '24px',
+                  fontSize: '14px',
+                  color: '#856404'
+                }}>
+                  {error}
+                </div>
+              )}
+
               {/* Submit Button */}
               <div style={{ display: 'flex', gap: '16px' }}>
                 <button
                   type="submit"
                   className="btn btn-primary"
-                  style={{ flex: 1, cursor: 'pointer' }}
+                  style={{ flex: 1, cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.6 : 1 }}
+                  disabled={submitting}
                 >
-                  submit course →
+                  {submitting ? 'submitting...' : 'submit course →'}
                 </button>
                 <button
                   type="button"
                   onClick={() => router.push('/dashboard')}
                   className="btn btn-secondary"
                   style={{ cursor: 'pointer' }}
+                  disabled={submitting}
                 >
                   cancel
                 </button>

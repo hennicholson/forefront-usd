@@ -5,17 +5,47 @@ interface User {
   id: string
   name: string
   email: string
+
+  // Basic Info
   bio?: string
-  interests?: string[]
-  meetingLink?: string
+  headline?: string
+  location?: string
+  phone?: string
+  website?: string
   profileImage?: string
+
+  // Professional Summary
+  summary?: string
+
+  // Structured Data
+  experience?: any[]
+  education?: any[]
+  skills?: any[]
+  certifications?: any[]
+  projects?: any[]
+  awards?: any[]
+  interests?: string[]
+
+  // Social Links
   socialLinks?: {
     linkedin?: string
     twitter?: string
     github?: string
+    portfolio?: string
+    instagram?: string
+    other?: string
   }
+
+  // Meeting
+  meetingLink?: string
   availability?: string
+
+  // AI Integration
+  geminiApiKey?: string
+
+  // Metadata
   isAdmin?: boolean
+  profileComplete?: boolean
 }
 
 interface ModuleProgress {

@@ -5,13 +5,14 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 interface CourseSubmission {
-  id: string
+  id: number
+  userId: string
   title: string
   description: string
   content: string
   skillLevel: string
   estimatedDuration: string
-  submittedAt: number
+  submittedAt: string
   status: string
 }
 
@@ -21,11 +22,12 @@ export default function AdminDashboard() {
   const [submissions, setSubmissions] = useState<CourseSubmission[]>([])
   const [selectedSubmission, setSelectedSubmission] = useState<CourseSubmission | null>(null)
   const [showPromptModal, setShowPromptModal] = useState(false)
-  const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [copiedId, setCopiedId] = useState<number | null>(null)
   const [showGeneratedModule, setShowGeneratedModule] = useState(false)
   const [generatedModule, setGeneratedModule] = useState<any>(null)
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!isAuthenticated || !user?.isAdmin) {
@@ -33,13 +35,23 @@ export default function AdminDashboard() {
       return
     }
     window.scrollTo(0, 0)
-
-    // Load submissions
-    const stored = localStorage.getItem('courseSubmissions')
-    if (stored) {
-      setSubmissions(JSON.parse(stored))
-    }
+    loadSubmissions()
   }, [isAuthenticated, user, router])
+
+  const loadSubmissions = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/submissions')
+      if (res.ok) {
+        const data = await res.json()
+        setSubmissions(data)
+      }
+    } catch (err) {
+      console.error('Error loading submissions:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   if (!isAuthenticated || !user?.isAdmin) {
     return null
@@ -51,76 +63,99 @@ export default function AdminDashboard() {
   }
 
   const generateClaudePrompt = (submission: CourseSubmission) => {
-    return `I need you to transform this student course submission into a structured learning module for our AI education platform.
+    return `Transform this student course submission into a structured learning module for our AI education platform.
 
-STUDENT SUBMISSION:
-Title: ${submission.title}
-Description: ${submission.description}
-Skill Level: ${submission.skillLevel}
-Duration: ${submission.estimatedDuration}
+═══════════════════════════════════════════════════════════════════════════════
+SUBMISSION DETAILS
+═══════════════════════════════════════════════════════════════════════════════
 
-Content:
+📚 Title: ${submission.title}
+
+📝 Description:
+${submission.description}
+
+🎯 Target Audience: ${submission.skillLevel}
+⏱️  Estimated Duration: ${submission.estimatedDuration}
+
+📖 FULL COURSE CONTENT:
 ${submission.content}
 
----
+═══════════════════════════════════════════════════════════════════════════════
+YOUR TASK
+═══════════════════════════════════════════════════════════════════════════════
 
-INSTRUCTIONS:
-Transform the above content into a structured module following this exact JSON format. Create 3-5 slides that break down the content into digestible sections.
+Transform the above submission into a structured learning module. Analyze the content carefully and create 3-5 focused slides that teach the core concepts progressively.
 
-Required JSON structure:
+CRITICAL REQUIREMENTS:
+1. Break down content into logical, sequential slides
+2. Each slide should teach ONE key concept
+3. Include practical examples and code snippets where applicable
+4. Write in a casual, student-friendly tone
+5. Make content actionable and engaging
+
+═══════════════════════════════════════════════════════════════════════════════
+OUTPUT FORMAT (COPY THIS JSON STRUCTURE EXACTLY)
+═══════════════════════════════════════════════════════════════════════════════
+
 {
-  "title": "Course Title",
-  "slug": "course-title-slug",
-  "description": "Brief description",
+  "title": "${submission.title}",
+  "slug": "${submission.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}",
+  "description": "${submission.description.substring(0, 150)}...",
   "instructor": {
-    "name": "Instructor Name",
+    "name": "Student Contributor",
     "title": "Student at USD",
-    "bio": "Brief bio"
+    "bio": "Created this course to share knowledge with the forefront community"
   },
-  "duration": "30 minutes",
-  "skillLevel": "beginner",
+  "duration": "${submission.estimatedDuration}",
+  "skillLevel": "${submission.skillLevel}",
   "introVideo": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
   "learningObjectives": [
-    "Objective 1",
-    "Objective 2",
-    "Objective 3"
+    "Write 3-4 specific, measurable learning objectives here",
+    "Each should start with an action verb (understand, build, implement, etc.)",
+    "Focus on what students will be able to DO after completing this module"
   ],
   "slides": [
     {
       "id": 1,
-      "title": "Slide Title",
+      "title": "Introduction & Overview",
       "content": {
-        "heading": "Main Heading",
-        "body": "Main content paragraph",
-        "bulletPoints": ["Point 1", "Point 2"],
+        "heading": "Clear, engaging heading",
+        "body": "2-3 paragraphs explaining the main concept. Keep it conversational and clear.",
+        "bulletPoints": [
+          "Key point 1 - keep these actionable",
+          "Key point 2 - use specific examples",
+          "Key point 3 - make them scannable"
+        ],
         "code": {
           "language": "python",
-          "snippet": "code here"
+          "snippet": "# Include code examples when relevant\\nprint('Hello World')"
         },
-        "note": "Additional note or tip"
+        "note": "💡 Pro tip or important callout that helps students understand better"
       }
     }
   ],
   "keyTakeaways": [
-    "Takeaway 1",
-    "Takeaway 2",
-    "Takeaway 3"
+    "Main takeaway 1 - what's the most important thing to remember?",
+    "Main takeaway 2 - how will students use this knowledge?",
+    "Main takeaway 3 - what should they do next?"
   ]
 }
 
-Guidelines:
-- Extract the most important concepts into 3-5 clear slides
-- Make each slide focused on one key idea
-- Include practical examples and code snippets where relevant
-- Write in a casual, student-friendly tone
-- Keep bullets concise and actionable
-- Generate a realistic YouTube video ID for introVideo (or use a placeholder)
-- Create a URL-friendly slug from the title
+═══════════════════════════════════════════════════════════════════════════════
+IMPORTANT NOTES
+═══════════════════════════════════════════════════════════════════════════════
 
-Please return ONLY the valid JSON, no additional explanation.`
+✓ Return ONLY valid JSON (no markdown, no explanation)
+✓ Create ${submission.skillLevel} appropriate content
+✓ Use the actual submission content above to create slides
+✓ Generate a URL-friendly slug from the title
+✓ Include code snippets only when they add value
+✓ Make each slide self-contained and focused
+
+START YOUR RESPONSE WITH THE JSON OPENING BRACE { and END WITH THE CLOSING BRACE }`
   }
 
-  const copyPromptToClipboard = (prompt: string, submissionId: string) => {
+  const copyPromptToClipboard = (prompt: string, submissionId: number) => {
     navigator.clipboard.writeText(prompt)
     setCopiedId(submissionId)
     setTimeout(() => setCopiedId(null), 2000)
@@ -169,13 +204,17 @@ Please return ONLY the valid JSON, no additional explanation.`
 
       if (!res.ok) throw new Error('Failed to save module')
 
-      // Update submission status
+      // Update submission status in database
       if (selectedSubmission) {
-        const updatedSubmissions = submissions.map(s =>
-          s.id === selectedSubmission.id ? { ...s, status: 'completed' } : s
-        )
-        setSubmissions(updatedSubmissions)
-        localStorage.setItem('courseSubmissions', JSON.stringify(updatedSubmissions))
+        const statusRes = await fetch('/api/submissions', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: selectedSubmission.id, status: 'approved' })
+        })
+
+        if (statusRes.ok) {
+          await loadSubmissions()
+        }
       }
 
       setShowGeneratedModule(false)
@@ -185,6 +224,44 @@ Please return ONLY the valid JSON, no additional explanation.`
     } catch (err) {
       console.error('Error saving module:', err)
       setError('Failed to save module to database')
+    }
+  }
+
+  const handleApproveSubmission = async (submissionId: number) => {
+    try {
+      const res = await fetch('/api/submissions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: submissionId, status: 'approved' })
+      })
+
+      if (res.ok) {
+        await loadSubmissions()
+        alert('Submission approved!')
+      }
+    } catch (err) {
+      console.error('Error approving submission:', err)
+      alert('Failed to approve submission')
+    }
+  }
+
+  const handleRejectSubmission = async (submissionId: number) => {
+    if (!confirm('Are you sure you want to reject this submission?')) return
+
+    try {
+      const res = await fetch('/api/submissions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: submissionId, status: 'rejected' })
+      })
+
+      if (res.ok) {
+        await loadSubmissions()
+        alert('Submission rejected')
+      }
+    } catch (err) {
+      console.error('Error rejecting submission:', err)
+      alert('Failed to reject submission')
     }
   }
 
@@ -285,7 +362,16 @@ Please return ONLY the valid JSON, no additional explanation.`
             pending submissions ({submissions.filter(s => s.status === 'pending').length})
           </div>
 
-          {submissions.filter(s => s.status === 'pending').length === 0 ? (
+          {loading ? (
+            <div style={{
+              padding: '60px',
+              textAlign: 'center',
+              color: '#666',
+              fontSize: '16px'
+            }}>
+              Loading submissions...
+            </div>
+          ) : submissions.filter(s => s.status === 'pending').length === 0 ? (
             <div style={{
               padding: '60px',
               textAlign: 'center',
@@ -380,6 +466,48 @@ Please return ONLY the valid JSON, no additional explanation.`
                       style={{ cursor: 'pointer', minWidth: '200px' }}
                     >
                       Generate Claude Prompt
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '12px', flexWrap: 'wrap' }}>
+                    <button
+                      onClick={() => handleApproveSubmission(submission.id)}
+                      style={{
+                        padding: '12px 24px',
+                        background: '#00ff00',
+                        color: '#000',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '1px',
+                        cursor: 'pointer',
+                        fontWeight: 700,
+                        fontFamily: 'inherit',
+                        flex: 1,
+                        minWidth: '150px'
+                      }}
+                    >
+                      ✓ Approve
+                    </button>
+                    <button
+                      onClick={() => handleRejectSubmission(submission.id)}
+                      style={{
+                        padding: '12px 24px',
+                        background: 'transparent',
+                        color: '#ff0000',
+                        border: '2px solid #ff0000',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '1px',
+                        cursor: 'pointer',
+                        fontWeight: 700,
+                        fontFamily: 'inherit',
+                        flex: 1,
+                        minWidth: '150px'
+                      }}
+                    >
+                      ✗ Reject
                     </button>
                   </div>
                 </div>

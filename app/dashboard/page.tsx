@@ -8,6 +8,7 @@ export default function DashboardPage() {
   const { user, isAuthenticated, progress } = useAuth()
   const router = useRouter()
   const [modules, setModules] = useState<any[]>([])
+  const [submissions, setSubmissions] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -17,7 +18,9 @@ export default function DashboardPage() {
     }
     window.scrollTo(0, 0)
     loadModules()
-  }, [isAuthenticated, router])
+    loadSubmissions()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, user?.id])
 
   const loadModules = async () => {
     try {
@@ -30,6 +33,19 @@ export default function DashboardPage() {
       console.error('Error loading modules:', err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadSubmissions = async () => {
+    if (!user?.id) return
+    try {
+      const res = await fetch(`/api/submissions?userId=${user.id}`)
+      if (res.ok) {
+        const data = await res.json()
+        setSubmissions(data)
+      }
+    } catch (err) {
+      console.error('Error loading submissions:', err)
     }
   }
 
@@ -252,6 +268,55 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* My Submissions */}
+      {submissions.length > 0 && (
+        <div className="section" style={{ paddingTop: '40px', paddingBottom: '40px', minHeight: 'auto' }}>
+          <div className="content">
+            <div className="section-label" style={{ marginBottom: '32px' }}>my course submissions</div>
+
+            <div style={{ display: 'grid', gap: '16px' }}>
+              {submissions.map((submission: any) => (
+                <div key={submission.id} className="card-dark" style={{ padding: '32px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '16px' }}>
+                    <div>
+                      <div style={{
+                        fontSize: 'clamp(18px, 3vw, 24px)',
+                        fontWeight: 700,
+                        color: '#fff',
+                        marginBottom: '8px',
+                        textTransform: 'lowercase'
+                      }}>
+                        {submission.title}
+                      </div>
+                      <div style={{ fontSize: '14px', color: '#999', marginBottom: '12px' }}>
+                        {submission.description}
+                      </div>
+                    </div>
+                    <div style={{
+                      padding: '8px 16px',
+                      borderRadius: '6px',
+                      fontSize: '11px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px',
+                      fontWeight: 700,
+                      background: submission.status === 'pending' ? '#333' : submission.status === 'approved' ? '#00ff00' : '#ff0000',
+                      color: submission.status === 'pending' ? '#fff' : '#000'
+                    }}>
+                      {submission.status}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '24px', fontSize: '12px', color: '#666', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                    <span>{submission.skillLevel}</span>
+                    <span>{submission.estimatedDuration}</span>
+                    <span>submitted {new Date(submission.submittedAt).toLocaleDateString()}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="section white" style={{ paddingTop: '60px', paddingBottom: '60px', minHeight: 'auto' }}>

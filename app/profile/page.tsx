@@ -2,12 +2,20 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
+import { UserProfile } from '@/types/profile'
+import { QuickFillQuestionnaire } from '@/components/profile/QuickFillQuestionnaire'
+import { ProfileEditor } from '@/components/profile/ProfileEditor'
+import { LinkedInImport } from '@/components/profile/LinkedInImport'
 
 export default function ProfilePage() {
   const { user, isAuthenticated } = useAuth()
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [showQuestionnaire, setShowQuestionnaire] = useState(false)
+  const [showEditor, setShowEditor] = useState(false)
+  const [showLinkedInImport, setShowLinkedInImport] = useState(false)
 
   const [formData, setFormData] = useState({
     name: '',
@@ -15,6 +23,7 @@ export default function ProfilePage() {
     interests: [] as string[],
     meetingLink: '',
     availability: '',
+    geminiApiKey: '',
     socialLinks: {
       linkedin: '',
       twitter: '',
@@ -37,12 +46,14 @@ export default function ProfilePage() {
         const res = await fetch(`/api/users/${user.id}`)
         if (res.ok) {
           const data = await res.json()
+          setProfile(data)
           setFormData({
             name: data.name || '',
             bio: data.bio || '',
             interests: data.interests || [],
             meetingLink: data.meetingLink || 'https://skinny-studio.whereby.com/forefront54fe1520-5c6b-46bd-b624-31950bf609b9',
             availability: data.availability || '',
+            geminiApiKey: data.geminiApiKey || '',
             socialLinks: data.socialLinks || { linkedin: '', twitter: '', github: '' }
           })
         }
@@ -67,6 +78,8 @@ export default function ProfilePage() {
       })
 
       if (res.ok) {
+        const updated = await res.json()
+        setProfile(updated)
         alert('Profile updated successfully!')
       } else {
         throw new Error('Failed to update profile')
@@ -76,6 +89,29 @@ export default function ProfilePage() {
       alert('Failed to save profile. Please try again.')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const saveComprehensiveProfile = async (updatedProfile: Partial<UserProfile>) => {
+    if (!user) return
+
+    try {
+      const res = await fetch(`/api/users/${user.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedProfile)
+      })
+
+      if (res.ok) {
+        const updated = await res.json()
+        setProfile(updated)
+        setShowQuestionnaire(false)
+        setShowEditor(false)
+        alert('Profile updated successfully!')
+      }
+    } catch (err) {
+      console.error('Error saving profile:', err)
+      alert('Failed to save profile. Please try again.')
     }
   }
 
@@ -469,6 +505,119 @@ export default function ProfilePage() {
                 </div>
               </div>
 
+              {/* AI Integration Settings */}
+              <div style={{ marginBottom: '32px', paddingTop: '24px', borderTop: '2px solid #e0e0e0' }}>
+                <label style={{
+                  display: 'block',
+                  fontSize: '14px',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '1.5px',
+                  marginBottom: '12px',
+                  color: '#000'
+                }}>
+                  AI Integration Settings
+                </label>
+                <p style={{
+                  fontSize: '13px',
+                  color: '#666',
+                  marginBottom: '16px',
+                  lineHeight: 1.4
+                }}>
+                  Add your Gemini API key to enable AI-powered features like LinkedIn profile import
+                </p>
+                <input
+                  type="password"
+                  value={formData.geminiApiKey}
+                  onChange={(e) => setFormData({ ...formData, geminiApiKey: e.target.value })}
+                  placeholder="Gemini API Key (sk-...)"
+                  style={{
+                    width: '100%',
+                    padding: '14px 16px',
+                    fontSize: '16px',
+                    border: '2px solid #e0e0e0',
+                    borderRadius: '8px',
+                    outline: 'none',
+                    transition: 'all 0.2s ease',
+                    fontFamily: 'inherit',
+                    background: '#fff',
+                    color: '#000'
+                  }}
+                  onFocus={(e) => e.target.style.borderColor = '#000'}
+                  onBlur={(e) => e.target.style.borderColor = '#e0e0e0'}
+                />
+                <p style={{
+                  fontSize: '12px',
+                  color: '#999',
+                  marginTop: '8px',
+                  lineHeight: 1.4
+                }}>
+                  Get your free API key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" style={{ color: '#4a90e2', textDecoration: 'underline' }}>Google AI Studio</a>. Your key is stored securely and only used for your requests.
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', gap: '12px', marginBottom: '32px', paddingTop: '24px', borderTop: '2px solid #e0e0e0' }}>
+                <button
+                  onClick={() => setShowQuestionnaire(true)}
+                  style={{
+                    padding: '14px 24px',
+                    background: '#fff',
+                    color: '#000',
+                    border: '2px solid #000',
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '1px',
+                    cursor: 'pointer',
+                    fontFamily: 'inherit'
+                  }}
+                >
+                  📝 quick fill questionnaire
+                </button>
+                <button
+                  onClick={() => profile && setShowEditor(true)}
+                  disabled={!profile}
+                  style={{
+                    padding: '14px 24px',
+                    background: '#fff',
+                    color: '#000',
+                    border: '2px solid #000',
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '1px',
+                    cursor: profile ? 'pointer' : 'not-allowed',
+                    fontFamily: 'inherit',
+                    opacity: profile ? 1 : 0.5
+                  }}
+                >
+                  ✏️ comprehensive editor
+                </button>
+                <button
+                  onClick={() => setShowLinkedInImport(true)}
+                  disabled={!formData.geminiApiKey}
+                  style={{
+                    padding: '14px 24px',
+                    background: formData.geminiApiKey ? '#4a90e2' : '#f5f5f5',
+                    color: formData.geminiApiKey ? '#fff' : '#999',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '1px',
+                    cursor: formData.geminiApiKey ? 'pointer' : 'not-allowed',
+                    fontFamily: 'inherit'
+                  }}
+                  title={!formData.geminiApiKey ? 'Add Gemini API key to enable' : ''}
+                >
+                  🔗 import from linkedin
+                </button>
+              </div>
+
               {/* Save Button */}
               <button
                 onClick={handleSave}
@@ -499,12 +648,43 @@ export default function ProfilePage() {
                   e.currentTarget.style.boxShadow = 'none'
                 }}
               >
-                {saving ? 'saving...' : 'save profile'}
+                {saving ? 'saving...' : 'save basic profile'}
               </button>
             </div>
           )}
         </div>
       </div>
+
+      {/* Questionnaire Modal */}
+      {showQuestionnaire && user && (
+        <QuickFillQuestionnaire
+          userId={user.id}
+          onComplete={saveComprehensiveProfile}
+          onSkip={() => setShowQuestionnaire(false)}
+        />
+      )}
+
+      {/* Comprehensive Editor Modal */}
+      {showEditor && profile && (
+        <ProfileEditor
+          profile={profile}
+          onSave={saveComprehensiveProfile}
+          onCancel={() => setShowEditor(false)}
+        />
+      )}
+
+      {/* LinkedIn Import Modal */}
+      {showLinkedInImport && user && formData.geminiApiKey && (
+        <LinkedInImport
+          userId={user.id}
+          geminiApiKey={formData.geminiApiKey}
+          onComplete={(importedData) => {
+            saveComprehensiveProfile(importedData)
+            setShowLinkedInImport(false)
+          }}
+          onCancel={() => setShowLinkedInImport(false)}
+        />
+      )}
     </main>
   )
 }

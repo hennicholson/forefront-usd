@@ -3,8 +3,24 @@ import { db } from '@/lib/db'
 import { modules } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')
+    const moduleId = searchParams.get('moduleId')
+
+    // If specific module requested by id or moduleId
+    if (id) {
+      const result = await db.select().from(modules).where(eq(modules.id, parseInt(id)))
+      return NextResponse.json(result)
+    }
+
+    if (moduleId) {
+      const result = await db.select().from(modules).where(eq(modules.moduleId, moduleId))
+      return NextResponse.json(result)
+    }
+
+    // Otherwise return all modules
     const allModules = await db.select().from(modules)
     return NextResponse.json(allModules)
   } catch (error: any) {
@@ -20,18 +36,27 @@ export async function POST(request: Request) {
   try {
     const moduleData = await request.json()
 
+    console.log('📥 Received module data:', JSON.stringify(moduleData, null, 2))
+
     // Generate a unique moduleId if not provided
     if (!moduleData.moduleId) {
       moduleData.moduleId = `module-${Date.now()}`
     }
 
+    console.log('💾 Inserting into database...')
     const [newModule] = await db.insert(modules).values(moduleData).returning()
 
+    console.log('✅ Module created successfully:', newModule)
     return NextResponse.json(newModule)
   } catch (error: any) {
-    console.error('Error creating module:', error)
+    console.error('❌ Error creating module:', error)
+    console.error('Stack trace:', error.stack)
     return NextResponse.json(
-      { error: 'Failed to create module', details: error.message },
+      {
+        error: 'Failed to create module',
+        details: error.message,
+        stack: error.stack
+      },
       { status: 500 }
     )
   }

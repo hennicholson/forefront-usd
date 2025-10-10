@@ -1,0 +1,121 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "[forefront]" [ref=e4] [cursor=pointer]:
+        - /url: /
+      - button "☰" [ref=e5] [cursor=pointer]
+  - main [ref=e7]:
+    - generic [ref=e9]:
+      - generic [ref=e10]: "[forefront]"
+      - generic [ref=e11]: students teaching students
+      - generic [ref=e12]: practical ai courses
+      - link "explore modules →" [ref=e13] [cursor=pointer]:
+        - /url: "#modules"
+    - generic [ref=e15]:
+      - generic [ref=e16]: available modules (7)
+      - generic [ref=e17]:
+        - link "01 Introduction to AI Tools Learn how to leverage AI tools for productivity and creativity in your daily workflow. ForeFront Student • 30 minutes • beginner →" [ref=e18] [cursor=pointer]:
+          - /url: /modules/intro-to-ai-tools
+          - generic [ref=e20]:
+            - generic [ref=e21]: "01"
+            - generic [ref=e22]:
+              - generic [ref=e23]: Introduction to AI Tools
+              - generic [ref=e24]: Learn how to leverage AI tools for productivity and creativity in your daily workflow.
+              - generic [ref=e25]:
+                - generic [ref=e26]: ForeFront Student
+                - generic [ref=e27]: •
+                - generic [ref=e28]: 30 minutes
+                - generic [ref=e29]: •
+                - generic [ref=e30]: beginner
+            - generic [ref=e31]: →
+        - link "02 Vibe Code with AI Build apps fast with AI-assisted coding tools like Claude Code and Cursor Alex Chen • 2 hours • beginner →" [ref=e32] [cursor=pointer]:
+          - /url: /modules/vibe-coding-ai
+          - generic [ref=e34]:
+            - generic [ref=e35]: "02"
+            - generic [ref=e36]:
+              - generic [ref=e37]: Vibe Code with AI
+              - generic [ref=e38]: Build apps fast with AI-assisted coding tools like Claude Code and Cursor
+              - generic [ref=e39]:
+                - generic [ref=e40]: Alex Chen
+                - generic [ref=e41]: •
+                - generic [ref=e42]: 2 hours
+                - generic [ref=e43]: •
+                - generic [ref=e44]: beginner
+            - generic [ref=e45]: →
+        - link "03 Marketing with AI AI-powered marketing strategies that actually convert Sarah Martinez • 1.5 hours • beginner →" [ref=e46] [cursor=pointer]:
+          - /url: /modules/marketing-with-ai
+          - generic [ref=e48]:
+            - generic [ref=e49]: "03"
+            - generic [ref=e50]:
+              - generic [ref=e51]: Marketing with AI
+              - generic [ref=e52]: AI-powered marketing strategies that actually convert
+              - generic [ref=e53]:
+                - generic [ref=e54]: Sarah Martinez
+                - generic [ref=e55]: •
+                - generic [ref=e56]: 1.5 hours
+                - generic [ref=e57]: •
+                - generic [ref=e58]: beginner
+            - generic [ref=e59]: →
+        - link "04 Content Creation with AI Create engaging content in minutes with AI tools Jordan Lee • 2 hours • beginner →" [ref=e60] [cursor=pointer]:
+          - /url: /modules/content-creation-ai
+          - generic [ref=e62]:
+            - generic [ref=e63]: "04"
+            - generic [ref=e64]:
+              - generic [ref=e65]: Content Creation with AI
+              - generic [ref=e66]: Create engaging content in minutes with AI tools
+              - generic [ref=e67]:
+                - generic [ref=e68]: Jordan Lee
+                - generic [ref=e69]: •
+                - generic [ref=e70]: 2 hours
+                - generic [ref=e71]: •
+                - generic [ref=e72]: beginner
+            - generic [ref=e73]: →
+        - link "05 Music Production with AI Compose and produce music with AI-powered tools Maya Johnson • 3 hours • intermediate →" [ref=e74] [cursor=pointer]:
+          - /url: /modules/music-with-ai
+          - generic [ref=e76]:
+            - generic [ref=e77]: "05"
+            - generic [ref=e78]:
+              - generic [ref=e79]: Music Production with AI
+              - generic [ref=e80]: Compose and produce music with AI-powered tools
+              - generic [ref=e81]:
+                - generic [ref=e82]: Maya Johnson
+                - generic [ref=e83]: •
+                - generic [ref=e84]: 3 hours
+                - generic [ref=e85]: •
+                - generic [ref=e86]: intermediate
+            - generic [ref=e87]: →
+        - link "06 AI Automation Automate anything with AI-powered workflows Chris Park • 2.5 hours • intermediate →" [ref=e88] [cursor=pointer]:
+          - /url: /modules/ai-automation
+          - generic [ref=e90]:
+            - generic [ref=e91]: "06"
+            - generic [ref=e92]:
+              - generic [ref=e93]: AI Automation
+              - generic [ref=e94]: Automate anything with AI-powered workflows
+              - generic [ref=e95]:
+                - generic [ref=e96]: Chris Park
+                - generic [ref=e97]: •
+                - generic [ref=e98]: 2.5 hours
+                - generic [ref=e99]: •
+                - generic [ref=e100]: intermediate
+            - generic [ref=e101]: →
+        - link "07 Building AI-Powered Apps with Claude API Learn how to integrate Claude's AI capabilities into your applications, from basic API calls to advanced prompt engineering techniques that make your code smarter and more dynamic. Alex Chen • 45 minutes • beginner →" [ref=e102] [cursor=pointer]:
+          - /url: /modules/building-ai-powered-apps-with-claude-api
+          - generic [ref=e104]:
+            - generic [ref=e105]: "07"
+            - generic [ref=e106]:
+              - generic [ref=e107]: Building AI-Powered Apps with Claude API
+              - generic [ref=e108]: Learn how to integrate Claude's AI capabilities into your applications, from basic API calls to advanced prompt engineering techniques that make your code smarter and more dynamic.
+              - generic [ref=e109]:
+                - generic [ref=e110]: Alex Chen
+                - generic [ref=e111]: •
+                - generic [ref=e112]: 45 minutes
+                - generic [ref=e113]: •
+                - generic [ref=e114]: beginner
+            - generic [ref=e115]: →
+  - button "Open Next.js Dev Tools" [ref=e121] [cursor=pointer]:
+    - img [ref=e122]
+  - alert [ref=e125]
+```

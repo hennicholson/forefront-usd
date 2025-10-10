@@ -8,6 +8,7 @@ export function Header() {
   const { user, isAuthenticated, logout } = useAuth()
   const [showLoginModal, setShowLoginModal] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const [showMobileMenu, setShowMobileMenu] = useState(false)
 
   return (
     <>
@@ -21,7 +22,7 @@ export function Header() {
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
         borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-        padding: '20px 40px'
+        padding: '20px'
       }}>
         <div style={{
           maxWidth: '1200px',
@@ -46,11 +47,16 @@ export function Header() {
             [forefront]
           </Link>
 
-          <div style={{ display: 'flex', gap: '32px', alignItems: 'center' }}>
+          {/* Desktop Navigation */}
+          <div style={{
+            display: 'flex',
+            gap: '32px',
+            alignItems: 'center'
+          }} className="desktop-nav">
             <Link
               href="/#modules"
               style={{
-                fontSize: 'clamp(13px, 2vw, 14px)',
+                fontSize: '14px',
                 textTransform: 'uppercase',
                 letterSpacing: '1.5px',
                 color: '#fff',
@@ -65,7 +71,7 @@ export function Header() {
             <Link
               href="/network"
               style={{
-                fontSize: 'clamp(13px, 2vw, 14px)',
+                fontSize: '14px',
                 textTransform: 'uppercase',
                 letterSpacing: '1.5px',
                 color: '#fff',
@@ -80,7 +86,7 @@ export function Header() {
             <Link
               href="/about"
               style={{
-                fontSize: 'clamp(13px, 2vw, 14px)',
+                fontSize: '14px',
                 textTransform: 'uppercase',
                 letterSpacing: '1.5px',
                 color: '#fff',
@@ -98,7 +104,7 @@ export function Header() {
                 <button
                   onClick={() => setShowUserMenu(!showUserMenu)}
                   style={{
-                    fontSize: 'clamp(13px, 2vw, 14px)',
+                    fontSize: '14px',
                     textTransform: 'uppercase',
                     letterSpacing: '1.5px',
                     color: '#fff',
@@ -268,7 +274,7 @@ export function Header() {
               <button
                 onClick={() => setShowLoginModal(true)}
                 style={{
-                  fontSize: 'clamp(13px, 2vw, 14px)',
+                  fontSize: '14px',
                   textTransform: 'uppercase',
                   letterSpacing: '1.5px',
                   color: '#000',
@@ -294,8 +300,232 @@ export function Header() {
               </button>
             )}
           </div>
+
+          {/* Mobile Hamburger Button */}
+          <button
+            onClick={() => setShowMobileMenu(!showMobileMenu)}
+            className="mobile-menu-button"
+            style={{
+              display: 'none',
+              background: 'transparent',
+              border: 'none',
+              color: '#fff',
+              fontSize: '24px',
+              cursor: 'pointer',
+              padding: '8px',
+              transition: 'opacity 0.3s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.opacity = '0.7'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.opacity = '1'
+            }}
+          >
+            {showMobileMenu ? '✕' : '☰'}
+          </button>
         </div>
+
+        {/* Mobile Menu */}
+        {showMobileMenu && (
+          <div className="mobile-menu" style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            right: 0,
+            background: 'rgba(0, 0, 0, 0.95)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+            padding: '20px',
+            display: 'none'
+          }}>
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '20px'
+            }}>
+              <Link
+                href="/#modules"
+                onClick={() => setShowMobileMenu(false)}
+                style={{
+                  fontSize: '16px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1.5px',
+                  color: '#fff',
+                  textDecoration: 'none',
+                  fontWeight: 500,
+                  padding: '12px 0',
+                  borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+                }}
+              >
+                modules
+              </Link>
+              <Link
+                href="/network"
+                onClick={() => setShowMobileMenu(false)}
+                style={{
+                  fontSize: '16px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1.5px',
+                  color: '#fff',
+                  textDecoration: 'none',
+                  fontWeight: 500,
+                  padding: '12px 0',
+                  borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+                }}
+              >
+                network
+              </Link>
+              <Link
+                href="/about"
+                onClick={() => setShowMobileMenu(false)}
+                style={{
+                  fontSize: '16px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1.5px',
+                  color: '#fff',
+                  textDecoration: 'none',
+                  fontWeight: 500,
+                  padding: '12px 0',
+                  borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+                }}
+              >
+                about
+              </Link>
+
+              {isAuthenticated ? (
+                <>
+                  <Link
+                    href="/dashboard"
+                    onClick={() => setShowMobileMenu(false)}
+                    style={{
+                      fontSize: '16px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '1.5px',
+                      color: '#fff',
+                      textDecoration: 'none',
+                      fontWeight: 500,
+                      padding: '12px 0',
+                      borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+                    }}
+                  >
+                    dashboard
+                  </Link>
+                  <Link
+                    href="/profile"
+                    onClick={() => setShowMobileMenu(false)}
+                    style={{
+                      fontSize: '16px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '1.5px',
+                      color: '#fff',
+                      textDecoration: 'none',
+                      fontWeight: 500,
+                      padding: '12px 0',
+                      borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+                    }}
+                  >
+                    profile
+                  </Link>
+                  <Link
+                    href="/submit"
+                    onClick={() => setShowMobileMenu(false)}
+                    style={{
+                      fontSize: '16px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '1.5px',
+                      color: '#fff',
+                      textDecoration: 'none',
+                      fontWeight: 500,
+                      padding: '12px 0',
+                      borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+                    }}
+                  >
+                    submit course
+                  </Link>
+                  {user?.isAdmin && (
+                    <Link
+                      href="/admin"
+                      onClick={() => setShowMobileMenu(false)}
+                      style={{
+                        fontSize: '16px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '1.5px',
+                        color: '#fff',
+                        textDecoration: 'none',
+                        fontWeight: 500,
+                        padding: '12px 0',
+                        borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+                      }}
+                    >
+                      ⚙ admin
+                    </Link>
+                  )}
+                  <button
+                    onClick={() => {
+                      logout()
+                      setShowMobileMenu(false)
+                    }}
+                    style={{
+                      fontSize: '16px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '1.5px',
+                      color: '#fff',
+                      background: 'transparent',
+                      border: 'none',
+                      textAlign: 'left',
+                      fontWeight: 500,
+                      padding: '12px 0',
+                      cursor: 'pointer',
+                      fontFamily: 'inherit'
+                    }}
+                  >
+                    sign out
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => {
+                    setShowLoginModal(true)
+                    setShowMobileMenu(false)
+                  }}
+                  style={{
+                    fontSize: '16px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '1.5px',
+                    color: '#000',
+                    background: '#fff',
+                    border: 'none',
+                    padding: '16px',
+                    borderRadius: '8px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                    marginTop: '8px'
+                  }}
+                >
+                  sign in
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </header>
+
+      <style jsx>{`
+        @media (max-width: 768px) {
+          .desktop-nav {
+            display: none !important;
+          }
+          .mobile-menu-button {
+            display: block !important;
+          }
+          .mobile-menu {
+            display: block !important;
+          }
+        }
+      `}</style>
 
       <LoginModal
         isOpen={showLoginModal}

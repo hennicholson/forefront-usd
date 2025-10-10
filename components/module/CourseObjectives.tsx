@@ -9,7 +9,7 @@ interface CourseObjectivesProps {
 }
 
 export function CourseObjectives({ keyTakeaways, relatedModules }: CourseObjectivesProps) {
-  const related = modules.filter(m => relatedModules.includes(m.id))
+  const related = modules.filter(m => relatedModules.includes(String(m.id)))
 
   return (
     <section className="mt-16 space-y-8">

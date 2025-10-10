@@ -10,11 +10,15 @@ async function migrateModules() {
   console.log('Starting module migration...')
   console.log(`Found ${staticModules.length} modules to migrate`)
 
+  // First, clear existing modules to avoid duplicates
+  console.log('Clearing existing modules...')
+  await db.delete(modulesTable)
+
   for (const staticModule of staticModules) {
     try {
-      // Transform static module format to database format
+      // Transform static module format to database format with new block structure
       const dbModule = {
-        moduleId: `module-${staticModule.id}-${Date.now()}`,
+        moduleId: `module-${staticModule.id}`,
         title: staticModule.title,
         slug: staticModule.slug,
         description: staticModule.description,
@@ -27,16 +31,17 @@ async function migrateModules() {
         skillLevel: staticModule.skillLevel.toLowerCase(),
         introVideo: staticModule.introVideo,
         learningObjectives: staticModule.learningObjectives,
-        slides: staticModule.slides.map((slide, index) => ({
-          id: index + 1,
+        slides: staticModule.slides.map((slide) => ({
+          id: slide.id,
           title: slide.title,
-          content: slide.content
+          description: slide.description || '',
+          blocks: slide.blocks || []
         })),
         keyTakeaways: staticModule.keyTakeaways
       }
 
       const [result] = await db.insert(modulesTable).values(dbModule).returning()
-      console.log(`✓ Migrated: ${result.title}`)
+      console.log(`✓ Migrated: ${result.title} (${result.slides.length} slides)`)
     } catch (error: any) {
       console.error(`✗ Failed to migrate ${staticModule.title}:`, error.message)
     }

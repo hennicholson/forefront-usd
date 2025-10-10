@@ -144,13 +144,22 @@ export default function AdminModulesPage() {
           }}>
             all modules ({modules.length})
           </h1>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="btn btn-primary"
-            style={{ cursor: 'pointer' }}
-          >
-            + Add New Module
-          </button>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            <Link
+              href="/admin/modules/create"
+              className="btn btn-primary"
+              style={{ cursor: 'pointer', textDecoration: 'none', display: 'inline-block' }}
+            >
+              🚀 Create New Module
+            </Link>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="btn btn-secondary"
+              style={{ cursor: 'pointer' }}
+            >
+              📋 Add from JSON
+            </button>
+          </div>
         </div>
       </div>
 
@@ -208,47 +217,64 @@ export default function AdminModulesPage() {
                       <span>{module.slides.length} slides</span>
                     </div>
                   </div>
-                  <button
-                    onClick={() => handleDeleteModule(module.id)}
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      onClick={() => handleDeleteModule(module.id)}
+                      style={{
+                        padding: '8px 16px',
+                        background: 'transparent',
+                        border: '1px solid #e0e0e0',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '1px',
+                        cursor: 'pointer',
+                        fontWeight: 600,
+                        color: '#999',
+                        transition: 'all 0.2s ease',
+                        fontFamily: 'inherit'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor = '#f00'
+                        e.currentTarget.style.color = '#f00'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = '#e0e0e0'
+                        e.currentTarget.style.color = '#999'
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                  <Link
+                    href={`/admin/modules/edit/${module.id}`}
                     style={{
-                      padding: '8px 16px',
-                      background: 'transparent',
-                      border: '1px solid #e0e0e0',
-                      borderRadius: '6px',
-                      fontSize: '12px',
+                      fontSize: '13px',
                       textTransform: 'uppercase',
                       letterSpacing: '1px',
-                      cursor: 'pointer',
-                      fontWeight: 600,
-                      color: '#999',
-                      transition: 'all 0.2s ease',
-                      fontFamily: 'inherit'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = '#f00'
-                      e.currentTarget.style.color = '#f00'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = '#e0e0e0'
-                      e.currentTarget.style.color = '#999'
+                      color: '#000',
+                      textDecoration: 'underline',
+                      fontWeight: 600
                     }}
                   >
-                    Delete
-                  </button>
+                    ✏️ Edit Module →
+                  </Link>
+                  <Link
+                    href={`/modules/${module.slug}`}
+                    style={{
+                      fontSize: '13px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px',
+                      color: '#000',
+                      textDecoration: 'underline',
+                      fontWeight: 600
+                    }}
+                  >
+                    👁️ View Module →
+                  </Link>
                 </div>
-                <Link
-                  href={`/modules/${module.slug}`}
-                  style={{
-                    fontSize: '13px',
-                    textTransform: 'uppercase',
-                    letterSpacing: '1px',
-                    color: '#000',
-                    textDecoration: 'underline',
-                    fontWeight: 600
-                  }}
-                >
-                  View Module →
-                </Link>
               </div>
             ))}
           </div>

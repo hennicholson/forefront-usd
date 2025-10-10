@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { Module } from '@/lib/data/modules'
 import Link from 'next/link'
 import VideoPlayer from './VideoPlayer'
+import { ContentBlockViewer } from './ContentBlockViewer'
 
 interface ModuleViewerProps {
   module: Module
@@ -20,12 +21,13 @@ export function ModuleViewer({ module, moduleIndex, totalModules }: ModuleViewer
 
   const checkLearningStatus = async () => {
     if (!user) return
+    const moduleIdentifier = module.moduleId || module.id
     try {
       const res = await fetch(`/api/learning?userId=${user.id}`)
       if (res.ok) {
         const learning = await res.json()
         const isCurrentlyLearning = learning.some(
-          (l: any) => l.moduleId === module.id && l.status === 'learning'
+          (l: any) => l.moduleId === moduleIdentifier && l.status === 'learning'
         )
         setIsLearning(isCurrentlyLearning)
       }
@@ -38,17 +40,18 @@ export function ModuleViewer({ module, moduleIndex, totalModules }: ModuleViewer
     if (!user) return
     checkLearningStatus()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, module.id])
+  }, [user?.id, module.moduleId, module.id])
 
   const toggleLearning = async () => {
     if (!user) return
+    const moduleIdentifier = module.moduleId || module.id
     setLoadingLearning(true)
     try {
       if (isLearning) {
         const res = await fetch('/api/learning', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: user.id, moduleId: module.id })
+          body: JSON.stringify({ userId: user.id, moduleId: moduleIdentifier })
         })
         if (!res.ok) throw new Error('Failed to remove from learning')
         setIsLearning(false)
@@ -75,7 +78,7 @@ export function ModuleViewer({ module, moduleIndex, totalModules }: ModuleViewer
         const res = await fetch('/api/learning', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: user.id, moduleId: module.id })
+          body: JSON.stringify({ userId: user.id, moduleId: moduleIdentifier })
         })
         if (!res.ok) {
           const error = await res.json()
@@ -102,7 +105,7 @@ export function ModuleViewer({ module, moduleIndex, totalModules }: ModuleViewer
           const rect = element.getBoundingClientRect()
           const isVisible = rect.top >= 0 && rect.top <= window.innerHeight / 2
           if (isVisible) {
-            updateProgress(module.id, index)
+            updateProgress(String(module.id), index)
           }
         }
       })
@@ -114,14 +117,14 @@ export function ModuleViewer({ module, moduleIndex, totalModules }: ModuleViewer
 
   const handleSaveNote = (slideId: number) => {
     if (noteContent.trim()) {
-      addNote(module.id, slideId, noteContent)
+      addNote(String(module.id), slideId, noteContent)
       setNoteContent('')
       setActiveSlideNote(null)
     }
   }
 
   const handleCompleteModule = () => {
-    updateProgress(module.id, module.slides.length - 1, true)
+    updateProgress(String(module.id), module.slides.length - 1, true)
   }
 
   return (
@@ -313,7 +316,7 @@ export function ModuleViewer({ module, moduleIndex, totalModules }: ModuleViewer
 
       {/* Slides */}
       {module.slides.map((slide, index) => {
-        const existingNote = getSlideNotes(module.id, index)
+        const existingNote = getSlideNotes(String(module.id), index)
         const isNoteActive = activeSlideNote === index
 
         return (
@@ -336,21 +339,21 @@ export function ModuleViewer({ module, moduleIndex, totalModules }: ModuleViewer
                 section {String(index + 1).padStart(2, '0')} / {module.slides.length}
               </div>
 
-              {/* Heading */}
-              {slide.content.heading && (
+              {/* Slide Title */}
+              {slide.title && (
                 <h2 style={{
                   fontSize: 'clamp(32px, 6vw, 64px)',
                   fontWeight: 900,
                   lineHeight: 1.1,
-                  marginBottom: '30px',
+                  marginBottom: slide.description ? '20px' : '30px',
                   color: index % 2 === 0 ? '#fff' : '#000'
                 }}>
-                  {slide.content.heading}
+                  {slide.title}
                 </h2>
               )}
 
-              {/* Body */}
-              {slide.content.body && (
+              {/* Slide Description */}
+              {slide.description && (
                 <p style={{
                   fontSize: 'clamp(16px, 2.5vw, 24px)',
                   lineHeight: 1.6,
@@ -358,92 +361,16 @@ export function ModuleViewer({ module, moduleIndex, totalModules }: ModuleViewer
                   color: index % 2 === 0 ? '#ccc' : '#666',
                   maxWidth: '800px'
                 }}>
-                  {slide.content.body}
+                  {slide.description}
                 </p>
               )}
 
-              {/* Bullets */}
-              {slide.content.bulletPoints && (
-                <ul style={{
-                  listStyle: 'none',
-                  display: 'grid',
-                  gap: '16px',
-                  fontSize: 'clamp(16px, 2.5vw, 22px)',
-                  lineHeight: 1.6,
-                  marginTop: '30px'
-                }}>
-                  {slide.content.bulletPoints.map((point, i) => (
-                    <li key={i} style={{
-                      display: 'flex',
-                      alignItems: 'start',
-                      gap: '16px',
-                      color: index % 2 === 0 ? '#fff' : '#333'
-                    }}>
-                      <span style={{
-                        flexShrink: 0,
-                        color: index % 2 === 0 ? '#fff' : '#000',
-                        fontWeight: 900
-                      }}>→</span>
-                      <span>{point}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-
-              {/* Code */}
-              {slide.content.code && (
-                <div style={{
-                  background: index % 2 === 0 ? '#1a1a1a' : '#f5f5f5',
-                  padding: '32px',
-                  borderRadius: '12px',
-                  marginTop: '30px',
-                  boxShadow: index % 2 === 0
-                    ? '0 2px 16px rgba(255, 255, 255, 0.04)'
-                    : '0 2px 12px rgba(0, 0, 0, 0.06)',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-                }}>
-                  <div style={{
-                    fontSize: '12px',
-                    textTransform: 'uppercase',
-                    letterSpacing: '2px',
-                    marginBottom: '16px',
-                    color: index % 2 === 0 ? '#666' : '#999',
-                    fontFamily: 'monospace',
-                    fontWeight: 700
-                  }}>
-                    {slide.content.code.language}
-                  </div>
-                  <pre style={{
-                    fontSize: 'clamp(13px, 1.5vw, 15px)',
-                    color: index % 2 === 0 ? '#ccc' : '#000',
-                    overflowX: 'auto',
-                    fontFamily: 'monospace',
-                    whiteSpace: 'pre-wrap',
-                    wordWrap: 'break-word',
-                    lineHeight: 1.6
-                  }}>
-                    <code>{slide.content.code.snippet}</code>
-                  </pre>
-                </div>
-              )}
-
-              {/* Note */}
-              {slide.content.note && (
-                <div style={{
-                  marginTop: '30px',
-                  padding: '24px',
-                  background: index % 2 === 0 ? 'rgba(255, 255, 255, 0.05)' : '#f5f5f5',
-                  borderLeft: index % 2 === 0 ? '4px solid #fff' : '4px solid #000',
-                  fontSize: 'clamp(14px, 2vw, 18px)',
-                  color: index % 2 === 0 ? '#ccc' : '#666',
-                  lineHeight: 1.6,
-                  borderRadius: '8px',
-                  boxShadow: index % 2 === 0
-                    ? '0 2px 8px rgba(255, 255, 255, 0.02)'
-                    : '0 2px 8px rgba(0, 0, 0, 0.04)'
-                }}>
-                  <strong style={{ color: index % 2 === 0 ? '#fff' : '#000' }}>Note:</strong> {slide.content.note}
-                </div>
+              {/* Content Blocks */}
+              {(slide as any).blocks && (slide as any).blocks.length > 0 && (
+                <ContentBlockViewer
+                  blocks={(slide as any).blocks}
+                  theme={index % 2 === 0 ? 'dark' : 'light'}
+                />
               )}
 
               {/* User Notes Section */}

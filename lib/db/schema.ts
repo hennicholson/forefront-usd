@@ -4,13 +4,40 @@ export const users = pgTable('users', {
   id: text('id').primaryKey(),
   email: text('email').notNull().unique(),
   name: text('name').notNull(),
+
+  // Basic Info
   bio: text('bio'),
-  interests: jsonb('interests').default('[]'),
-  meetingLink: text('meeting_link'),
+  headline: text('headline'),
+  location: text('location'),
+  phone: text('phone'),
+  website: text('website'),
   profileImage: text('profile_image'),
+
+  // Professional Summary
+  summary: text('summary'),
+
+  // Structured Data (JSON)
+  experience: jsonb('experience').default('[]'), // Array of job positions
+  education: jsonb('education').default('[]'), // Array of schools
+  skills: jsonb('skills').default('[]'), // Array of skills
+  certifications: jsonb('certifications').default('[]'), // Array of certs
+  projects: jsonb('projects').default('[]'), // Array of projects
+  awards: jsonb('awards').default('[]'), // Array of awards/honors
+  interests: jsonb('interests').default('[]'),
+
+  // Social/Contact
   socialLinks: jsonb('social_links').default('{}'),
+
+  // Meeting
+  meetingLink: text('meeting_link'),
   availability: text('availability'),
+
+  // AI Integration
+  geminiApiKey: text('gemini_api_key'),
+
+  // Metadata
   isAdmin: boolean('is_admin').default(false),
+  profileComplete: boolean('profile_complete').default(false),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 })
@@ -54,6 +81,7 @@ export const notes = pgTable('notes', {
 
 export const submissions = pgTable('submissions', {
   id: serial('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id),
   title: text('title').notNull(),
   description: text('description').notNull(),
   content: text('content').notNull(),
