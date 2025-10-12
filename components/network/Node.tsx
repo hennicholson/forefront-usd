@@ -29,27 +29,21 @@ export function Node({
     switch (node.type) {
       case 'center':
         return {
-          background: 'linear-gradient(135deg, #000 0%, #333 100%)',
-          border: '4px solid #fff',
-          boxShadow: isHovered
-            ? '0 0 40px rgba(255,255,255,0.6), 0 8px 32px rgba(0,0,0,0.3)'
-            : '0 0 20px rgba(255,255,255,0.3), 0 4px 16px rgba(0,0,0,0.2)'
+          background: '#000',
+          border: isHovered ? '4px solid #666' : '4px solid #000',
+          boxShadow: 'none'
         }
       case 'topic':
         return {
-          background: `linear-gradient(135deg, ${node.color} 0%, ${node.color}dd 100%)`,
-          border: `3px solid ${isHovered || isFocused ? '#fff' : node.color}`,
-          boxShadow: isHovered || isFocused
-            ? `0 0 30px ${node.color}80, 0 6px 24px rgba(0,0,0,0.2)`
-            : `0 0 15px ${node.color}40, 0 3px 12px rgba(0,0,0,0.1)`
+          background: isHovered || isFocused ? '#333' : '#666',
+          border: '3px solid #000',
+          boxShadow: 'none'
         }
       case 'user':
         return {
-          background: isHovered || isFocused ? node.color : '#fff',
-          border: `2px solid ${node.color}`,
-          boxShadow: isHovered || isFocused
-            ? `0 0 20px ${node.color}60, 0 4px 16px rgba(0,0,0,0.15)`
-            : '0 2px 8px rgba(0,0,0,0.1)'
+          background: isHovered || isFocused ? '#000' : '#fff',
+          border: '2px solid #000',
+          boxShadow: 'none'
         }
     }
   }
@@ -180,7 +174,7 @@ export function Node({
             padding: '12px 16px',
             minWidth: '200px',
             maxWidth: '280px',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+            boxShadow: 'none',
             fontSize: '12px',
             color: '#000',
             lineHeight: 1.5,
@@ -220,8 +214,8 @@ export function Node({
             left: '50%',
             transform: 'translateX(-50%)',
             marginTop: '12px',
-            background: node.color,
-            border: '2px solid #fff',
+            background: '#000',
+            border: '2px solid #000',
             borderRadius: '8px',
             padding: '8px 16px',
             fontSize: '11px',
@@ -230,7 +224,7 @@ export function Node({
             textTransform: 'uppercase',
             letterSpacing: '1px',
             whiteSpace: 'nowrap',
-            boxShadow: `0 4px 20px ${node.color}60`,
+            boxShadow: 'none',
             zIndex: 1000,
             pointerEvents: 'none'
           }}

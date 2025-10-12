@@ -101,11 +101,11 @@ export function generateMindmapLayout(
   // Calculate topic positions
   const topicPositions = calculateTopicPositions(clusters.length, centerX, centerY, topicRadius)
 
-  // Topic colors
+  // Topic colors (black and white only)
   const topicColors = [
-    '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A',
-    '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2',
-    '#F8B739', '#52B788'
+    '#000', '#333', '#666', '#999',
+    '#000', '#333', '#666', '#999',
+    '#000', '#333'
   ]
 
   // Add topic nodes and their user nodes

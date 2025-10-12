@@ -250,8 +250,29 @@ export function ContentBlockViewer({ blocks, theme = 'dark' }: ContentBlockViewe
 
       case 'chart':
         try {
-          const chartData = JSON.parse(block.data?.chartData || '{}')
-          const maxValue = Math.max(...(chartData.data || [1]))
+          // Support both old and new chart formats
+          let chartConfig
+          if (block.data?.chartConfig) {
+            chartConfig = block.data.chartConfig
+          } else if (block.data?.chartData) {
+            // Legacy format
+            const legacy = JSON.parse(block.data.chartData)
+            chartConfig = {
+              type: 'bar',
+              title: '',
+              dataRows: legacy.labels?.map((label: string, i: number) => ({
+                label,
+                value: legacy.data[i]
+              })) || [],
+              color: c.accent,
+              showValues: true
+            }
+          } else {
+            throw new Error('No chart data')
+          }
+
+          const maxValue = Math.max(...chartConfig.dataRows.map((row: any) => parseFloat(row.value) || 0), 1)
+
           return (
             <div style={{
               background: c.blockBg,
@@ -270,57 +291,203 @@ export function ContentBlockViewer({ blocks, theme = 'dark' }: ContentBlockViewe
                 fontWeight: 700,
                 borderBottom: `1px solid ${c.border}`
               }}>
-                Chart
+                {chartConfig.title || 'Chart'}
               </div>
               <div style={{
-                padding: '24px',
+                padding: '32px',
                 color: c.text
               }}>
-                {chartData.labels?.map((label: string, i: number) => (
-                  <div key={i} style={{ marginBottom: '20px' }}>
+                {/* Bar Chart */}
+                {chartConfig.type === 'bar' && (
+                  <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around', height: '250px', gap: '16px' }}>
+                    {chartConfig.dataRows.map((row: any, i: number) => {
+                      const height = ((parseFloat(row.value) || 0) / maxValue) * 100
+                      return (
+                        <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                          {chartConfig.showValues && (
+                            <div style={{ fontSize: '13px', fontWeight: 700, color: c.text, minHeight: '20px' }}>
+                              {row.value}
+                            </div>
+                          )}
+                          <div
+                            style={{
+                              width: '100%',
+                              maxWidth: '100px',
+                              height: `${height}%`,
+                              background: chartConfig.color || c.accent,
+                              borderRadius: '8px 8px 0 0',
+                              transition: 'all 0.3s',
+                              minHeight: '6px'
+                            }}
+                          />
+                          <div style={{
+                            fontSize: '13px',
+                            color: c.textSecondary,
+                            textAlign: 'center',
+                            wordBreak: 'break-word',
+                            maxWidth: '120px',
+                            fontWeight: 500
+                          }}>
+                            {row.label}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* Pie Chart */}
+                {chartConfig.type === 'pie' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '24px' }}>
                     <div style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      marginBottom: '8px'
-                    }}>
-                      <div style={{
-                        fontSize: '13px',
-                        fontWeight: 600,
-                        color: c.text
-                      }}>
-                        {label}
-                      </div>
-                      <div style={{
-                        fontSize: '14px',
-                        fontWeight: 700,
-                        color: c.text,
-                        fontFamily: 'monospace'
-                      }}>
-                        {chartData.data[i]}
-                      </div>
-                    </div>
-                    <div style={{
-                      width: '100%',
-                      height: '8px',
-                      background: c.blockBgAlt,
-                      borderRadius: '4px',
-                      overflow: 'hidden',
-                      border: `1px solid ${c.border}`
-                    }}>
-                      <div style={{
-                        background: c.accent,
-                        height: '100%',
-                        width: `${(chartData.data[i] / maxValue) * 100}%`,
-                        transition: 'width 0.5s ease'
-                      }} />
+                      width: '240px',
+                      height: '240px',
+                      borderRadius: '50%',
+                      background: `conic-gradient(${chartConfig.dataRows.map((row: any, i: number) => {
+                        const total = chartConfig.dataRows.reduce((sum: number, r: any) => sum + (parseFloat(r.value) || 0), 0)
+                        const colors = theme === 'dark'
+                          ? ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
+                          : ['#2563eb', '#059669', '#d97706', '#dc2626', '#7c3aed', '#db2777']
+                        return `${colors[i % colors.length]} ${i === 0 ? 0 : chartConfig.dataRows.slice(0, i).reduce((sum: number, r: any) => sum + ((parseFloat(r.value) || 0) / total) * 100, 0)}% ${chartConfig.dataRows.slice(0, i + 1).reduce((sum: number, r: any) => sum + ((parseFloat(r.value) || 0) / total) * 100, 0)}%`
+                      }).join(', ')})`,
+                      boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
+                    }} />
+                    <div style={{ display: 'grid', gap: '10px', width: '100%', maxWidth: '300px' }}>
+                      {chartConfig.dataRows.map((row: any, i: number) => {
+                        const colors = theme === 'dark'
+                          ? ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
+                          : ['#2563eb', '#059669', '#d97706', '#dc2626', '#7c3aed', '#db2777']
+                        return (
+                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px' }}>
+                            <div style={{ width: '20px', height: '20px', borderRadius: '4px', background: colors[i % colors.length] }} />
+                            <span style={{ color: c.text, fontWeight: 500 }}>{row.label}:</span>
+                            <span style={{ color: c.text, fontWeight: 700 }}>{row.value}</span>
+                          </div>
+                        )
+                      })}
                     </div>
                   </div>
-                ))}
+                )}
+
+                {/* Line Chart */}
+                {chartConfig.type === 'line' && (
+                  <div style={{ padding: '20px 0', position: 'relative' }}>
+                    <svg width="100%" height="220" viewBox="0 0 600 220" preserveAspectRatio="none">
+                      <polyline
+                        points={chartConfig.dataRows.map((row: any, i: number) => {
+                          const x = (i / (chartConfig.dataRows.length - 1)) * 580 + 10
+                          const y = 200 - ((parseFloat(row.value) || 0) / maxValue) * 180
+                          return `${x},${y}`
+                        }).join(' ')}
+                        fill="none"
+                        stroke={chartConfig.color || c.accent}
+                        strokeWidth="4"
+                      />
+                      {chartConfig.dataRows.map((row: any, i: number) => {
+                        const x = (i / (chartConfig.dataRows.length - 1)) * 580 + 10
+                        const y = 200 - ((parseFloat(row.value) || 0) / maxValue) * 180
+                        return (
+                          <circle key={i} cx={x} cy={y} r="6" fill={chartConfig.color || c.accent} />
+                        )
+                      })}
+                    </svg>
+                    <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '12px' }}>
+                      {chartConfig.dataRows.map((row: any, i: number) => (
+                        <div key={i} style={{ fontSize: '13px', color: c.textSecondary, textAlign: 'center', fontWeight: 500 }}>
+                          {row.label}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Area Chart */}
+                {chartConfig.type === 'area' && (
+                  <div style={{ padding: '20px 0', position: 'relative' }}>
+                    <svg width="100%" height="220" viewBox="0 0 600 220" preserveAspectRatio="none">
+                      <defs>
+                        <linearGradient id={`areaGradient-${block.id}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                          <stop offset="0%" style={{ stopColor: chartConfig.color || c.accent, stopOpacity: 0.6 }} />
+                          <stop offset="100%" style={{ stopColor: chartConfig.color || c.accent, stopOpacity: 0.1 }} />
+                        </linearGradient>
+                      </defs>
+                      <polygon
+                        points={`10,200 ${chartConfig.dataRows.map((row: any, i: number) => {
+                          const x = (i / (chartConfig.dataRows.length - 1)) * 580 + 10
+                          const y = 200 - ((parseFloat(row.value) || 0) / maxValue) * 180
+                          return `${x},${y}`
+                        }).join(' ')} 590,200`}
+                        fill={`url(#areaGradient-${block.id})`}
+                      />
+                      <polyline
+                        points={chartConfig.dataRows.map((row: any, i: number) => {
+                          const x = (i / (chartConfig.dataRows.length - 1)) * 580 + 10
+                          const y = 200 - ((parseFloat(row.value) || 0) / maxValue) * 180
+                          return `${x},${y}`
+                        }).join(' ')}
+                        fill="none"
+                        stroke={chartConfig.color || c.accent}
+                        strokeWidth="4"
+                      />
+                    </svg>
+                    <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '12px' }}>
+                      {chartConfig.dataRows.map((row: any, i: number) => (
+                        <div key={i} style={{ fontSize: '13px', color: c.textSecondary, textAlign: 'center', fontWeight: 500 }}>
+                          {row.label}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Doughnut Chart */}
+                {chartConfig.type === 'doughnut' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '24px' }}>
+                    <div style={{ position: 'relative' }}>
+                      <div style={{
+                        width: '240px',
+                        height: '240px',
+                        borderRadius: '50%',
+                        background: `conic-gradient(${chartConfig.dataRows.map((row: any, i: number) => {
+                          const total = chartConfig.dataRows.reduce((sum: number, r: any) => sum + (parseFloat(r.value) || 0), 0)
+                          const colors = theme === 'dark'
+                            ? ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
+                            : ['#2563eb', '#059669', '#d97706', '#dc2626', '#7c3aed', '#db2777']
+                          return `${colors[i % colors.length]} ${i === 0 ? 0 : chartConfig.dataRows.slice(0, i).reduce((sum: number, r: any) => sum + ((parseFloat(r.value) || 0) / total) * 100, 0)}% ${chartConfig.dataRows.slice(0, i + 1).reduce((sum: number, r: any) => sum + ((parseFloat(r.value) || 0) / total) * 100, 0)}%`
+                        }).join(', ')})`,
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
+                      }} />
+                      <div style={{
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        width: '140px',
+                        height: '140px',
+                        borderRadius: '50%',
+                        background: c.blockBg
+                      }} />
+                    </div>
+                    <div style={{ display: 'grid', gap: '10px', width: '100%', maxWidth: '300px' }}>
+                      {chartConfig.dataRows.map((row: any, i: number) => {
+                        const colors = theme === 'dark'
+                          ? ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
+                          : ['#2563eb', '#059669', '#d97706', '#dc2626', '#7c3aed', '#db2777']
+                        return (
+                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px' }}>
+                            <div style={{ width: '20px', height: '20px', borderRadius: '4px', background: colors[i % colors.length] }} />
+                            <span style={{ color: c.text, fontWeight: 500 }}>{row.label}:</span>
+                            <span style={{ color: c.text, fontWeight: 700 }}>{row.value}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )
-        } catch {
+        } catch (err) {
           return (
             <div style={{
               padding: '24px',

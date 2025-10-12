@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
@@ -7,7 +7,7 @@ import { ContentBlockEditor } from '@/components/admin/ContentBlock'
 import { SlidePreview } from '@/components/admin/SlidePreview'
 import { migrateLegacySlideToBlocks } from '@/lib/migrations/migrate-to-blocks'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core'
-import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { arrayMove, SortableContext, verticalListSortingStrategy, horizontalListSortingStrategy } from '@dnd-kit/sortable'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 
@@ -37,6 +37,89 @@ interface Module {
   learningObjectives: string[]
   slides: Slide[]
   keyTakeaways: string[]
+}
+
+// Sortable Slide Tab Component
+function SortableSlideTab({ slide, index, isActive, onClick, onDuplicate, onDelete }: any) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: slide.id })
+  const [showContextMenu, setShowContextMenu] = React.useState(false)
+  const [contextMenuPos, setContextMenuPos] = React.useState({ x: 0, y: 0 })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1
+  }
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault()
+    setContextMenuPos({ x: e.clientX, y: e.clientY })
+    setShowContextMenu(true)
+  }
+
+  React.useEffect(() => {
+    const handleClick = () => setShowContextMenu(false)
+    if (showContextMenu) {
+      document.addEventListener('click', handleClick)
+      return () => document.removeEventListener('click', handleClick)
+    }
+  }, [showContextMenu])
+
+  return (
+    <>
+      <div
+        ref={setNodeRef}
+        style={style}
+        {...attributes}
+        {...listeners}
+        onContextMenu={handleContextMenu}
+        onClick={onClick}
+        className={`px-4 py-2 rounded-lg whitespace-nowrap font-medium relative transition-all ${
+          isActive
+            ? 'bg-[#fff] text-[#000]'
+            : 'bg-[#0a0a0a] text-[#666] hover:bg-[#1a1a1a] border border-[#333]'
+        }`}
+      >
+        Slide {index + 1}
+      </div>
+
+      {/* Context Menu */}
+      {showContextMenu && (
+        <div
+          style={{
+            position: 'fixed',
+            left: contextMenuPos.x,
+            top: contextMenuPos.y,
+            zIndex: 10000
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="bg-[#1a1a1a] border border-[#333] rounded-lg shadow-xl overflow-hidden min-w-[180px]">
+            <button
+              onClick={() => {
+                onDuplicate()
+                setShowContextMenu(false)
+              }}
+              className="w-full px-4 py-2.5 text-left text-[#fff] hover:bg-[#333] flex items-center gap-3 text-sm font-medium transition-colors"
+            >
+              <span>📋</span>
+              <span>Duplicate Slide</span>
+            </button>
+            <button
+              onClick={() => {
+                onDelete()
+                setShowContextMenu(false)
+              }}
+              className="w-full px-4 py-2.5 text-left text-[#ef4444] hover:bg-[#333] flex items-center gap-3 text-sm font-medium transition-colors border-t border-[#333]"
+            >
+              <span>🗑️</span>
+              <span>Delete Slide</span>
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  )
 }
 
 // Sortable Block Component
@@ -112,7 +195,13 @@ export default function ModuleEditorPageNew() {
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [showPreview, setShowPreview] = useState(true)
 
-  const sensors = useSensors(useSensor(PointerSensor))
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // 8px of movement required before drag starts
+      },
+    })
+  )
 
   useEffect(() => {
     if (!isAuthenticated || !user?.isAdmin) {
@@ -254,6 +343,64 @@ export default function ModuleEditorPageNew() {
     setCurrentSlideIndex(module.slides.length)
   }
 
+  const handleDuplicateSlide = (index: number) => {
+    if (!module) return
+    const slideToDuplicate = module.slides[index]
+    const duplicatedSlide: Slide = {
+      ...slideToDuplicate,
+      id: Date.now(),
+      title: `${slideToDuplicate.title} (Copy)`,
+      blocks: slideToDuplicate.blocks.map(block => ({
+        ...block,
+        id: `block-${Date.now()}-${Math.random()}`
+      }))
+    }
+    const updatedSlides = [...module.slides]
+    updatedSlides.splice(index + 1, 0, duplicatedSlide)
+    setModule({ ...module, slides: updatedSlides })
+    setCurrentSlideIndex(index + 1)
+  }
+
+  const handleDeleteSlide = (index: number) => {
+    if (!module || module.slides.length === 1) {
+      alert('Cannot delete the last slide')
+      return
+    }
+    if (!confirm('Are you sure you want to delete this slide?')) return
+
+    const updatedSlides = module.slides.filter((_, i) => i !== index)
+    setModule({ ...module, slides: updatedSlides })
+
+    // Adjust current slide index if needed
+    if (currentSlideIndex >= updatedSlides.length) {
+      setCurrentSlideIndex(updatedSlides.length - 1)
+    } else if (currentSlideIndex > index) {
+      setCurrentSlideIndex(currentSlideIndex - 1)
+    }
+  }
+
+  const handleSlideDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || !module) return
+
+    const oldIndex = module.slides.findIndex(s => s.id === active.id)
+    const newIndex = module.slides.findIndex(s => s.id === over.id)
+
+    if (oldIndex !== newIndex) {
+      const reorderedSlides = arrayMove(module.slides, oldIndex, newIndex)
+      setModule({ ...module, slides: reorderedSlides })
+
+      // Update current slide index to follow the moved slide
+      if (currentSlideIndex === oldIndex) {
+        setCurrentSlideIndex(newIndex)
+      } else if (currentSlideIndex > oldIndex && currentSlideIndex <= newIndex) {
+        setCurrentSlideIndex(currentSlideIndex - 1)
+      } else if (currentSlideIndex < oldIndex && currentSlideIndex >= newIndex) {
+        setCurrentSlideIndex(currentSlideIndex + 1)
+      }
+    }
+  }
+
   if (!isAuthenticated || !user?.isAdmin) return null
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#000] text-[#fff]">Loading...</div>
   if (!module) return <div className="min-h-screen flex items-center justify-center bg-[#000] text-[#fff]">Module not found</div>
@@ -319,27 +466,29 @@ export default function ModuleEditorPageNew() {
       {/* Slide Tabs */}
       <div className="bg-[#000] border-b border-[#1a1a1a]">
         <div className="max-w-7xl mx-auto px-6">
-          <div className="flex gap-2 overflow-x-auto py-3">
-            {module.slides.map((slide, index) => (
-              <button
-                key={slide.id}
-                onClick={() => setCurrentSlideIndex(index)}
-                className={`px-4 py-2 rounded-lg whitespace-nowrap font-medium ${
-                  currentSlideIndex === index
-                    ? 'bg-[#fff] text-[#000]'
-                    : 'bg-[#0a0a0a] text-[#666] hover:bg-[#1a1a1a] border border-[#333]'
-                }`}
-              >
-                Slide {index + 1}
-              </button>
-            ))}
-            <button
-              onClick={handleAddSlide}
-              className="px-4 py-2 rounded-lg bg-[#fff] text-[#000] font-medium hover:bg-[#f0f0f0]"
-            >
-              + Add Slide
-            </button>
-          </div>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleSlideDragEnd}>
+            <SortableContext items={module.slides.map(s => s.id)} strategy={horizontalListSortingStrategy}>
+              <div className="flex gap-2 overflow-x-auto py-3">
+                {module.slides.map((slide, index) => (
+                  <SortableSlideTab
+                    key={slide.id}
+                    slide={slide}
+                    index={index}
+                    isActive={currentSlideIndex === index}
+                    onClick={() => setCurrentSlideIndex(index)}
+                    onDuplicate={() => handleDuplicateSlide(index)}
+                    onDelete={() => handleDeleteSlide(index)}
+                  />
+                ))}
+                <button
+                  onClick={handleAddSlide}
+                  className="px-4 py-2 rounded-lg bg-[#fff] text-[#000] font-medium hover:bg-[#f0f0f0] whitespace-nowrap"
+                >
+                  + Add Slide
+                </button>
+              </div>
+            </SortableContext>
+          </DndContext>
         </div>
       </div>
 

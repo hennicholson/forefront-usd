@@ -49,6 +49,8 @@ export default function AdminDashboardPage() {
   const [editingModule, setEditingModule] = useState<Module | null>(null)
   const [saving, setSaving] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [dragging, setDragging] = useState<number | null>(null)
+  const [reordering, setReordering] = useState(false)
 
   useEffect(() => {
     if (!isAuthenticated || !user?.isAdmin) {
@@ -154,6 +156,49 @@ export default function AdminDashboardPage() {
       }
     } catch (err) {
       console.error('Error deleting user:', err)
+    }
+  }
+
+  const handleDragStart = (index: number) => {
+    setDragging(index)
+  }
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault()
+    if (dragging === null || dragging === index) return
+
+    const newModules = [...modules]
+    const draggedModule = newModules[dragging]
+    newModules.splice(dragging, 1)
+    newModules.splice(index, 0, draggedModule)
+
+    setModules(newModules)
+    setDragging(index)
+  }
+
+  const handleDragEnd = async () => {
+    setDragging(null)
+
+    // Save new order to database
+    setReordering(true)
+    try {
+      const modulesWithOrder = modules.map((module, index) => ({
+        id: module.id,
+        displayOrder: index + 1
+      }))
+
+      await fetch('/api/modules', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'reorder',
+          modules: modulesWithOrder
+        })
+      })
+    } catch (err) {
+      console.error('Error reordering modules:', err)
+    } finally {
+      setReordering(false)
     }
   }
 
@@ -541,14 +586,35 @@ export default function AdminDashboardPage() {
                     alignItems: 'center',
                     marginBottom: '32px'
                   }}>
-                    <div style={{
-                      fontSize: '14px',
-                      color: '#666',
-                      textTransform: 'uppercase',
-                      letterSpacing: '1px',
-                      fontWeight: 700
-                    }}>
-                      {modules.length} Total Modules
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                      <div style={{
+                        fontSize: '14px',
+                        color: '#666',
+                        textTransform: 'uppercase',
+                        letterSpacing: '1px',
+                        fontWeight: 700
+                      }}>
+                        {modules.length} Total Modules
+                      </div>
+                      {reordering && (
+                        <div style={{
+                          fontSize: '12px',
+                          color: '#fff',
+                          background: '#333',
+                          padding: '4px 12px',
+                          borderRadius: '6px',
+                          fontWeight: 600
+                        }}>
+                          Saving order...
+                        </div>
+                      )}
+                      <div style={{
+                        fontSize: '11px',
+                        color: '#666',
+                        fontWeight: 600
+                      }}>
+                        Drag to reorder
+                      </div>
                     </div>
                     <Link href="/admin/modules">
                       <button style={{
@@ -571,13 +637,21 @@ export default function AdminDashboardPage() {
                   </div>
 
                   <div style={{ display: 'grid', gap: '16px' }}>
-                    {modules.map((module) => (
-                      <div key={module.id} style={{
-                        background: '#0a0a0a',
-                        border: '1px solid #1a1a1a',
+                    {modules.map((module, index) => (
+                      <div
+                        key={module.id}
+                        draggable={!editingModule}
+                        onDragStart={() => handleDragStart(index)}
+                        onDragOver={(e) => handleDragOver(e, index)}
+                        onDragEnd={handleDragEnd}
+                        style={{
+                        background: dragging === index ? '#1a1a1a' : '#0a0a0a',
+                        border: dragging === index ? '1px solid #fff' : '1px solid #1a1a1a',
                         borderRadius: '12px',
                         padding: '32px',
-                        transition: 'all 0.2s'
+                        transition: 'all 0.2s',
+                        cursor: editingModule ? 'default' : 'grab',
+                        opacity: dragging === index ? 0.5 : 1
                       }}>
                         {editingModule?.id === module.id ? (
                           <div>
@@ -662,6 +736,16 @@ export default function AdminDashboardPage() {
                               alignItems: 'start',
                               gap: '24px'
                             }}>
+                              {/* Drag Handle */}
+                              <div style={{
+                                fontSize: '20px',
+                                color: '#666',
+                                cursor: 'grab',
+                                userSelect: 'none',
+                                paddingTop: '4px'
+                              }}>
+                                ≡
+                              </div>
                               <div style={{ flex: 1 }}>
                                 <h3 style={{
                                   fontSize: '22px',

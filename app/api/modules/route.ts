@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { modules } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { eq, asc } from 'drizzle-orm'
 
 export async function GET(request: Request) {
   try {
@@ -20,8 +20,8 @@ export async function GET(request: Request) {
       return NextResponse.json(result)
     }
 
-    // Otherwise return all modules
-    const allModules = await db.select().from(modules)
+    // Otherwise return all modules sorted by displayOrder
+    const allModules = await db.select().from(modules).orderBy(asc(modules.displayOrder))
     return NextResponse.json(allModules)
   } catch (error: any) {
     console.error('Error fetching modules:', error)
@@ -89,6 +89,36 @@ export async function PUT(request: Request) {
     console.error('Error updating module:', error)
     return NextResponse.json(
       { error: 'Failed to update module', details: error.message },
+      { status: 500 }
+    )
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const body = await request.json()
+
+    // Check if this is a reorder request
+    if (body.action === 'reorder' && body.modules) {
+      // Update display order for multiple modules
+      for (const mod of body.modules) {
+        await db
+          .update(modules)
+          .set({ displayOrder: mod.displayOrder })
+          .where(eq(modules.id, mod.id))
+      }
+
+      return NextResponse.json({ success: true })
+    }
+
+    return NextResponse.json(
+      { error: 'Invalid request' },
+      { status: 400 }
+    )
+  } catch (error: any) {
+    console.error('Error updating modules:', error)
+    return NextResponse.json(
+      { error: 'Failed to update modules', details: error.message },
       { status: 500 }
     )
   }

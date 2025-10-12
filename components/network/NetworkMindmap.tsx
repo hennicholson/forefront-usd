@@ -199,11 +199,12 @@ export function NetworkMindmap({
         position: 'relative',
         width: '100%',
         height: '600px',
-        background: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%)',
-        borderRadius: '20px',
+        background: '#fafafa',
+        borderRadius: '16px',
         overflow: 'hidden',
         cursor: isDraggingCanvas ? 'grabbing' : 'grab',
-        border: '3px solid #333'
+        border: '3px solid #000',
+        boxShadow: 'none'
       }}
       onMouseDown={handleCanvasMouseDown}
       onMouseMove={handleCanvasMouseMove}
@@ -227,17 +228,30 @@ export function NetworkMindmap({
         <button
           onClick={() => setZoom(z => Math.min(3, z * 1.2))}
           style={{
-            width: '40px',
-            height: '40px',
+            width: '44px',
+            height: '44px',
             background: '#fff',
             border: '2px solid #000',
             borderRadius: '8px',
             fontSize: '20px',
             fontWeight: 700,
+            color: '#000',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center'
+            justifyContent: 'center',
+            transition: 'all 0.2s ease',
+            boxShadow: 'none'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = '#000'
+            e.currentTarget.style.color = '#fff'
+            e.currentTarget.style.transform = 'scale(1.05)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = '#fff'
+            e.currentTarget.style.color = '#000'
+            e.currentTarget.style.transform = 'scale(1)'
           }}
         >
           +
@@ -245,17 +259,30 @@ export function NetworkMindmap({
         <button
           onClick={() => setZoom(z => Math.max(0.3, z * 0.8))}
           style={{
-            width: '40px',
-            height: '40px',
+            width: '44px',
+            height: '44px',
             background: '#fff',
             border: '2px solid #000',
             borderRadius: '8px',
             fontSize: '20px',
             fontWeight: 700,
+            color: '#000',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center'
+            justifyContent: 'center',
+            transition: 'all 0.2s ease',
+            boxShadow: 'none'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = '#000'
+            e.currentTarget.style.color = '#fff'
+            e.currentTarget.style.transform = 'scale(1.05)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = '#fff'
+            e.currentTarget.style.color = '#000'
+            e.currentTarget.style.transform = 'scale(1)'
           }}
         >
           −
@@ -267,16 +294,29 @@ export function NetworkMindmap({
             setFocusedNodeId(null)
           }}
           style={{
-            width: '40px',
-            height: '40px',
+            width: '44px',
+            height: '44px',
             background: '#fff',
             border: '2px solid #000',
             borderRadius: '8px',
             fontSize: '18px',
+            color: '#000',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center'
+            justifyContent: 'center',
+            transition: 'all 0.2s ease',
+            boxShadow: 'none'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = '#000'
+            e.currentTarget.style.color = '#fff'
+            e.currentTarget.style.transform = 'scale(1.05)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = '#fff'
+            e.currentTarget.style.color = '#000'
+            e.currentTarget.style.transform = 'scale(1)'
           }}
         >
           ⟲
@@ -290,23 +330,24 @@ export function NetworkMindmap({
           bottom: '20px',
           left: '20px',
           zIndex: 1000,
-          background: 'rgba(0, 0, 0, 0.8)',
-          border: '2px solid #fff',
-          borderRadius: '12px',
+          background: '#fff',
+          border: '2px solid #000',
+          borderRadius: '10px',
           padding: '12px 20px',
-          color: '#fff',
-          fontSize: '12px',
+          color: '#000',
+          fontSize: '11px',
           fontWeight: 600,
           textTransform: 'uppercase',
           letterSpacing: '1px',
           display: 'flex',
           gap: '16px',
-          flexWrap: 'wrap'
+          flexWrap: 'wrap',
+          boxShadow: 'none'
         }}
       >
         <span>🖱️ drag to pan</span>
         <span>🔍 scroll to zoom</span>
-        <span>👆 click nodes to interact</span>
+        <span>👆 click nodes</span>
       </div>
 
       {/* Mindmap Canvas */}
@@ -363,32 +404,40 @@ export function NetworkMindmap({
             position: 'absolute',
             top: '20px',
             left: '20px',
-            background: nodes.find(n => n.id === focusedNodeId)?.color || '#000',
-            border: '3px solid #fff',
-            borderRadius: '12px',
-            padding: '12px 24px',
+            background: '#000',
+            border: '2px solid #000',
+            borderRadius: '10px',
+            padding: '14px 24px',
             color: '#fff',
-            fontSize: '16px',
+            fontSize: '15px',
             fontWeight: 700,
             textTransform: 'lowercase',
             zIndex: 1000,
             display: 'flex',
             alignItems: 'center',
-            gap: '12px'
+            gap: '12px',
+            boxShadow: 'none'
           }}
         >
-          <span>focused: {nodes.find(n => n.id === focusedNodeId)?.label}</span>
+          <span>✨ focused: {nodes.find(n => n.id === focusedNodeId)?.label}</span>
           <button
             onClick={() => setFocusedNodeId(null)}
             style={{
               background: '#fff',
               color: '#000',
-              border: 'none',
+              border: '1px solid #fff',
               borderRadius: '6px',
-              padding: '4px 12px',
+              padding: '6px 14px',
               fontSize: '12px',
               fontWeight: 700,
-              cursor: 'pointer'
+              cursor: 'pointer',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = '#e0e0e0'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = '#fff'
             }}
           >
             clear

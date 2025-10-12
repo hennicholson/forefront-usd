@@ -55,6 +55,7 @@ export const modules = pgTable('modules', {
   learningObjectives: jsonb('learning_objectives').notNull(),
   slides: jsonb('slides').notNull(),
   keyTakeaways: jsonb('key_takeaways').notNull(),
+  displayOrder: integer('display_order').default(0),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 })
@@ -109,4 +110,83 @@ export const learning = pgTable('learning', {
   status: text('status').notNull().default('learning'), // learning, completed, paused
   startedAt: timestamp('started_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
+})
+
+// Messages table - For chat messages
+export const messages = pgTable('messages', {
+  id: serial('id').primaryKey(),
+  senderId: text('sender_id').notNull().references(() => users.id),
+  receiverId: text('receiver_id').references(() => users.id), // null for group chats
+  roomId: text('room_id'), // for group/topic chats
+  content: text('content').notNull(),
+  type: text('type').notNull().default('text'), // text, image, file
+  createdAt: timestamp('created_at').defaultNow(),
+})
+
+// Connections table - User relationships
+export const connections = pgTable('connections', {
+  id: serial('id').primaryKey(),
+  followerId: text('follower_id').notNull().references(() => users.id),
+  followingId: text('following_id').notNull().references(() => users.id),
+  status: text('status').notNull().default('pending'), // pending, accepted, rejected
+  createdAt: timestamp('created_at').defaultNow(),
+})
+
+// Posts table - Social updates
+export const posts = pgTable('posts', {
+  id: serial('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id),
+  content: text('content').notNull(),
+  type: text('type').notNull().default('text'), // text, link, achievement
+  metadata: jsonb('metadata').default('{}'), // for links, images, etc.
+  createdAt: timestamp('created_at').defaultNow(),
+})
+
+// Comments table
+export const comments = pgTable('comments', {
+  id: serial('id').primaryKey(),
+  postId: integer('post_id').notNull().references(() => posts.id),
+  userId: text('user_id').notNull().references(() => users.id),
+  content: text('content').notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+})
+
+// Reactions table
+export const reactions = pgTable('reactions', {
+  id: serial('id').primaryKey(),
+  postId: integer('post_id').references(() => posts.id),
+  commentId: integer('comment_id').references(() => comments.id),
+  userId: text('user_id').notNull().references(() => users.id),
+  type: text('type').notNull(), // like, helpful, insightful
+  createdAt: timestamp('created_at').defaultNow(),
+})
+
+// Study groups
+export const studyGroups = pgTable('study_groups', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull(),
+  description: text('description'),
+  topic: text('topic').notNull(),
+  createdBy: text('created_by').notNull().references(() => users.id),
+  createdAt: timestamp('created_at').defaultNow(),
+})
+
+// Group members
+export const groupMembers = pgTable('group_members', {
+  id: serial('id').primaryKey(),
+  groupId: integer('group_id').notNull().references(() => studyGroups.id),
+  userId: text('user_id').notNull().references(() => users.id),
+  role: text('role').notNull().default('member'), // admin, moderator, member
+  joinedAt: timestamp('joined_at').defaultNow(),
+})
+
+// Notifications
+export const notifications = pgTable('notifications', {
+  id: serial('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id),
+  type: text('type').notNull(), // connection_request, new_message, post_comment, etc.
+  content: text('content').notNull(),
+  metadata: jsonb('metadata').default('{}'),
+  read: boolean('read').notNull().default(false),
+  createdAt: timestamp('created_at').defaultNow(),
 })

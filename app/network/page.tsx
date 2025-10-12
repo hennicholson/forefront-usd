@@ -4,6 +4,31 @@ import { useAuth } from '@/contexts/AuthContext'
 import Link from 'next/link'
 import { UserProfileModal } from '@/components/profile/UserProfileModal'
 import { NetworkMindmap } from '@/components/network/NetworkMindmap'
+import { ChatWidget } from '@/components/chat/ChatWidget'
+import { ActivityFeed } from '@/components/social/ActivityFeed'
+import { ConnectionSuggestions } from '@/components/social/ConnectionSuggestions'
+import { QuickActions } from '@/components/social/QuickActions'
+
+// Add CSS animations
+if (typeof document !== 'undefined') {
+  const style = document.createElement('style')
+  style.textContent = `
+    @keyframes float {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      25% { transform: translate(10px, -20px) scale(1.05); }
+      50% { transform: translate(-5px, -10px) scale(0.95); }
+      75% { transform: translate(-15px, 5px) scale(1.02); }
+    }
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+  `
+  if (!document.querySelector('style[data-network-animations]')) {
+    style.setAttribute('data-network-animations', 'true')
+    document.head.appendChild(style)
+  }
+}
 
 interface LearningNode {
   id: number
@@ -37,7 +62,26 @@ export default function NetworkPage() {
   const [loading, setLoading] = useState(true)
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
   const [showProfileModal, setShowProfileModal] = useState(false)
-  const [viewMode, setViewMode] = useState<'mindmap' | 'grid'>('mindmap')
+  const [viewMode, setViewMode] = useState<'mindmap' | 'grid' | 'social'>('social')
+  const [activityFeedRef, setActivityFeedRef] = useState<any>(null)
+
+  const handleStartDiscussion = () => {
+    if (viewMode !== 'social') {
+      setViewMode('social')
+    }
+    // Scroll to activity feed
+    setTimeout(() => {
+      const feedElement = document.querySelector('[data-activity-feed]')
+      if (feedElement) {
+        feedElement.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        // Focus the textarea
+        const textarea = feedElement.querySelector('textarea')
+        if (textarea) {
+          textarea.focus()
+        }
+      }
+    }, 100)
+  }
 
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -128,7 +172,7 @@ export default function NetworkPage() {
       </div>
 
       {/* Interactive Mindmap */}
-      <div className="section white" style={{ paddingTop: '60px', paddingBottom: '120px' }}>
+      <div className="section white" style={{ paddingTop: '24px', paddingBottom: '60px' }}>
         <div className="content">
           {loading ? (
             <div style={{ padding: '80px', textAlign: 'center', color: '#666' }}>
@@ -155,11 +199,11 @@ export default function NetworkPage() {
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'flex-start',
-                marginBottom: '32px',
-                paddingBottom: '20px',
+                marginBottom: '24px',
+                paddingBottom: '16px',
                 borderBottom: '2px solid #e0e0e0',
                 flexWrap: 'wrap',
-                gap: '16px'
+                gap: '12px'
               }}>
                 {/* Topic Filter */}
                 <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', flex: 1 }}>
@@ -215,6 +259,25 @@ export default function NetworkPage() {
                   border: '2px solid #e0e0e0'
                 }}>
                   <button
+                    onClick={() => setViewMode('social')}
+                    style={{
+                      padding: '10px 20px',
+                      background: viewMode === 'social' ? '#000' : 'transparent',
+                      color: viewMode === 'social' ? '#fff' : '#666',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      fontFamily: 'inherit'
+                    }}
+                  >
+                    social
+                  </button>
+                  <button
                     onClick={() => setViewMode('mindmap')}
                     style={{
                       padding: '10px 20px',
@@ -231,7 +294,7 @@ export default function NetworkPage() {
                       fontFamily: 'inherit'
                     }}
                   >
-                    🗺️ mindmap
+                    mindmap
                   </button>
                   <button
                     onClick={() => setViewMode('grid')}
@@ -250,10 +313,34 @@ export default function NetworkPage() {
                       fontFamily: 'inherit'
                     }}
                   >
-                    ⊞ grid
+                    grid
                   </button>
                 </div>
               </div>
+
+              {/* Social View */}
+              {viewMode === 'social' && (
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)',
+                  gap: '24px',
+                  alignItems: 'start'
+                }}>
+                  <div data-activity-feed>
+                    <ActivityFeed />
+                  </div>
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '20px',
+                    position: 'sticky',
+                    top: '24px'
+                  }}>
+                    <QuickActions onStartDiscussion={handleStartDiscussion} />
+                    <ConnectionSuggestions />
+                  </div>
+                </div>
+              )}
 
               {/* Mindmap View */}
               {viewMode === 'mindmap' && (
@@ -397,6 +484,9 @@ export default function NetworkPage() {
           }}
         />
       )}
+
+      {/* AI Chat Widget */}
+      <ChatWidget />
     </main>
   )
 }

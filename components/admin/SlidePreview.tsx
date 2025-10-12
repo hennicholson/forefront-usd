@@ -83,7 +83,7 @@ export function SlidePreview({ slide, slideNumber }: SlidePreviewProps) {
 
       {/* Preview Content Blocks */}
       {slide.blocks && slide.blocks.length > 0 ? (
-        <ContentBlockViewer blocks={slide.blocks} />
+        <ContentBlockViewer blocks={slide.blocks as any} />
       ) : (
         <div style={{
           padding: '60px 20px',

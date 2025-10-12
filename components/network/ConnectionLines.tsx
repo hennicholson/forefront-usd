@@ -247,11 +247,10 @@ export function ConnectionLines({
                 y1={activeNode.y}
                 x2={relatedNode.x}
                 y2={relatedNode.y}
-                stroke="#FFD700"
+                stroke="#000"
                 strokeWidth="2"
                 strokeDasharray="4 4"
                 opacity={0.6}
-                filter="url(#glow)"
                 initial={{ pathLength: 0, opacity: 0 }}
                 animate={{ pathLength: 1, opacity: 0.6 }}
                 transition={{ duration: 0.5 }}

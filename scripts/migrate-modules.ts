@@ -41,7 +41,8 @@ async function migrateModules() {
       }
 
       const [result] = await db.insert(modulesTable).values(dbModule).returning()
-      console.log(`✓ Migrated: ${result.title} (${result.slides.length} slides)`)
+      const slidesArray = Array.isArray(result.slides) ? result.slides : []
+      console.log(`✓ Migrated: ${result.title} (${slidesArray.length} slides)`)
     } catch (error: any) {
       console.error(`✗ Failed to migrate ${staticModule.title}:`, error.message)
     }

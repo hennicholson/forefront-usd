@@ -49,7 +49,7 @@ export function RichTextEditor({ content, onChange, placeholder = 'Start typing.
     if (editor && !isLocalChange.current) {
       const currentContent = editor.getHTML()
       if (content && content !== currentContent) {
-        editor.commands.setContent(content, false)
+        editor.commands.setContent(content, { emitUpdate: false })
       }
     }
     isLocalChange.current = false
