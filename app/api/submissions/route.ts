@@ -115,12 +115,20 @@ export async function PATCH(request: Request) {
 export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
-    const id = searchParams.get('id')
+    const idParam = searchParams.get('id')
     const userId = searchParams.get('userId')
 
-    if (!id) {
+    if (!idParam) {
       return NextResponse.json(
         { error: 'Submission ID is required' },
+        { status: 400 }
+      )
+    }
+
+    const id = parseInt(idParam)
+    if (isNaN(id)) {
+      return NextResponse.json(
+        { error: 'Invalid submission ID' },
         { status: 400 }
       )
     }
