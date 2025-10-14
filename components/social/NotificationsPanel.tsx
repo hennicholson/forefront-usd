@@ -91,6 +91,7 @@ export function NotificationsPanel({ isOpen, onClose }: NotificationsPanelProps)
       case 'connection': return '→'
       case 'like': return '↑'
       case 'comment': return '○'
+      case 'mention': return '@'
       case 'group': return '●'
       default: return '•'
     }

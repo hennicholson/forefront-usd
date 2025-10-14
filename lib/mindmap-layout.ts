@@ -76,7 +76,7 @@ export function calculateUserPositions(
 export function generateMindmapLayout(
   clusters: Array<{
     topic: string
-    users: Array<{ userId: string; userName: string; userBio: string | null; modules: string[] }>
+    users: Array<{ userId: string; userName: string; userBio: string | null; userProfileImage?: string | null; modules: string[] }>
   }>,
   options: LayoutOptions
 ): { nodes: MindmapNode[]; connections: MindmapConnection[] } {
@@ -159,6 +159,7 @@ export function generateMindmapLayout(
           userId: user.userId,
           userName: user.userName,
           userBio: user.userBio,
+          userProfileImage: user.userProfileImage,
           modules: user.modules,
           topicId
         }

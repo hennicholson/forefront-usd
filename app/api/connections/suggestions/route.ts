@@ -50,6 +50,7 @@ export async function GET(request: Request) {
         .select({
           userId: users.id,
           userName: users.name,
+          userProfileImage: users.profileImage,
           bio: users.bio,
         })
         .from(users)
@@ -74,6 +75,7 @@ export async function GET(request: Request) {
       .select({
         userId: users.id,
         userName: users.name,
+        userProfileImage: users.profileImage,
         bio: users.bio,
         moduleId: learning.moduleId,
       })
@@ -95,6 +97,7 @@ export async function GET(request: Request) {
         userMap.set(s.userId, {
           userId: s.userId,
           userName: s.userName,
+          userProfileImage: s.userProfileImage,
           bio: s.bio || 'Learning on Four Phone USD',
           sharedTopics: [],
           mutualConnections: 0

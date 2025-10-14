@@ -67,6 +67,15 @@ export interface SocialLinks {
   other?: string
 }
 
+export interface ProfileVisibility {
+  experience: boolean
+  education: boolean
+  skills: boolean
+  certifications: boolean
+  projects: boolean
+  awards: boolean
+}
+
 export interface UserProfile {
   id: string
   email: string
@@ -98,6 +107,9 @@ export interface UserProfile {
   // Meeting
   meetingLink?: string
   availability?: string
+
+  // Visibility
+  profileVisibility?: ProfileVisibility
 
   // Meta
   isAdmin?: boolean

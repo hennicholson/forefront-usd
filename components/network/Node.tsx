@@ -1,6 +1,7 @@
 'use client'
 import { motion, PanInfo } from 'framer-motion'
 import { MindmapNode } from '@/lib/mindmap-layout'
+import { Avatar } from '@/components/common/Avatar'
 
 interface NodeProps {
   node: MindmapNode
@@ -107,29 +108,39 @@ export function Node({
           alignItems: 'center',
           justifyContent: 'center',
           textAlign: 'center',
-          padding: '8px',
+          padding: node.type === 'user' ? '0' : '8px',
           transition: 'all 0.3s ease',
-          ...getNodeStyle()
+          ...getNodeStyle(),
+          overflow: 'hidden'
         }}
       >
-        <div
-          style={{
-            fontSize: getFontSize(),
-            fontWeight: node.type === 'center' ? 900 : 700,
-            color: getTextColor(),
-            textTransform: node.type === 'center' ? 'uppercase' : 'lowercase',
-            letterSpacing: node.type === 'center' ? '1px' : '0px',
-            lineHeight: 1.2,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            display: '-webkit-box',
-            WebkitLineClamp: node.type === 'user' ? 2 : 3,
-            WebkitBoxOrient: 'vertical',
-            wordBreak: 'break-word'
-          }}
-        >
-          {node.label}
-        </div>
+        {node.type === 'user' && node.data?.userProfileImage ? (
+          <Avatar
+            src={node.data.userProfileImage}
+            name={node.label}
+            size="xl"
+            style={{ width: '100%', height: '100%', border: 'none' }}
+          />
+        ) : (
+          <div
+            style={{
+              fontSize: getFontSize(),
+              fontWeight: node.type === 'center' ? 900 : 700,
+              color: getTextColor(),
+              textTransform: node.type === 'center' ? 'uppercase' : 'lowercase',
+              letterSpacing: node.type === 'center' ? '1px' : '0px',
+              lineHeight: 1.2,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              display: '-webkit-box',
+              WebkitLineClamp: node.type === 'user' ? 2 : 3,
+              WebkitBoxOrient: 'vertical',
+              wordBreak: 'break-word'
+            }}
+          >
+            {node.label}
+          </div>
+        )}
       </div>
 
       {/* Pulse animation for center node */}

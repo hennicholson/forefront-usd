@@ -13,6 +13,7 @@ interface User {
   phone?: string
   website?: string
   profileImage?: string
+  bannerImage?: string
 
   // Professional Summary
   summary?: string
@@ -42,6 +43,10 @@ interface User {
 
   // AI Integration
   geminiApiKey?: string
+
+  // Onboarding
+  onboardingComplete?: boolean
+  onboardingStep?: number
 
   // Metadata
   isAdmin?: boolean
@@ -135,6 +140,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!res.ok) {
         const error = await res.json()
+
+        // If user already exists, try to log them in instead
+        if (error.error === 'User already exists') {
+          console.log('User exists, logging in instead...')
+          return await login(email, password)
+        }
+
         console.error('Signup error:', error)
         return false
       }

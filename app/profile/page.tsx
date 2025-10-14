@@ -1,11 +1,13 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
 import { UserProfile } from '@/types/profile'
 import { QuickFillQuestionnaire } from '@/components/profile/QuickFillQuestionnaire'
 import { ProfileEditor } from '@/components/profile/ProfileEditor'
 import { LinkedInImport } from '@/components/profile/LinkedInImport'
+import { Avatar } from '@/components/common/Avatar'
+import { ImageCropper } from '@/components/profile/ImageCropper'
 
 export default function ProfilePage() {
   const { user, isAuthenticated } = useAuth()
@@ -28,10 +30,21 @@ export default function ProfilePage() {
       linkedin: '',
       twitter: '',
       github: ''
-    }
+    },
+    profileImage: '',
+    bannerImage: ''
   })
 
   const [interestInput, setInterestInput] = useState('')
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const [cropperData, setCropperData] = useState<{
+    imageUrl: string
+    type: 'profile' | 'banner'
+  } | null>(null)
+  const [bannerPosition, setBannerPosition] = useState({ x: 50, y: 50 })
+  const [profilePosition, setProfilePosition] = useState({ x: 50, y: 50 })
+  const profileImageInputRef = useRef<HTMLInputElement>(null)
+  const bannerImageInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -54,7 +67,9 @@ export default function ProfilePage() {
             meetingLink: data.meetingLink || 'https://skinny-studio.whereby.com/forefront54fe1520-5c6b-46bd-b624-31950bf609b9',
             availability: data.availability || '',
             geminiApiKey: data.geminiApiKey || '',
-            socialLinks: data.socialLinks || { linkedin: '', twitter: '', github: '' }
+            socialLinks: data.socialLinks || { linkedin: '', twitter: '', github: '' },
+            profileImage: data.profileImage || '',
+            bannerImage: data.bannerImage || ''
           })
         }
       } catch (err) {
@@ -132,6 +147,76 @@ export default function ProfilePage() {
     })
   }
 
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>, type: 'profile' | 'banner') => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file')
+      return
+    }
+
+    // Validate file size (2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      alert('Image size must be less than 2MB')
+      return
+    }
+
+    setUploadingImage(true)
+
+    try {
+      // Convert to base64
+      const reader = new FileReader()
+      reader.onloadend = async () => {
+        const base64 = reader.result as string
+
+        // Open cropper instead of directly setting the image
+        setCropperData({ imageUrl: base64, type })
+        setUploadingImage(false)
+      }
+      reader.readAsDataURL(file)
+    } catch (error) {
+      console.error('Error uploading image:', error)
+      alert('Failed to upload image')
+      setUploadingImage(false)
+    }
+
+    // Reset input
+    event.target.value = ''
+  }
+
+  const handleCropComplete = (position: { x: number; y: number }) => {
+    if (!cropperData) return
+
+    // Set the image and position
+    if (cropperData.type === 'profile') {
+      setFormData({ ...formData, profileImage: cropperData.imageUrl })
+      setProfilePosition(position)
+    } else {
+      setFormData({ ...formData, bannerImage: cropperData.imageUrl })
+      setBannerPosition(position)
+    }
+
+    // Close cropper
+    setCropperData(null)
+  }
+
+  const handleCropCancel = () => {
+    setCropperData(null)
+  }
+
+  const removeImage = (type: 'profile' | 'banner') => {
+    if (type === 'profile') {
+      setFormData({ ...formData, profileImage: '' })
+      setProfilePosition({ x: 50, y: 50 })
+    } else {
+      setFormData({ ...formData, bannerImage: '' })
+      setBannerPosition({ x: 50, y: 50 })
+    }
+  }
+
+
   if (!isAuthenticated) return null
 
   return (
@@ -177,6 +262,239 @@ export default function ProfilePage() {
             </div>
           ) : (
             <div style={{ maxWidth: '800px' }}>
+              {/* Profile Preview & Image Uploads */}
+              <div style={{ marginBottom: '48px', paddingBottom: '32px', borderBottom: '2px solid #e0e0e0' }}>
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '1.5px',
+                    color: '#000'
+                  }}>
+                    Profile Customization
+                  </label>
+                  <p style={{
+                    fontSize: '12px',
+                    color: '#666',
+                    marginTop: '4px'
+                  }}>
+                    Upload images and crop them to your preference
+                  </p>
+                </div>
+
+                {/* Banner Image */}
+                <div style={{ marginBottom: '24px' }}>
+                  <div style={{
+                    position: 'relative',
+                    width: '100%',
+                    height: '200px',
+                    borderRadius: '12px',
+                    border: '2px solid #e0e0e0',
+                    overflow: 'hidden',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    {formData.bannerImage ? (
+                      <div style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        backgroundImage: `url(${formData.bannerImage})`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: `${bannerPosition.x}% ${bannerPosition.y}%`
+                      }} />
+                    ) : (
+                      <div style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}>
+                        <div style={{ color: '#fff', fontSize: '14px', fontWeight: 600, textAlign: 'center', zIndex: 2, position: 'relative' }}>
+                          Banner Image
+                        </div>
+                      </div>
+                    )}
+                    <div style={{
+                      position: 'absolute',
+                      bottom: '12px',
+                      right: '12px',
+                      display: 'flex',
+                      gap: '8px'
+                    }}>
+                      <button
+                        type="button"
+                        onClick={() => bannerImageInputRef.current?.click()}
+                        disabled={uploadingImage}
+                        style={{
+                          padding: '8px 16px',
+                          background: '#fff',
+                          border: '2px solid #000',
+                          borderRadius: '6px',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          cursor: uploadingImage ? 'not-allowed' : 'pointer',
+                          opacity: uploadingImage ? 0.6 : 1
+                        }}
+                      >
+                        {formData.bannerImage ? 'Change' : 'Upload'} Banner
+                      </button>
+                      {formData.bannerImage && (
+                        <button
+                          type="button"
+                          onClick={() => removeImage('banner')}
+                          style={{
+                            padding: '8px 16px',
+                            background: '#ff4444',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            color: '#fff',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <input
+                    ref={bannerImageInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleImageUpload(e, 'banner')}
+                    style={{ display: 'none' }}
+                  />
+                  <p style={{ fontSize: '12px', color: '#666', marginTop: '8px' }}>
+                    Recommended: 1200x300px, max 2MB (JPG, PNG, WebP)
+                  </p>
+                </div>
+
+                {/* Profile Picture */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+                  <div style={{ position: 'relative' }}>
+                    <div style={{
+                      position: 'relative',
+                      width: '96px',
+                      height: '96px',
+                      borderRadius: '50%',
+                      overflow: 'hidden',
+                      border: '4px solid #fff',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      {formData.profileImage ? (
+                        <div style={{
+                          position: 'absolute',
+                          top: '-50%',
+                          left: '-50%',
+                          width: '200%',
+                          height: '200%',
+                          backgroundImage: `url(${formData.profileImage})`,
+                          backgroundSize: 'cover',
+                          backgroundPosition: `${profilePosition.x}% ${profilePosition.y}%`
+                        }} />
+                      ) : (
+                        <Avatar
+                          src={null}
+                          name={formData.name || user?.name || 'User'}
+                          size="xl"
+                        />
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => profileImageInputRef.current?.click()}
+                      disabled={uploadingImage}
+                      style={{
+                        position: 'absolute',
+                        bottom: 0,
+                        right: 0,
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '50%',
+                        background: '#000',
+                        border: '3px solid #fff',
+                        color: '#fff',
+                        fontSize: '16px',
+                        cursor: uploadingImage ? 'not-allowed' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        opacity: uploadingImage ? 0.6 : 1
+                      }}
+                      title="Change profile picture"
+                    >
+                      📷
+                    </button>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '8px', color: '#000' }}>
+                      Profile Picture
+                    </h3>
+                    <p style={{ fontSize: '13px', color: '#666', marginBottom: '12px' }}>
+                      This will be displayed across the app. Recommended: Square image, max 2MB.
+                    </p>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        type="button"
+                        onClick={() => profileImageInputRef.current?.click()}
+                        disabled={uploadingImage}
+                        style={{
+                          padding: '8px 16px',
+                          background: '#fff',
+                          border: '2px solid #000',
+                          borderRadius: '6px',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          cursor: uploadingImage ? 'not-allowed' : 'pointer',
+                          opacity: uploadingImage ? 0.6 : 1
+                        }}
+                      >
+                        {formData.profileImage ? 'Change' : 'Upload'} Photo
+                      </button>
+                      {formData.profileImage && (
+                        <button
+                          type="button"
+                          onClick={() => removeImage('profile')}
+                          style={{
+                            padding: '8px 16px',
+                            background: 'transparent',
+                            border: '2px solid #ff4444',
+                            borderRadius: '6px',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            color: '#ff4444',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <input
+                    ref={profileImageInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleImageUpload(e, 'profile')}
+                    style={{ display: 'none' }}
+                  />
+                </div>
+              </div>
+
               {/* Name */}
               <div style={{ marginBottom: '32px' }}>
                 <label style={{
@@ -683,6 +1001,16 @@ export default function ProfilePage() {
             setShowLinkedInImport(false)
           }}
           onCancel={() => setShowLinkedInImport(false)}
+        />
+      )}
+
+      {/* Image Cropper Modal */}
+      {cropperData && (
+        <ImageCropper
+          imageUrl={cropperData.imageUrl}
+          type={cropperData.type}
+          onComplete={handleCropComplete}
+          onCancel={handleCropCancel}
         />
       )}
     </main>

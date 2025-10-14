@@ -719,6 +719,11 @@ export function ContentBlockEditor({ block, onChange, onDelete, onDuplicate }: C
         return <ChartBlockEditor block={block} onChange={onChange} labelStyle={labelStyle} inputStyle={inputStyle} />
 
       case 'quiz':
+        // Convert array to string if needed
+        const optionsValue = Array.isArray(block.data?.options)
+          ? block.data.options.join('\n')
+          : (block.data?.options || '')
+
         return (
           <div style={{ display: 'grid', gap: '16px' }}>
             <div>
@@ -734,7 +739,7 @@ export function ContentBlockEditor({ block, onChange, onDelete, onDuplicate }: C
             <div>
               <label style={labelStyle}>Answer Options (one per line)</label>
               <textarea
-                value={block.data?.options || ''}
+                value={optionsValue}
                 onChange={(e) => onChange({ ...block, data: { ...block.data, options: e.target.value } })}
                 rows={5}
                 placeholder={"Option 1\nOption 2\nOption 3\nOption 4"}

@@ -8,6 +8,10 @@ import { ChatWidget } from '@/components/chat/ChatWidget'
 import { ActivityFeed } from '@/components/social/ActivityFeed'
 import { ConnectionSuggestions } from '@/components/social/ConnectionSuggestions'
 import { QuickActions } from '@/components/social/QuickActions'
+import { Avatar } from '@/components/common/Avatar'
+import { LoginModal } from '@/components/auth/LoginModal'
+import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow'
+import { useRouter } from 'next/navigation'
 
 // Add CSS animations
 if (typeof document !== 'undefined') {
@@ -36,6 +40,7 @@ interface LearningNode {
   userName: string
   userBio: string | null
   userInterests: string[]
+  userProfileImage?: string | null
   moduleId: string
   moduleTitle: string
   moduleSlug: string
@@ -50,12 +55,14 @@ interface TopicCluster {
     userId: string
     userName: string
     userBio: string | null
+    userProfileImage?: string | null
     modules: string[]
   }[]
 }
 
 export default function NetworkPage() {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, signup } = useAuth()
+  const router = useRouter()
   const [learningData, setLearningData] = useState<LearningNode[]>([])
   const [clusters, setClusters] = useState<TopicCluster[]>([])
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null)
@@ -64,6 +71,8 @@ export default function NetworkPage() {
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [viewMode, setViewMode] = useState<'mindmap' | 'grid' | 'social'>('social')
   const [activityFeedRef, setActivityFeedRef] = useState<any>(null)
+  const [showLoginModal, setShowLoginModal] = useState(false)
+  const [showOnboarding, setShowOnboarding] = useState(false)
 
   const handleStartDiscussion = () => {
     if (viewMode !== 'social') {
@@ -118,6 +127,7 @@ export default function NetworkPage() {
               userId: node.userId,
               userName: node.userName,
               userBio: node.userBio,
+              userProfileImage: node.userProfileImage,
               modules: [node.moduleTitle]
             })
           }
@@ -135,6 +145,127 @@ export default function NetworkPage() {
   const getTopicColor = (index: number) => {
     const colors = ['#000', '#333', '#666', '#999']
     return colors[index % colors.length]
+  }
+
+  // If not authenticated, show blurred page with login prompt
+  if (!isAuthenticated) {
+    return (
+      <main className="bg-black text-white min-h-screen" style={{ position: 'relative', overflow: 'hidden' }}>
+        {/* Blurred background content */}
+        <div style={{
+          filter: 'blur(10px)',
+          pointerEvents: 'none',
+          userSelect: 'none'
+        }}>
+          <div className="section" style={{ paddingTop: '100px', paddingBottom: '60px', minHeight: 'auto' }}>
+            <div className="content">
+              <div style={{ marginBottom: '40px' }}>
+                <div className="title-large" style={{ marginBottom: '16px' }}>discover learners</div>
+                <div className="subtitle" style={{ color: '#666' }}>
+                  connect with students learning ai
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="section white" style={{ paddingTop: '24px', paddingBottom: '60px', minHeight: '500px' }}>
+            <div className="content">
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px' }}>
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <div key={i} className="card" style={{ padding: '24px', minHeight: '200px' }}>
+                    <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: '#e0e0e0', marginBottom: '16px' }} />
+                    <div style={{ width: '80%', height: '16px', background: '#e0e0e0', marginBottom: '8px', borderRadius: '4px' }} />
+                    <div style={{ width: '60%', height: '12px', background: '#f0f0f0', borderRadius: '4px' }} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Login/Signup overlay */}
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.8)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 100,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+            maxWidth: '500px',
+            width: '100%',
+            padding: '48px',
+            borderRadius: '16px',
+            boxShadow: '0 8px 40px rgba(0, 0, 0, 0.3)',
+            textAlign: 'center'
+          }}>
+            <div style={{
+              fontSize: '48px',
+              marginBottom: '24px'
+            }}>
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ margin: '0 auto' }}>
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+            </div>
+            <h2 style={{
+              fontSize: 'clamp(24px, 4vw, 32px)',
+              fontWeight: 800,
+              textTransform: 'lowercase',
+              letterSpacing: '-1px',
+              marginBottom: '16px',
+              color: '#000'
+            }}>
+              join the network
+            </h2>
+            <p style={{
+              fontSize: '16px',
+              color: '#666',
+              lineHeight: 1.6,
+              marginBottom: '32px'
+            }}>
+              sign in or create an account to connect with other learners, explore the community, and join discussions
+            </p>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+              <button
+                onClick={() => setShowLoginModal(true)}
+                className="btn btn-primary"
+                style={{
+                  fontSize: '16px',
+                  padding: '16px 32px',
+                  cursor: 'pointer'
+                }}
+              >
+                sign in
+              </button>
+              <button
+                onClick={() => setShowOnboarding(true)}
+                className="btn btn-secondary"
+                style={{
+                  fontSize: '16px',
+                  padding: '16px 32px',
+                  cursor: 'pointer'
+                }}
+              >
+                sign up
+              </button>
+            </div>
+          </div>
+        </div>
+      </main>
+    )
   }
 
   return (
@@ -172,7 +303,7 @@ export default function NetworkPage() {
       </div>
 
       {/* Interactive Mindmap */}
-      <div className="section white" style={{ paddingTop: '24px', paddingBottom: '60px' }}>
+      <div className="section white" style={{ paddingTop: '24px', paddingBottom: '60px', minHeight: 'auto' }}>
         <div className="content">
           {loading ? (
             <div style={{ padding: '80px', textAlign: 'center', color: '#666' }}>
@@ -324,10 +455,18 @@ export default function NetworkPage() {
                   display: 'grid',
                   gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)',
                   gap: '24px',
-                  alignItems: 'start'
+                  alignItems: 'start',
+                  marginTop: '24px'
                 }}>
                   <div data-activity-feed>
-                    <ActivityFeed />
+                    <ActivityFeed
+                      onUserClick={(userId) => {
+                        setSelectedUserId(userId)
+                        setShowProfileModal(true)
+                      }}
+                      selectedTopic={selectedTopic}
+                      availableTopics={clusters.map(c => c.topic)}
+                    />
                   </div>
                   <div style={{
                     display: 'flex',
@@ -344,14 +483,16 @@ export default function NetworkPage() {
 
               {/* Mindmap View */}
               {viewMode === 'mindmap' && (
-                <NetworkMindmap
-                  clusters={clusters}
-                  onUserClick={(userId) => {
-                    setSelectedUserId(userId)
-                    setShowProfileModal(true)
-                  }}
-                  selectedTopic={selectedTopic}
-                />
+                <div style={{ marginTop: '24px' }}>
+                  <NetworkMindmap
+                    clusters={clusters}
+                    onUserClick={(userId) => {
+                      setSelectedUserId(userId)
+                      setShowProfileModal(true)
+                    }}
+                    selectedTopic={selectedTopic}
+                  />
+                </div>
               )}
 
               {/* Grid View */}
@@ -359,7 +500,8 @@ export default function NetworkPage() {
                 <div style={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-                  gap: '32px'
+                  gap: '32px',
+                  marginTop: '24px'
                 }}>
                   {(selectedTopic
                     ? clusters.filter(c => c.topic === selectedTopic)
@@ -417,35 +559,45 @@ export default function NetworkPage() {
                               e.currentTarget.style.boxShadow = 'none'
                             }}
                           >
-                            <div style={{
-                              fontSize: '16px',
-                              fontWeight: 700,
-                              marginBottom: '4px',
-                              color: '#000'
-                            }}>
-                              {user.userName}
+                            <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                              <Avatar
+                                src={user.userProfileImage}
+                                name={user.userName}
+                                size="md"
+                                style={{ flexShrink: 0 }}
+                              />
+                              <div style={{ flex: 1 }}>
+                                <div style={{
+                                  fontSize: '16px',
+                                  fontWeight: 700,
+                                  marginBottom: '4px',
+                                  color: '#000'
+                                }}>
+                                  {user.userName}
+                                </div>
+                                {user.userBio && (
+                                  <div style={{
+                                    fontSize: '13px',
+                                    color: '#666',
+                                    marginBottom: '8px',
+                                    lineHeight: 1.4
+                                  }}>
+                                    {user.userBio}
+                                  </div>
+                                )}
+                                {user.modules.length > 1 && (
+                                  <div style={{
+                                    fontSize: '11px',
+                                    color: '#999',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '1px',
+                                    fontWeight: 600
+                                  }}>
+                                    +{user.modules.length - 1} more topic{user.modules.length > 2 ? 's' : ''}
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                            {user.userBio && (
-                              <div style={{
-                                fontSize: '13px',
-                                color: '#666',
-                                marginBottom: '8px',
-                                lineHeight: 1.4
-                              }}>
-                                {user.userBio}
-                              </div>
-                            )}
-                            {user.modules.length > 1 && (
-                              <div style={{
-                                fontSize: '11px',
-                                color: '#999',
-                                textTransform: 'uppercase',
-                                letterSpacing: '1px',
-                                fontWeight: 600
-                              }}>
-                                +{user.modules.length - 1} more topic{user.modules.length > 2 ? 's' : ''}
-                              </div>
-                            )}
                           </div>
                         ))}
                       </div>
@@ -487,6 +639,46 @@ export default function NetworkPage() {
 
       {/* AI Chat Widget */}
       <ChatWidget />
+
+      {/* Login Modal */}
+      <LoginModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        onSignupClick={() => {
+          setShowLoginModal(false)
+          setTimeout(() => setShowOnboarding(true), 100)
+        }}
+      />
+
+      {/* Onboarding Flow */}
+      <OnboardingFlow
+        isOpen={showOnboarding}
+        onClose={() => setShowOnboarding(false)}
+        onComplete={async (userData) => {
+          try {
+            const success = await signup(userData.email, userData.password, userData.name)
+            if (success) {
+              const userRes = await fetch(`/api/users?email=${encodeURIComponent(userData.email)}`)
+              if (userRes.ok) {
+                const { user } = await userRes.json()
+                await fetch(`/api/users/${user.id}`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    bio: userData.bio,
+                    headline: userData.headline,
+                    interests: userData.interests,
+                    onboardingComplete: true
+                  })
+                })
+              }
+              setShowOnboarding(false)
+            }
+          } catch (err) {
+            console.error('Error completing onboarding:', err)
+          }
+        }}
+      />
     </main>
   )
 }

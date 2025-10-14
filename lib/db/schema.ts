@@ -12,6 +12,7 @@ export const users = pgTable('users', {
   phone: text('phone'),
   website: text('website'),
   profileImage: text('profile_image'),
+  bannerImage: text('banner_image'),
 
   // Professional Summary
   summary: text('summary'),
@@ -32,8 +33,15 @@ export const users = pgTable('users', {
   meetingLink: text('meeting_link'),
   availability: text('availability'),
 
+  // Profile Visibility
+  profileVisibility: jsonb('profile_visibility').default('{"experience":true,"education":true,"skills":true,"certifications":true,"projects":true,"awards":true}'),
+
   // AI Integration
   geminiApiKey: text('gemini_api_key'),
+
+  // Onboarding
+  onboardingComplete: boolean('onboarding_complete').default(false),
+  onboardingStep: integer('onboarding_step').default(0),
 
   // Metadata
   isAdmin: boolean('is_admin').default(false),
@@ -138,6 +146,7 @@ export const posts = pgTable('posts', {
   userId: text('user_id').notNull().references(() => users.id),
   content: text('content').notNull(),
   type: text('type').notNull().default('text'), // text, link, achievement
+  topic: text('topic'), // topic/module this post is associated with
   metadata: jsonb('metadata').default('{}'), // for links, images, etc.
   createdAt: timestamp('created_at').defaultNow(),
 })
@@ -188,5 +197,42 @@ export const notifications = pgTable('notifications', {
   content: text('content').notNull(),
   metadata: jsonb('metadata').default('{}'),
   read: boolean('read').notNull().default(false),
+  createdAt: timestamp('created_at').defaultNow(),
+})
+
+// Workflows
+export const workflows = pgTable('workflows', {
+  id: serial('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id),
+  title: text('title').notNull(),
+  description: text('description'),
+  category: text('category').notNull(), // video, coding, marketing, design, content, automation
+  isPublic: boolean('is_public').notNull().default(true),
+  likesCount: integer('likes_count').notNull().default(0),
+  viewsCount: integer('views_count').notNull().default(0),
+  forksCount: integer('forks_count').notNull().default(0),
+  forkedFrom: integer('forked_from').references((): any => workflows.id),
+  nodes: jsonb('nodes').notNull().default('[]'), // Array of workflow nodes
+  connections: jsonb('connections').notNull().default('[]'), // Array of connections between nodes
+  canvasSettings: jsonb('canvas_settings').default('{"zoom":1,"pan":{"x":0,"y":0}}'),
+  metadata: jsonb('metadata').default('{}'), // tags, difficulty, estimatedTime, tools
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+})
+
+// Workflow likes
+export const workflowLikes = pgTable('workflow_likes', {
+  id: serial('id').primaryKey(),
+  workflowId: integer('workflow_id').notNull().references(() => workflows.id),
+  userId: text('user_id').notNull().references(() => users.id),
+  createdAt: timestamp('created_at').defaultNow(),
+})
+
+// Workflow comments
+export const workflowComments = pgTable('workflow_comments', {
+  id: serial('id').primaryKey(),
+  workflowId: integer('workflow_id').notNull().references(() => workflows.id),
+  userId: text('user_id').notNull().references(() => users.id),
+  content: text('content').notNull(),
   createdAt: timestamp('created_at').defaultNow(),
 })

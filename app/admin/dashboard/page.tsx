@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
-type Tab = 'overview' | 'modules' | 'users' | 'submissions' | 'newsletters'
+type Tab = 'overview' | 'modules' | 'workflows' | 'users' | 'submissions' | 'newsletters'
 
 interface Module {
   id: number
@@ -247,6 +247,7 @@ export default function AdminDashboardPage() {
   const navItems = [
     { id: 'overview' as Tab, label: 'Overview', icon: '◉' },
     { id: 'modules' as Tab, label: 'Modules', icon: '⬚' },
+    { id: 'workflows' as Tab, label: 'Workflows', icon: '⚡' },
     { id: 'users' as Tab, label: 'Users', icon: '◎' },
     { id: 'submissions' as Tab, label: 'Submissions', icon: '✓' },
     { id: 'newsletters' as Tab, label: 'Newsletters', icon: '✉' }
@@ -554,6 +555,28 @@ export default function AdminDashboardPage() {
                       </div>
                     </Link>
 
+                    <Link href="/admin/workflows" style={{ textDecoration: 'none' }}>
+                      <div style={{
+                        background: '#0a0a0a',
+                        border: '1px solid #1a1a1a',
+                        borderRadius: '12px',
+                        padding: '24px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-2px)'
+                        e.currentTarget.style.borderColor = '#fff'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0)'
+                        e.currentTarget.style.borderColor = '#1a1a1a'
+                      }}>
+                        <div style={{ fontSize: '24px', marginBottom: '8px' }}>⚡</div>
+                        <div style={{ fontSize: '14px', fontWeight: 700, color: '#fff' }}>Create Workflow</div>
+                      </div>
+                    </Link>
+
                     <div onClick={() => setActiveTab('submissions')} style={{
                       background: '#0a0a0a',
                       border: '1px solid #1a1a1a',
@@ -574,6 +597,46 @@ export default function AdminDashboardPage() {
                       <div style={{ fontSize: '14px', fontWeight: 700, color: '#fff' }}>Review Submissions</div>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* Workflows Tab */}
+              {activeTab === 'workflows' && (
+                <div style={{
+                  background: '#0a0a0a',
+                  border: '1px solid #1a1a1a',
+                  borderRadius: '12px',
+                  padding: '60px',
+                  textAlign: 'center'
+                }}>
+                  <div style={{
+                    fontSize: '18px',
+                    fontWeight: 700,
+                    marginBottom: '24px',
+                    color: '#fff',
+                    textTransform: 'lowercase',
+                    letterSpacing: '-0.5px'
+                  }}>
+                    manage workflows
+                  </div>
+                  <Link href="/admin/workflows">
+                    <button style={{
+                      padding: '12px 24px',
+                      background: '#fff',
+                      color: '#000',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                      fontFamily: 'inherit',
+                      transition: 'all 0.2s'
+                    }}>
+                      manage workflows →
+                    </button>
+                  </Link>
                 </div>
               )}
 

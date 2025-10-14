@@ -3,12 +3,18 @@ import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { LoginModal } from '@/components/auth/LoginModal'
+import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow'
 import { useRouter } from 'next/navigation'
 
 export default function LandingPage() {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, signup } = useAuth()
   const [showLoginModal, setShowLoginModal] = useState(false)
+  const [showOnboarding, setShowOnboarding] = useState(false)
   const [pendingModuleSlug, setPendingModuleSlug] = useState<string | null>(null)
+
+  useEffect(() => {
+    console.log('showOnboarding changed:', showOnboarding)
+  }, [showOnboarding])
   const [modules, setModules] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const router = useRouter()
@@ -209,6 +215,56 @@ export default function LandingPage() {
         onSuccess={() => {
           if (pendingModuleSlug) {
             router.push(`/modules/${pendingModuleSlug}`)
+          }
+        }}
+        onSignupClick={() => {
+          console.log('Sign up clicked!')
+          setShowLoginModal(false)
+          setTimeout(() => {
+            console.log('Opening onboarding modal')
+            setShowOnboarding(true)
+          }, 100)
+        }}
+      />
+
+      <OnboardingFlow
+        isOpen={showOnboarding}
+        onClose={() => setShowOnboarding(false)}
+        onComplete={async (userData) => {
+          try {
+            // Try to create the account with all onboarding data
+            const success = await signup(userData.email, userData.password, userData.name)
+
+            if (success) {
+              // Update profile with additional data
+              const userRes = await fetch(`/api/users?email=${encodeURIComponent(userData.email)}`)
+
+              if (userRes.ok) {
+                const { user } = await userRes.json()
+
+                // Update user with onboarding data
+                await fetch(`/api/users/${user.id}`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    bio: userData.bio,
+                    headline: userData.headline,
+                    interests: userData.interests,
+                    onboardingComplete: true
+                  })
+                })
+              }
+
+              setShowOnboarding(false)
+
+              // Redirect to pending module or stay on home
+              if (pendingModuleSlug) {
+                router.push(`/modules/${pendingModuleSlug}`)
+                setPendingModuleSlug(null)
+              }
+            }
+          } catch (err) {
+            console.error('Error completing onboarding:', err)
           }
         }}
       />

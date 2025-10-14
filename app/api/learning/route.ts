@@ -34,6 +34,7 @@ export async function GET(request: Request) {
         userName: users.name,
         userBio: users.bio,
         userInterests: users.interests,
+        userProfileImage: users.profileImage,
         moduleId: learning.moduleId,
         moduleTitle: modules.title,
         moduleSlug: modules.slug,

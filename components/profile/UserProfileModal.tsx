@@ -122,8 +122,7 @@ export function UserProfileModal({ userId, isOpen, onClose }: UserProfileModalPr
           alignItems: 'center',
           justifyContent: 'center',
           padding: '20px',
-          overflowY: 'auto',
-          fontFamily: "'Courier New', Courier, monospace"
+          overflowY: 'auto'
         }}
         onClick={onClose}
       >
@@ -131,13 +130,13 @@ export function UserProfileModal({ userId, isOpen, onClose }: UserProfileModalPr
           className="modal-content"
           style={{
             background: '#fff',
-            maxWidth: '1200px',
+            maxWidth: '1000px',
             width: '100%',
-            maxHeight: '95vh',
+            maxHeight: '90vh',
             overflow: 'hidden',
             position: 'relative',
-            border: '2px solid #000',
-            fontFamily: "'Courier New', Courier, monospace"
+            border: '3px solid #000',
+            borderRadius: '16px'
           }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -147,39 +146,34 @@ export function UserProfileModal({ userId, isOpen, onClose }: UserProfileModalPr
             className="close-button"
             style={{
               position: 'absolute',
-              top: '20px',
-              right: '20px',
-              background: '#fff',
+              top: '24px',
+              right: '24px',
+              background: 'transparent',
               color: '#000',
-              border: '2px solid #000',
-              width: '40px',
-              height: '40px',
-              fontSize: '20px',
+              border: 'none',
+              fontSize: '28px',
               cursor: 'pointer',
-              fontWeight: 'bold',
-              fontFamily: "'Courier New', Courier, monospace",
               zIndex: 100,
               transition: 'all 0.2s ease',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center'
+              justifyContent: 'center',
+              padding: '0'
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = '#000'
-              e.currentTarget.style.color = '#fff'
+              e.currentTarget.style.color = '#666'
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = '#fff'
               e.currentTarget.style.color = '#000'
             }}
           >
-            X
+            ×
           </button>
 
-          <div style={{ maxHeight: '95vh', overflow: 'auto' }}>
+          <div style={{ maxHeight: '90vh', overflow: 'auto' }}>
             {loading ? (
-              <div style={{ padding: '80px', textAlign: 'center', color: '#000', fontFamily: "'Courier New', Courier, monospace" }}>
-                LOADING PROFILE...
+              <div style={{ padding: '80px', textAlign: 'center', color: '#666', fontSize: '14px' }}>
+                loading profile...
               </div>
             ) : profile ? (
               <div>
@@ -187,23 +181,22 @@ export function UserProfileModal({ userId, isOpen, onClose }: UserProfileModalPr
                 <div
                   className="modal-header"
                   style={{
-                    background: '#fff',
-                    padding: '48px 60px',
+                    background: '#fafafa',
+                    padding: '40px',
                     color: '#000',
                     position: 'relative',
-                    borderBottom: '2px solid #000'
+                    borderBottom: '2px solid #e0e0e0'
                   }}
                 >
                   <div style={{ position: 'relative', zIndex: 1 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', flexWrap: 'wrap', gap: '16px' }}>
                       <h2 style={{
-                        fontSize: 'clamp(28px, 5vw, 42px)',
-                        fontWeight: 'bold',
-                        textTransform: 'uppercase',
-                        letterSpacing: '2px',
+                        fontSize: 'clamp(28px, 5vw, 36px)',
+                        fontWeight: 900,
+                        textTransform: 'lowercase',
+                        letterSpacing: '-1px',
                         margin: 0,
-                        color: '#000',
-                        fontFamily: "'Courier New', Courier, monospace"
+                        color: '#000'
                       }}>
                         {profile.name}
                       </h2>
@@ -212,16 +205,16 @@ export function UserProfileModal({ userId, isOpen, onClose }: UserProfileModalPr
                           onClick={handleAiSummarize}
                           disabled={summarizing}
                           style={{
-                            padding: '12px 24px',
+                            padding: '10px 20px',
                             background: aiSummary ? '#000' : '#fff',
                             color: aiSummary ? '#fff' : '#000',
                             border: '2px solid #000',
+                            borderRadius: '8px',
                             fontSize: '12px',
-                            fontWeight: 'bold',
-                            textTransform: 'uppercase',
-                            letterSpacing: '1px',
+                            fontWeight: 700,
+                            textTransform: 'lowercase',
+                            letterSpacing: '0.5px',
                             cursor: summarizing ? 'not-allowed' : 'pointer',
-                            fontFamily: "'Courier New', Courier, monospace",
                             transition: 'all 0.2s ease',
                             opacity: summarizing ? 0.6 : 1
                           }}
@@ -238,99 +231,86 @@ export function UserProfileModal({ userId, isOpen, onClose }: UserProfileModalPr
                             }
                           }}
                         >
-                          {summarizing ? 'SCOUTING...' : 'AI SCOUT'}
+                          {summarizing ? 'scouting...' : 'ai scout'}
                         </button>
                       )}
                     </div>
                     {profile.headline && (
                       <p style={{
-                        fontSize: 'clamp(14px, 2.5vw, 18px)',
-                        fontWeight: 'normal',
+                        fontSize: 'clamp(14px, 2.5vw, 16px)',
+                        fontWeight: 400,
                         marginBottom: '20px',
-                        lineHeight: 1.6,
-                        color: '#000',
-                        fontFamily: "'Courier New', Courier, monospace"
+                        lineHeight: 1.5,
+                        color: '#666'
                       }}>
                         {profile.headline}
                       </p>
                     )}
-                    <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', fontSize: 'clamp(12px, 2vw, 14px)', color: '#000' }}>
-                      {profile.location && <p style={{ margin: 0, fontFamily: "'Courier New', Courier, monospace" }}>LOCATION: {profile.location}</p>}
-                      {profile.email && <p style={{ margin: 0, fontFamily: "'Courier New', Courier, monospace" }}>EMAIL: {profile.email}</p>}
+                    <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', fontSize: 'clamp(12px, 2vw, 13px)', color: '#999' }}>
+                      {profile.location && <p style={{ margin: 0 }}>{profile.location}</p>}
+                      {profile.email && <p style={{ margin: 0 }}>{profile.email}</p>}
                     </div>
                   </div>
                 </div>
 
                 {/* Content Section */}
-                <div className="modal-body" style={{ padding: '40px 60px 60px' }}>
+                <div className="modal-body" style={{ padding: '32px' }}>
                   {/* AI Summary */}
                   {aiSummary && (
                     <div style={{
-                      background: '#fff',
-                      border: '2px solid #000',
-                      padding: '32px',
-                      marginBottom: '40px'
+                      background: '#f5f5f5',
+                      border: '2px solid #e0e0e0',
+                      borderRadius: '12px',
+                      padding: '24px',
+                      marginBottom: '24px'
                     }}>
-                      <div style={{ marginBottom: '20px' }}>
+                      <div style={{ marginBottom: '16px' }}>
                         <h3 style={{
-                          fontSize: '14px',
-                          fontWeight: 'bold',
-                          textTransform: 'uppercase',
-                          letterSpacing: '2px',
+                          fontSize: '16px',
+                          fontWeight: 900,
+                          textTransform: 'lowercase',
+                          letterSpacing: '-0.5px',
                           color: '#000',
                           margin: 0,
-                          marginBottom: '8px',
-                          fontFamily: "'Courier New', Courier, monospace"
+                          marginBottom: '4px'
                         }}>
-                          AI SCOUT REPORT
+                          ai scout report
                         </h3>
-                        <div style={{ fontSize: '11px', color: '#000', textTransform: 'uppercase', letterSpacing: '1px', borderTop: '1px solid #000', borderBottom: '1px solid #000', padding: '4px 0', fontFamily: "'Courier New', Courier, monospace" }}>
-                          PROFESSIONAL ANALYSIS
+                        <div style={{ fontSize: '12px', color: '#999', fontWeight: 600 }}>
+                          professional analysis
                         </div>
                       </div>
-                      <ul style={{
-                        fontSize: 'clamp(13px, 2vw, 15px)',
-                        lineHeight: 1.8,
-                        color: '#000',
-                        margin: 0,
-                        paddingLeft: '20px',
-                        fontFamily: "'Courier New', Courier, monospace",
-                        listStyle: 'none'
-                      }}>
-                        {aiSummary.split('\n').filter(line => line.trim()).map((line, idx) => (
-                          <li key={idx} style={{
-                            marginBottom: '12px',
-                            paddingLeft: '8px',
-                            position: 'relative'
-                          }}>
-                            <span style={{ position: 'absolute', left: '-12px', color: '#000', fontWeight: 'bold' }}>•</span>
-                            {line.trim()}
-                          </li>
-                        ))}
-                      </ul>
                       <div style={{
-                        marginTop: '20px',
-                        paddingTop: '16px',
-                        borderTop: '1px solid #000',
+                        fontSize: 'clamp(13px, 2vw, 14px)',
+                        lineHeight: 1.6,
+                        color: '#333',
+                        whiteSpace: 'pre-wrap'
+                      }}>
+                        {aiSummary}
+                      </div>
+                      <div style={{
+                        marginTop: '16px',
+                        paddingTop: '12px',
+                        borderTop: '1px solid #e0e0e0',
                         fontSize: '11px',
-                        color: '#000',
+                        color: '#999',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '8px',
-                        fontFamily: "'Courier New', Courier, monospace"
+                        gap: '6px'
                       }}>
                         <span style={{
                           background: '#000',
                           color: '#fff',
-                          padding: '4px 8px',
-                          fontSize: '10px',
-                          fontWeight: 'bold',
-                          fontFamily: "'Courier New', Courier, monospace"
+                          padding: '3px 6px',
+                          fontSize: '9px',
+                          fontWeight: 700,
+                          borderRadius: '4px',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px'
                         }}>
-                          POWERED BY GEMINI
+                          gemini
                         </span>
-                        <span>|</span>
-                        <span>REAL-TIME ANALYSIS</span>
+                        <span>powered ai analysis</span>
                       </div>
                     </div>
                   )}
@@ -338,16 +318,15 @@ export function UserProfileModal({ userId, isOpen, onClose }: UserProfileModalPr
                   {/* Section: About */}
                   {profile.bio && (
                     <SectionCollapsible
-                      title="ABOUT"
+                      title="about"
                       expanded={expandedSections.about}
                       onToggle={() => toggleSection('about')}
                     >
                       <p style={{
-                        fontSize: 'clamp(13px, 2vw, 15px)',
-                        color: '#000',
-                        lineHeight: 1.8,
-                        margin: 0,
-                        fontFamily: "'Courier New', Courier, monospace"
+                        fontSize: 'clamp(13px, 2vw, 14px)',
+                        color: '#333',
+                        lineHeight: 1.6,
+                        margin: 0
                       }}>
                         {profile.bio}
                       </p>
@@ -357,17 +336,16 @@ export function UserProfileModal({ userId, isOpen, onClose }: UserProfileModalPr
                   {/* Section: Summary */}
                   {profile.summary && (
                     <SectionCollapsible
-                      title="SUMMARY"
+                      title="summary"
                       expanded={expandedSections.summary}
                       onToggle={() => toggleSection('summary')}
                     >
                       <p style={{
-                        fontSize: 'clamp(13px, 2vw, 15px)',
-                        color: '#000',
-                        lineHeight: 1.8,
+                        fontSize: 'clamp(13px, 2vw, 14px)',
+                        color: '#333',
+                        lineHeight: 1.6,
                         whiteSpace: 'pre-wrap',
-                        margin: 0,
-                        fontFamily: "'Courier New', Courier, monospace"
+                        margin: 0
                       }}>
                         {profile.summary}
                       </p>
@@ -375,40 +353,39 @@ export function UserProfileModal({ userId, isOpen, onClose }: UserProfileModalPr
                   )}
 
                   {/* Section: Experience */}
-                  {profile.experience && profile.experience.length > 0 && (
+                  {profile.experience && profile.experience.length > 0 && profile.profileVisibility?.experience !== false && (
                     <SectionCollapsible
-                      title={`EXPERIENCE (${profile.experience.length})`}
+                      title={`experience (${profile.experience.length})`}
                       expanded={expandedSections.experience}
                       onToggle={() => toggleSection('experience')}
                     >
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                         {profile.experience.map((exp: Experience) => (
                           <div key={exp.id} style={{
-                            background: '#fff',
-                            padding: 'clamp(20px, 4vw, 24px)',
-                            border: '1px solid #000',
-                            borderLeft: '4px solid #000'
+                            background: '#fafafa',
+                            padding: '18px',
+                            border: '2px solid #e0e0e0',
+                            borderRadius: '10px'
                           }}>
-                            <div style={{ fontWeight: 'bold', fontSize: 'clamp(14px, 2.5vw, 16px)', marginBottom: '8px', color: '#000', fontFamily: "'Courier New', Courier, monospace", textTransform: 'uppercase' }}>
+                            <div style={{ fontWeight: 700, fontSize: 'clamp(14px, 2.5vw, 15px)', marginBottom: '6px', color: '#000' }}>
                               {exp.title}
                             </div>
-                            <div style={{ fontSize: 'clamp(12px, 2vw, 14px)', color: '#000', marginBottom: '10px', fontWeight: 'bold', fontFamily: "'Courier New', Courier, monospace" }}>
-                              {exp.company} {exp.employmentType && `| ${exp.employmentType}`}
+                            <div style={{ fontSize: 'clamp(12px, 2vw, 13px)', color: '#666', marginBottom: '8px', fontWeight: 600 }}>
+                              {exp.company} {exp.employmentType && `· ${exp.employmentType}`}
                             </div>
-                            <div style={{ fontSize: 'clamp(11px, 2vw, 13px)', color: '#000', marginBottom: '16px', display: 'flex', gap: '12px', flexWrap: 'wrap', fontFamily: "'Courier New', Courier, monospace", borderTop: '1px solid #000', borderBottom: '1px solid #000', padding: '4px 0' }}>
-                              <span>{exp.startDate} - {exp.current ? 'PRESENT' : exp.endDate}</span>
-                              {exp.location && <span>| {exp.location}</span>}
+                            <div style={{ fontSize: 'clamp(11px, 2vw, 12px)', color: '#999', marginBottom: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                              <span>{exp.startDate} - {exp.current ? 'present' : exp.endDate}</span>
+                              {exp.location && <span>· {exp.location}</span>}
                             </div>
                             {exp.description && (
-                              <p style={{ fontSize: 'clamp(12px, 2vw, 14px)', color: '#000', lineHeight: 1.7, marginBottom: '16px', fontFamily: "'Courier New', Courier, monospace" }}>
+                              <p style={{ fontSize: 'clamp(12px, 2vw, 13px)', color: '#333', lineHeight: 1.6, marginBottom: '12px' }}>
                                 {exp.description}
                               </p>
                             )}
                             {exp.responsibilities && exp.responsibilities.length > 0 && (
-                              <ul style={{ margin: 0, paddingLeft: '20px', listStyle: 'none' }}>
+                              <ul style={{ margin: 0, paddingLeft: '20px', listStyle: 'disc' }}>
                                 {exp.responsibilities.map((resp, idx) => (
-                                  <li key={idx} style={{ fontSize: 'clamp(12px, 2vw, 14px)', color: '#000', marginBottom: '8px', paddingLeft: '8px', position: 'relative', fontFamily: "'Courier New', Courier, monospace" }}>
-                                    <span style={{ position: 'absolute', left: '-12px', color: '#000' }}>-</span>
+                                  <li key={idx} style={{ fontSize: 'clamp(12px, 2vw, 13px)', color: '#333', marginBottom: '6px', lineHeight: 1.5 }}>
                                     {resp}
                                   </li>
                                 ))}
@@ -421,39 +398,39 @@ export function UserProfileModal({ userId, isOpen, onClose }: UserProfileModalPr
                   )}
 
                   {/* Section: Education */}
-                  {profile.education && profile.education.length > 0 && (
+                  {profile.education && profile.education.length > 0 && profile.profileVisibility?.education !== false && (
                     <SectionCollapsible
-                      title={`EDUCATION (${profile.education.length})`}
+                      title={`education (${profile.education.length})`}
                       expanded={expandedSections.education}
                       onToggle={() => toggleSection('education')}
                     >
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                         {profile.education.map((edu: Education) => (
                           <div key={edu.id} style={{
-                            background: '#fff',
-                            padding: 'clamp(20px, 4vw, 24px)',
-                            border: '1px solid #000',
-                            borderLeft: '4px solid #000'
+                            background: '#fafafa',
+                            padding: '18px',
+                            border: '2px solid #e0e0e0',
+                            borderRadius: '10px'
                           }}>
-                            <div style={{ fontWeight: 'bold', fontSize: 'clamp(14px, 2.5vw, 16px)', marginBottom: '8px', color: '#000', fontFamily: "'Courier New', Courier, monospace", textTransform: 'uppercase' }}>
+                            <div style={{ fontWeight: 700, fontSize: 'clamp(14px, 2.5vw, 15px)', marginBottom: '6px', color: '#000' }}>
                               {edu.school}
                             </div>
                             {edu.degree && (
-                              <div style={{ fontSize: 'clamp(12px, 2vw, 14px)', color: '#000', marginBottom: '8px', fontWeight: 'bold', fontFamily: "'Courier New', Courier, monospace" }}>
-                                {edu.degree} {edu.fieldOfStudy && `IN ${edu.fieldOfStudy.toUpperCase()}`}
+                              <div style={{ fontSize: 'clamp(12px, 2vw, 13px)', color: '#666', marginBottom: '8px', fontWeight: 600 }}>
+                                {edu.degree} {edu.fieldOfStudy && `in ${edu.fieldOfStudy}`}
                               </div>
                             )}
-                            <div style={{ fontSize: 'clamp(11px, 2vw, 13px)', color: '#000', marginBottom: edu.grade || edu.activities ? '12px' : '0', fontFamily: "'Courier New', Courier, monospace", borderTop: '1px solid #000', borderBottom: '1px solid #000', padding: '4px 0' }}>
-                              {edu.startDate} - {edu.current ? 'PRESENT' : edu.endDate}
+                            <div style={{ fontSize: 'clamp(11px, 2vw, 12px)', color: '#999', marginBottom: edu.grade || edu.activities ? '12px' : '0' }}>
+                              {edu.startDate} - {edu.current ? 'present' : edu.endDate}
                             </div>
                             {edu.grade && (
-                              <div style={{ fontSize: 'clamp(12px, 2vw, 14px)', color: '#000', marginTop: '8px', fontFamily: "'Courier New', Courier, monospace" }}>
-                                <span style={{ fontWeight: 'bold' }}>GRADE:</span> {edu.grade}
+                              <div style={{ fontSize: 'clamp(12px, 2vw, 13px)', color: '#333', marginTop: '8px' }}>
+                                <span style={{ fontWeight: 600, color: '#666' }}>grade:</span> {edu.grade}
                               </div>
                             )}
                             {edu.activities && (
-                              <div style={{ fontSize: 'clamp(12px, 2vw, 14px)', color: '#000', marginTop: '6px', lineHeight: 1.6, fontFamily: "'Courier New', Courier, monospace" }}>
-                                <span style={{ fontWeight: 'bold' }}>ACTIVITIES:</span> {edu.activities}
+                              <div style={{ fontSize: 'clamp(12px, 2vw, 13px)', color: '#333', marginTop: '6px', lineHeight: 1.6 }}>
+                                <span style={{ fontWeight: 600, color: '#666' }}>activities:</span> {edu.activities}
                               </div>
                             )}
                           </div>
@@ -463,27 +440,24 @@ export function UserProfileModal({ userId, isOpen, onClose }: UserProfileModalPr
                   )}
 
                   {/* Section: Skills */}
-                  {profile.skills && profile.skills.length > 0 && (
+                  {profile.skills && profile.skills.length > 0 && profile.profileVisibility?.skills !== false && (
                     <SectionCollapsible
-                      title={`SKILLS (${profile.skills.length})`}
+                      title={`skills (${profile.skills.length})`}
                       expanded={expandedSections.skills}
                       onToggle={() => toggleSection('skills')}
                     >
-                      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                         {profile.skills.map((skill, i) => (
                           <span
                             key={i}
                             style={{
                               background: '#000',
                               color: '#fff',
-                              padding: 'clamp(8px, 2vw, 10px) clamp(14px, 3vw, 18px)',
-                              fontSize: 'clamp(11px, 2vw, 13px)',
-                              fontWeight: 'bold',
-                              textTransform: 'uppercase',
-                              letterSpacing: '1px',
-                              fontFamily: "'Courier New', Courier, monospace",
-                              cursor: 'default',
-                              border: '1px solid #000'
+                              padding: '8px 16px',
+                              fontSize: '12px',
+                              fontWeight: 600,
+                              borderRadius: '6px',
+                              cursor: 'default'
                             }}
                           >
                             {skill.name}
@@ -501,9 +475,9 @@ export function UserProfileModal({ userId, isOpen, onClose }: UserProfileModalPr
                     marginBottom: '32px'
                   }}>
                     {/* Section: Certifications */}
-                    {profile.certifications && profile.certifications.length > 0 && (
+                    {profile.certifications && profile.certifications.length > 0 && profile.profileVisibility?.certifications !== false && (
                       <SectionCollapsible
-                        title={`CERTIFICATIONS (${profile.certifications.length})`}
+                        title={`certifications (${profile.certifications.length})`}
                         expanded={expandedSections.certifications}
                         onToggle={() => toggleSection('certifications')}
                       >
@@ -549,9 +523,9 @@ export function UserProfileModal({ userId, isOpen, onClose }: UserProfileModalPr
                     )}
 
                     {/* Section: Awards */}
-                    {profile.awards && profile.awards.length > 0 && (
+                    {profile.awards && profile.awards.length > 0 && profile.profileVisibility?.awards !== false && (
                       <SectionCollapsible
-                        title={`AWARDS & HONORS (${profile.awards.length})`}
+                        title={`awards & honors (${profile.awards.length})`}
                         expanded={expandedSections.awards}
                         onToggle={() => toggleSection('awards')}
                       >
@@ -585,9 +559,9 @@ export function UserProfileModal({ userId, isOpen, onClose }: UserProfileModalPr
                   </div>
 
                   {/* Section: Projects */}
-                  {profile.projects && profile.projects.length > 0 && (
+                  {profile.projects && profile.projects.length > 0 && profile.profileVisibility?.projects !== false && (
                     <SectionCollapsible
-                      title={`PROJECTS (${profile.projects.length})`}
+                      title={`projects (${profile.projects.length})`}
                       expanded={expandedSections.projects}
                       onToggle={() => toggleSection('projects')}
                     >
@@ -652,7 +626,7 @@ export function UserProfileModal({ userId, isOpen, onClose }: UserProfileModalPr
                   {/* Section: Interests */}
                   {profile.interests && profile.interests.length > 0 && (
                     <SectionCollapsible
-                      title={`INTERESTS (${profile.interests.length})`}
+                      title={`interests (${profile.interests.length})`}
                       expanded={expandedSections.interests}
                       onToggle={() => toggleSection('interests')}
                     >
@@ -682,7 +656,7 @@ export function UserProfileModal({ userId, isOpen, onClose }: UserProfileModalPr
                   {/* Section: Social Links */}
                   {profile.socialLinks && Object.values(profile.socialLinks).some(link => link) && (
                     <SectionCollapsible
-                      title="CONNECT"
+                      title="connect"
                       expanded={expandedSections.social}
                       onToggle={() => toggleSection('social')}
                     >
@@ -810,7 +784,7 @@ export function UserProfileModal({ userId, isOpen, onClose }: UserProfileModalPr
                   {/* Section: Availability */}
                   {profile.availability && (
                     <SectionCollapsible
-                      title="AVAILABILITY"
+                      title="availability"
                       expanded={expandedSections.availability}
                       onToggle={() => toggleSection('availability')}
                     >
@@ -828,23 +802,20 @@ export function UserProfileModal({ userId, isOpen, onClose }: UserProfileModalPr
 
                   {/* Meeting Room */}
                   <div style={{
-                    background: '#fff',
-                    padding: 'clamp(24px, 4vw, 32px)',
-                    border: '2px solid #000',
-                    marginTop: '32px'
+                    background: '#fafafa',
+                    padding: '24px',
+                    border: '2px solid #e0e0e0',
+                    borderRadius: '12px',
+                    marginTop: '24px'
                   }}>
                     <h3 style={{
-                      fontSize: 'clamp(12px, 2vw, 14px)',
-                      fontWeight: 'bold',
-                      textTransform: 'uppercase',
-                      letterSpacing: '2px',
-                      marginBottom: '16px',
-                      color: '#000',
-                      fontFamily: "'Courier New', Courier, monospace",
-                      borderBottom: '1px solid #000',
-                      paddingBottom: '8px'
+                      fontSize: '14px',
+                      fontWeight: 700,
+                      textTransform: 'lowercase',
+                      marginBottom: '12px',
+                      color: '#000'
                     }}>
-                      MEETING ROOM
+                      meeting room
                     </h3>
                     <button
                       onClick={() => {
@@ -855,46 +826,39 @@ export function UserProfileModal({ userId, isOpen, onClose }: UserProfileModalPr
                         )
                       }}
                       style={{
-                        padding: 'clamp(12px, 2vw, 16px) clamp(24px, 4vw, 32px)',
+                        padding: '12px 24px',
                         background: '#000',
                         color: '#fff',
                         border: '2px solid #000',
-                        fontSize: 'clamp(12px, 2vw, 14px)',
-                        fontWeight: 'bold',
-                        textTransform: 'uppercase',
-                        letterSpacing: '1px',
+                        borderRadius: '8px',
+                        fontSize: '13px',
+                        fontWeight: 600,
                         cursor: 'pointer',
-                        transition: 'all 0.2s ease',
-                        fontFamily: "'Courier New', Courier, monospace"
+                        transition: 'all 0.2s ease'
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.background = '#fff'
-                        e.currentTarget.style.color = '#000'
+                        e.currentTarget.style.background = '#333'
                       }}
                       onMouseLeave={(e) => {
                         e.currentTarget.style.background = '#000'
-                        e.currentTarget.style.color = '#fff'
                       }}
                     >
-                      JOIN MEETING ROOM
+                      join meeting room
                     </button>
                     <p style={{
-                      fontSize: 'clamp(10px, 2vw, 12px)',
-                      color: '#000',
-                      marginTop: '16px',
-                      lineHeight: 1.5,
-                      fontFamily: "'Courier New', Courier, monospace",
-                      borderTop: '1px solid #000',
-                      paddingTop: '12px'
+                      fontSize: '11px',
+                      color: '#999',
+                      marginTop: '12px',
+                      lineHeight: 1.5
                     }}>
-                      OPENS IN NEW WINDOW | CAMERA & MICROPHONE REQUIRED
+                      opens in new window · camera & microphone required
                     </p>
                   </div>
                 </div>
               </div>
             ) : (
-              <div style={{ padding: '80px', textAlign: 'center', color: '#000', fontFamily: "'Courier New', Courier, monospace" }}>
-                PROFILE NOT FOUND
+              <div style={{ padding: '80px', textAlign: 'center', color: '#666', fontSize: '14px' }}>
+                profile not found
               </div>
             )}
           </div>
@@ -917,66 +881,56 @@ function SectionCollapsible({
   children: React.ReactNode
 }) {
   return (
-    <div style={{ marginBottom: '24px' }}>
+    <div style={{ marginBottom: '20px' }}>
       <div
         onClick={onToggle}
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: 'clamp(12px, 2vw, 16px) clamp(16px, 3vw, 20px)',
-          background: '#fff',
+          padding: '14px 18px',
+          background: '#fafafa',
           cursor: 'pointer',
           transition: 'all 0.2s ease',
-          border: '2px solid #000',
-          marginBottom: expanded ? '8px' : '0',
-          fontFamily: "'Courier New', Courier, monospace"
+          border: '2px solid #e0e0e0',
+          borderRadius: expanded ? '10px 10px 0 0' : '10px',
+          marginBottom: expanded ? '0' : '0'
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.background = '#000'
-          const heading = e.currentTarget.querySelector('h3') as HTMLElement
-          const arrow = e.currentTarget.querySelector('span') as HTMLElement
-          if (heading) heading.style.color = '#fff'
-          if (arrow) arrow.style.color = '#fff'
+          e.currentTarget.style.borderColor = '#000'
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.background = '#fff'
-          const heading = e.currentTarget.querySelector('h3') as HTMLElement
-          const arrow = e.currentTarget.querySelector('span') as HTMLElement
-          if (heading) heading.style.color = '#000'
-          if (arrow) arrow.style.color = '#000'
+          e.currentTarget.style.borderColor = '#e0e0e0'
         }}
       >
         <h3 style={{
-          fontSize: 'clamp(11px, 2vw, 13px)',
-          fontWeight: 'bold',
-          textTransform: 'uppercase',
-          letterSpacing: '2px',
+          fontSize: 'clamp(12px, 2vw, 14px)',
+          fontWeight: 700,
+          textTransform: 'lowercase',
+          letterSpacing: '0px',
           color: '#000',
           margin: 0,
-          fontFamily: "'Courier New', Courier, monospace",
           transition: 'color 0.2s ease'
         }}>
           {title}
         </h3>
         <span style={{
-          fontSize: 'clamp(16px, 3vw, 18px)',
-          fontWeight: 'bold',
-          color: '#000',
-          transition: 'transform 0.2s ease, color 0.2s ease',
+          fontSize: '18px',
+          color: '#666',
+          transition: 'transform 0.2s ease',
           transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
-          display: 'inline-block',
-          fontFamily: "'Courier New', Courier, monospace"
+          display: 'inline-block'
         }}>
-          v
+          ↓
         </span>
       </div>
       {expanded && (
         <div style={{
           background: '#fff',
-          padding: 'clamp(20px, 3vw, 24px)',
-          border: '1px solid #000',
-          borderLeft: '4px solid #000'
+          padding: '20px',
+          border: '2px solid #e0e0e0',
+          borderTop: 'none',
+          borderRadius: '0 0 10px 10px'
         }}>
           {children}
         </div>

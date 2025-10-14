@@ -12,6 +12,9 @@ export function Navigation() {
           <Link href="/#modules" className="text-gray-300 hover:text-white transition-colors">
             Modules
           </Link>
+          <Link href="/workflows" className="text-gray-300 hover:text-white transition-colors">
+            Workflows
+          </Link>
           <Link href="/about" className="text-gray-300 hover:text-white transition-colors">
             About
           </Link>

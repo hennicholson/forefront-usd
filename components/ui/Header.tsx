@@ -3,12 +3,16 @@ import Link from 'next/link'
 import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { LoginModal } from '@/components/auth/LoginModal'
+import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow'
+import { useRouter } from 'next/navigation'
 
 export function Header() {
-  const { user, isAuthenticated, logout } = useAuth()
+  const { user, isAuthenticated, logout, signup } = useAuth()
   const [showLoginModal, setShowLoginModal] = useState(false)
+  const [showOnboarding, setShowOnboarding] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
+  const router = useRouter()
 
   return (
     <>
@@ -242,6 +246,7 @@ export function Header() {
                       onClick={() => {
                         logout()
                         setShowUserMenu(false)
+                        router.push('/')
                       }}
                       style={{
                         width: '100%',
@@ -530,6 +535,39 @@ export function Header() {
       <LoginModal
         isOpen={showLoginModal}
         onClose={() => setShowLoginModal(false)}
+        onSignupClick={() => {
+          setShowLoginModal(false)
+          setTimeout(() => setShowOnboarding(true), 100)
+        }}
+      />
+
+      <OnboardingFlow
+        isOpen={showOnboarding}
+        onClose={() => setShowOnboarding(false)}
+        onComplete={async (userData) => {
+          try {
+            const success = await signup(userData.email, userData.password, userData.name)
+            if (success) {
+              const userRes = await fetch(`/api/users?email=${encodeURIComponent(userData.email)}`)
+              if (userRes.ok) {
+                const { user } = await userRes.json()
+                await fetch(`/api/users/${user.id}`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    bio: userData.bio,
+                    headline: userData.headline,
+                    interests: userData.interests,
+                    onboardingComplete: true
+                  })
+                })
+              }
+              setShowOnboarding(false)
+            }
+          } catch (err) {
+            console.error('Error completing onboarding:', err)
+          }
+        }}
       />
     </>
   )

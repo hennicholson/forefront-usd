@@ -103,48 +103,79 @@ export function ContentBlockViewer({ blocks, theme = 'dark' }: ContentBlockViewe
       case 'codePreview':
         return (
           <div style={{
-            background: c.blockBg,
-            border: `1px solid ${c.border}`,
-            borderRadius: '16px',
+            background: 'transparent',
+            border: 'none',
+            borderRadius: '0',
             padding: '0',
-            overflow: 'hidden'
+            overflow: 'visible'
           }}>
-            <div style={{
-              background: c.labelBg,
-              color: c.labelText,
-              fontSize: '11px',
-              textTransform: 'uppercase',
-              letterSpacing: '1.5px',
-              padding: '12px 20px',
-              fontWeight: 700,
-              borderBottom: `1px solid ${c.border}`
-            }}>
-              Live Preview
-            </div>
-            <div style={{ padding: '20px' }}>
-              <iframe
-                srcDoc={`
-                  <!DOCTYPE html>
-                  <html>
-                    <head>
-                      <style>${block.data?.css || ''}</style>
-                    </head>
-                    <body>
-                      ${block.data?.html || ''}
-                      <script>${block.data?.js || ''}</script>
-                    </body>
-                  </html>
-                `}
-                style={{
-                  width: '100%',
-                  height: '400px',
-                  border: `1px solid ${c.border}`,
-                  borderRadius: '8px',
-                  background: '#fff'
-                }}
-                sandbox="allow-scripts"
-              />
-            </div>
+            <iframe
+              srcDoc={`
+                <!DOCTYPE html>
+                <html>
+                  <head>
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+                    <meta charset="UTF-8">
+                    <style>
+                      * { margin: 0; padding: 0; box-sizing: border-box; }
+                      html, body {
+                        background: transparent;
+                        overflow: hidden;
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+                        color: ${c.text};
+                        -webkit-font-smoothing: antialiased;
+                        -moz-osx-font-smoothing: grayscale;
+                        width: 100%;
+                      }
+                      /* Theme-aware variables */
+                      :root {
+                        --text-color: ${c.text};
+                        --text-secondary: ${c.textSecondary};
+                        --border-color: ${c.border};
+                        --bg-subtle: ${c.blockBg};
+                        --bg-subtle-alt: ${c.blockBgAlt};
+                      }
+                      ${block.data?.css || ''}
+                    </style>
+                  </head>
+                  <body>
+                    ${block.data?.html || ''}
+                    <script>
+                      ${block.data?.js || ''}
+                      // Auto-resize iframe to content height
+                      function resizeIframe() {
+                        const height = document.body.scrollHeight;
+                        window.parent.postMessage({ type: 'resize', height: height }, '*');
+                      }
+                      window.addEventListener('load', resizeIframe);
+                      window.addEventListener('resize', resizeIframe);
+                      // Initial resize
+                      setTimeout(resizeIframe, 100);
+                      setTimeout(resizeIframe, 500);
+                    </script>
+                  </body>
+                </html>
+              `}
+              style={{
+                width: '100%',
+                minHeight: '200px',
+                border: 'none',
+                borderRadius: '0',
+                background: 'transparent',
+                display: 'block'
+              }}
+              sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
+              onLoad={(e) => {
+                const iframe = e.target as HTMLIFrameElement;
+                // Listen for resize messages from iframe
+                const handleMessage = (event: MessageEvent) => {
+                  if (event.data?.type === 'resize' && event.data?.height) {
+                    iframe.style.height = `${event.data.height}px`;
+                  }
+                };
+                window.addEventListener('message', handleMessage);
+              }}
+            />
           </div>
         )
 
@@ -236,15 +267,16 @@ export function ContentBlockViewer({ blocks, theme = 'dark' }: ContentBlockViewe
             }}>
               Note
             </div>
-            <div style={{
-              fontSize: 'clamp(15px, 2vw, 17px)',
-              lineHeight: 1.7,
-              color: c.text,
-              fontWeight: 500,
-              position: 'relative'
-            }}>
-              {block.data?.text}
-            </div>
+            <div
+              style={{
+                fontSize: 'clamp(15px, 2vw, 17px)',
+                lineHeight: 1.7,
+                color: c.text,
+                fontWeight: 500,
+                position: 'relative'
+              }}
+              dangerouslySetInnerHTML={{ __html: block.data?.text || '' }}
+            />
           </div>
         )
 
@@ -504,7 +536,10 @@ export function ContentBlockViewer({ blocks, theme = 'dark' }: ContentBlockViewe
         }
 
       case 'quiz':
-        const options = block.data?.options?.split('\n').filter((opt: string) => opt.trim()) || []
+        // Handle both string (old format) and array (new format)
+        const options = Array.isArray(block.data?.options)
+          ? block.data.options
+          : (block.data?.options?.split?.('\n').filter((opt: string) => opt.trim()) || [])
         return (
           <div style={{
             background: c.blockBg,

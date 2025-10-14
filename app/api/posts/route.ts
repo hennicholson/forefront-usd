@@ -1,30 +1,38 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { posts, users, reactions, comments } from '@/lib/db/schema'
-import { eq, desc, sql } from 'drizzle-orm'
+import { posts, users, reactions, comments, notifications } from '@/lib/db/schema'
+import { eq, desc, sql, like } from 'drizzle-orm'
 
 // GET all posts (with user info and counts)
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get('userId')
+    const topic = searchParams.get('topic')
     const limit = parseInt(searchParams.get('limit') || '10')
 
-    const allPosts = await db
+    let query = db
       .select({
         id: posts.id,
         userId: posts.userId,
         content: posts.content,
         type: posts.type,
+        topic: posts.topic,
         metadata: posts.metadata,
         createdAt: posts.createdAt,
         userName: users.name,
         userBio: users.bio,
+        userProfileImage: users.profileImage,
       })
       .from(posts)
       .leftJoin(users, eq(posts.userId, users.id))
       .orderBy(desc(posts.createdAt))
       .limit(limit)
+
+    // Filter by topic if provided
+    const allPosts = topic
+      ? await query.where(eq(posts.topic, topic))
+      : await query
 
     // Get reaction counts for each post
     const postsWithCounts = await Promise.all(
@@ -62,7 +70,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { userId, content, type = 'text', metadata = {} } = body
+    const { userId, content, type = 'text', topic, metadata = {} } = body
 
     if (!userId || !content) {
       return NextResponse.json(
@@ -77,9 +85,52 @@ export async function POST(request: Request) {
         userId,
         content,
         type,
+        topic: topic || null,
         metadata,
       })
       .returning()
+
+    // Parse @mentions from content
+    const mentionRegex = /@(\w+)/g
+    const mentions = content.match(mentionRegex)
+
+    if (mentions && mentions.length > 0) {
+      // Get the post author's name
+      const [author] = await db
+        .select({ name: users.name })
+        .from(users)
+        .where(eq(users.id, userId))
+
+      // Find mentioned users and create notifications
+      for (const mention of mentions) {
+        const username = mention.substring(1) // Remove @
+
+        // Find user by name (case-insensitive)
+        const mentionedUsers = await db
+          .select({ id: users.id, name: users.name })
+          .from(users)
+          .where(sql`LOWER(${users.name}) = LOWER(${username})`)
+
+        if (mentionedUsers.length > 0) {
+          const mentionedUser = mentionedUsers[0]
+
+          // Don't notify if user mentions themselves
+          if (mentionedUser.id !== userId) {
+            await db.insert(notifications).values({
+              userId: mentionedUser.id,
+              type: 'mention',
+              content: `${author?.name || 'Someone'} mentioned you in a post`,
+              metadata: {
+                postId: newPost.id,
+                authorId: userId,
+                authorName: author?.name,
+                postContent: content.substring(0, 100) // First 100 chars
+              }
+            })
+          }
+        }
+      }
+    }
 
     return NextResponse.json(newPost, { status: 201 })
   } catch (error) {

@@ -1,21 +1,22 @@
 'use client'
 import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import { useRouter } from 'next/navigation'
 
 interface LoginModalProps {
   isOpen: boolean
   onClose: () => void
   onSuccess?: () => void
+  onSignupClick?: () => void
 }
 
-export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
+export function LoginModal({ isOpen, onClose, onSuccess, onSignupClick }: LoginModalProps) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [name, setName] = useState('')
   const [error, setError] = useState('')
-  const [isSignup, setIsSignup] = useState(false)
   const [loading, setLoading] = useState(false)
-  const { login, signup } = useAuth()
+  const { login } = useAuth()
+  const router = useRouter()
 
   if (!isOpen) return null
 
@@ -37,23 +38,18 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
     }
 
     try {
-      let success = false
-
-      if (isSignup) {
-        success = await signup(email, password, name || undefined)
-      } else {
-        success = await login(email, password)
-      }
+      const success = await login(email, password)
 
       if (success) {
         setEmail('')
         setPassword('')
-        setName('')
         setError('')
-        onSuccess?.()
         onClose()
+        onSuccess?.()
+        // Redirect to dashboard after successful login
+        router.push('/dashboard')
       } else {
-        setError(isSignup ? 'signup failed - user may already exist' : 'login failed')
+        setError('login failed - check your credentials')
       }
     } catch (err) {
       setError('an error occurred')
@@ -117,7 +113,7 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
             textTransform: 'uppercase',
             letterSpacing: '2px'
           }}>
-            {isSignup ? 'create account' : 'sign in'}
+            sign in
           </div>
         </div>
 
@@ -164,48 +160,6 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
             />
           </div>
 
-          {isSignup && (
-            <div style={{ marginBottom: '24px' }}>
-              <label style={{
-                display: 'block',
-                fontSize: '12px',
-                textTransform: 'uppercase',
-                letterSpacing: '2px',
-                marginBottom: '8px',
-                fontWeight: 600,
-                color: '#333'
-              }}>
-                name (optional)
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="your name"
-                style={{
-                  width: '100%',
-                  padding: '14px 16px',
-                  fontSize: '16px',
-                  border: '2px solid #e0e0e0',
-                  borderRadius: '8px',
-                  outline: 'none',
-                  transition: 'all 0.2s ease',
-                  fontFamily: 'inherit',
-                  background: '#fff',
-                  color: '#000',
-                  WebkitTextFillColor: '#000'
-                }}
-                onFocus={(e) => {
-                  e.target.style.borderColor = '#000'
-                  e.target.style.background = '#fafafa'
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = '#e0e0e0'
-                  e.target.style.background = '#fff'
-                }}
-              />
-            </div>
-          )}
 
           <div style={{ marginBottom: '24px' }}>
             <label style={{
@@ -274,7 +228,7 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
               opacity: loading ? 0.6 : 1
             }}
           >
-            {loading ? 'loading...' : `${isSignup ? 'create account' : 'sign in'} →`}
+            {loading ? 'loading...' : 'sign in →'}
           </button>
 
           <button
@@ -295,13 +249,15 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
             fontSize: '14px',
             color: '#666'
           }}>
-            {isSignup ? 'already have an account?' : "don't have an account?"}
+            don't have an account?
             {' '}
             <button
               type="button"
               onClick={() => {
-                setIsSignup(!isSignup)
-                setError('')
+                console.log('LoginModal: Sign up button clicked')
+                console.log('LoginModal: onSignupClick exists?', !!onSignupClick)
+                onClose()
+                onSignupClick?.()
               }}
               style={{
                 background: 'none',
@@ -314,7 +270,7 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
                 fontFamily: 'inherit'
               }}
             >
-              {isSignup ? 'sign in' : 'sign up'}
+              sign up
             </button>
           </div>
         </form>

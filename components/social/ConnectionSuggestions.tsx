@@ -1,10 +1,12 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import { Avatar } from '@/components/common/Avatar'
 
 interface Suggestion {
   userId: string
   userName: string
+  userProfileImage?: string
   bio: string
   sharedTopics: string[]
   mutualConnections: number
@@ -143,21 +145,12 @@ export function ConnectionSuggestions() {
                 gap: '10px',
                 marginBottom: '10px'
               }}>
-                <div style={{
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '50%',
-                  background: '#000',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '16px',
-                  fontWeight: 700,
-                  color: '#fff',
-                  flexShrink: 0
-                }}>
-                  {suggestion.userName.charAt(0).toUpperCase()}
-                </div>
+                <Avatar
+                  src={suggestion.userProfileImage}
+                  name={suggestion.userName}
+                  size="md"
+                  style={{ flexShrink: 0 }}
+                />
                 <div style={{ flex: 1 }}>
                   <div style={{
                     fontSize: '14px',

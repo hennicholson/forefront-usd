@@ -46,6 +46,7 @@ export async function PUT(
       phone,
       website,
       profileImage,
+      bannerImage,
       summary,
       experience,
       education,
@@ -57,6 +58,7 @@ export async function PUT(
       socialLinks,
       meetingLink,
       availability,
+      profileVisibility,
       geminiApiKey,
       profileComplete
     } = body
@@ -74,6 +76,7 @@ export async function PUT(
     if (phone !== undefined) updateData.phone = phone
     if (website !== undefined) updateData.website = website
     if (profileImage !== undefined) updateData.profileImage = profileImage
+    if (bannerImage !== undefined) updateData.bannerImage = bannerImage
     if (summary !== undefined) updateData.summary = summary
     if (experience !== undefined) updateData.experience = experience
     if (education !== undefined) updateData.education = education
@@ -85,6 +88,7 @@ export async function PUT(
     if (socialLinks !== undefined) updateData.socialLinks = socialLinks
     if (meetingLink !== undefined) updateData.meetingLink = meetingLink
     if (availability !== undefined) updateData.availability = availability
+    if (profileVisibility !== undefined) updateData.profileVisibility = profileVisibility
     if (geminiApiKey !== undefined) updateData.geminiApiKey = geminiApiKey
     if (profileComplete !== undefined) updateData.profileComplete = profileComplete
 

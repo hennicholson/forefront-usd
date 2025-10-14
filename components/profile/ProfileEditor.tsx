@@ -9,8 +9,18 @@ interface ProfileEditorProps {
 }
 
 export function ProfileEditor({ profile: initialProfile, onSave, onCancel }: ProfileEditorProps) {
-  const [profile, setProfile] = useState<UserProfile>(initialProfile)
-  const [activeSection, setActiveSection] = useState<'basic' | 'experience' | 'education' | 'skills' | 'certifications' | 'projects' | 'awards'>('basic')
+  const [profile, setProfile] = useState<UserProfile>({
+    ...initialProfile,
+    profileVisibility: initialProfile.profileVisibility || {
+      experience: true,
+      education: true,
+      skills: true,
+      certifications: true,
+      projects: true,
+      awards: true
+    }
+  })
+  const [activeSection, setActiveSection] = useState<'basic' | 'experience' | 'education' | 'skills' | 'certifications' | 'projects' | 'awards' | 'visibility'>('basic')
 
   const updateBasic = (field: keyof UserProfile, value: any) => {
     setProfile(prev => ({ ...prev, [field]: value }))
@@ -22,6 +32,16 @@ export function ProfileEditor({ profile: initialProfile, onSave, onCancel }: Pro
       socialLinks: {
         ...prev.socialLinks,
         [platform]: value || undefined
+      }
+    }))
+  }
+
+  const toggleVisibility = (section: keyof typeof profile.profileVisibility) => {
+    setProfile(prev => ({
+      ...prev,
+      profileVisibility: {
+        ...prev.profileVisibility!,
+        [section]: !prev.profileVisibility![section]
       }
     }))
   }
@@ -345,6 +365,9 @@ export function ProfileEditor({ profile: initialProfile, onSave, onCancel }: Pro
           </button>
           <button onClick={() => setActiveSection('awards')} style={sectionButtonStyle(activeSection === 'awards')}>
             awards ({profile.awards.length})
+          </button>
+          <button onClick={() => setActiveSection('visibility')} style={sectionButtonStyle(activeSection === 'visibility')}>
+            visibility
           </button>
         </div>
 
@@ -904,6 +927,71 @@ export function ProfileEditor({ profile: initialProfile, onSave, onCancel }: Pro
               <button onClick={addAward} style={buttonStyle}>
                 + add award
               </button>
+            </div>
+          )}
+
+          {/* Visibility Section */}
+          {activeSection === 'visibility' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ marginBottom: '12px' }}>
+                <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '8px' }}>
+                  Profile Section Visibility
+                </h3>
+                <p style={{ fontSize: '13px', color: '#666', lineHeight: 1.5 }}>
+                  Toggle which sections appear on your public profile. Hidden sections won't be visible to other users.
+                </p>
+              </div>
+
+              {[
+                { key: 'experience', label: 'Experience', count: profile.experience.length },
+                { key: 'education', label: 'Education', count: profile.education.length },
+                { key: 'skills', label: 'Skills', count: profile.skills.length },
+                { key: 'certifications', label: 'Certifications', count: profile.certifications.length },
+                { key: 'projects', label: 'Projects', count: profile.projects.length },
+                { key: 'awards', label: 'Awards & Honors', count: profile.awards.length }
+              ].map(({ key, label, count }) => (
+                <div
+                  key={key}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '16px',
+                    background: '#f5f5f5',
+                    borderRadius: '8px',
+                    border: '2px solid #e0e0e0'
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>
+                      {label} ({count})
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#666' }}>
+                      {profile.profileVisibility?.[key as keyof typeof profile.profileVisibility]
+                        ? 'Visible on profile'
+                        : 'Hidden from profile'}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => toggleVisibility(key as keyof typeof profile.profileVisibility)}
+                    style={{
+                      padding: '8px 16px',
+                      background: profile.profileVisibility?.[key as keyof typeof profile.profileVisibility]
+                        ? '#4a90e2'
+                        : '#ccc',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    {profile.profileVisibility?.[key as keyof typeof profile.profileVisibility] ? 'visible' : 'hidden'}
+                  </button>
+                </div>
+              ))}
             </div>
           )}
         </div>

@@ -110,3 +110,53 @@ export async function PATCH(request: Request) {
     )
   }
 }
+
+// Delete submission
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')
+    const userId = searchParams.get('userId')
+
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Submission ID is required' },
+        { status: 400 }
+      )
+    }
+
+    // If userId is provided, verify ownership before deleting
+    if (userId) {
+      const [submission] = await db
+        .select()
+        .from(submissions)
+        .where(eq(submissions.id, id))
+
+      if (!submission) {
+        return NextResponse.json(
+          { error: 'Submission not found' },
+          { status: 404 }
+        )
+      }
+
+      if (submission.userId !== userId) {
+        return NextResponse.json(
+          { error: 'Unauthorized to delete this submission' },
+          { status: 403 }
+        )
+      }
+    }
+
+    await db
+      .delete(submissions)
+      .where(eq(submissions.id, id))
+
+    return NextResponse.json({ success: true, id })
+  } catch (error: any) {
+    console.error('Error deleting submission:', error)
+    return NextResponse.json(
+      { error: 'Failed to delete submission', details: error.message },
+      { status: 500 }
+    )
+  }
+}
