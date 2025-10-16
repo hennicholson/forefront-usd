@@ -37,6 +37,7 @@ export default function ModulePage() {
   }, [slug])
 
   useEffect(() => {
+    window.scrollTo(0, 0)
     loadModule()
   }, [loadModule])
 

@@ -88,15 +88,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [progress, setProgress] = useState<ModuleProgress[]>([])
   const [notes, setNotes] = useState<ModuleNote[]>([])
 
-  // Load from localStorage on mount
+  // Load from localStorage on mount and listen for changes
   useEffect(() => {
-    const storedUser = localStorage.getItem('user')
-    const storedProgress = localStorage.getItem('progress')
-    const storedNotes = localStorage.getItem('notes')
+    const loadFromStorage = () => {
+      const storedUser = localStorage.getItem('user')
+      const storedProgress = localStorage.getItem('progress')
+      const storedNotes = localStorage.getItem('notes')
 
-    if (storedUser) setUser(JSON.parse(storedUser))
-    if (storedProgress) setProgress(JSON.parse(storedProgress))
-    if (storedNotes) setNotes(JSON.parse(storedNotes))
+      if (storedUser) setUser(JSON.parse(storedUser))
+      if (storedProgress) setProgress(JSON.parse(storedProgress))
+      if (storedNotes) setNotes(JSON.parse(storedNotes))
+    }
+
+    loadFromStorage()
+
+    // Listen for storage changes (including manual updates)
+    window.addEventListener('storage', loadFromStorage)
+    return () => window.removeEventListener('storage', loadFromStorage)
   }, [])
 
   const login = async (email: string, password: string): Promise<boolean> => {

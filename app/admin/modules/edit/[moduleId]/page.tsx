@@ -194,6 +194,7 @@ export default function ModuleEditorPageNew() {
   const [saving, setSaving] = useState(false)
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [showPreview, setShowPreview] = useState(true)
+  const [showSettings, setShowSettings] = useState(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -446,6 +447,12 @@ export default function ModuleEditorPageNew() {
             </div>
             <div className="flex gap-3">
               <button
+                onClick={() => setShowSettings(!showSettings)}
+                className={`px-4 py-2 rounded-lg font-medium ${showSettings ? 'bg-[#fff] text-[#000]' : 'bg-[#0a0a0a] border border-[#333] text-[#666]'}`}
+              >
+                {showSettings ? '✓ Settings' : 'Settings'}
+              </button>
+              <button
                 onClick={() => setShowPreview(!showPreview)}
                 className={`px-4 py-2 rounded-lg font-medium ${showPreview ? 'bg-[#fff] text-[#000]' : 'bg-[#0a0a0a] border border-[#333] text-[#666]'}`}
               >
@@ -491,6 +498,138 @@ export default function ModuleEditorPageNew() {
           </DndContext>
         </div>
       </div>
+
+      {/* Module Settings Modal */}
+      {showSettings && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowSettings(false)
+            }
+          }}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.9)',
+            backdropFilter: 'blur(10px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            padding: '20px',
+            overflowY: 'auto'
+          }}
+        >
+          <div style={{
+            background: '#0a0a0a',
+            width: '100%',
+            maxWidth: '700px',
+            borderRadius: '16px',
+            border: '1px solid #1a1a1a',
+            maxHeight: '90vh',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
+            {/* Header */}
+            <div style={{
+              background: '#000',
+              color: '#fff',
+              padding: '32px',
+              borderBottom: '1px solid #1a1a1a'
+            }}>
+              <h3 style={{
+                fontSize: '24px',
+                fontWeight: 700,
+                textTransform: 'lowercase',
+                marginBottom: '8px'
+              }}>
+                Module Settings
+              </h3>
+              <p style={{
+                fontSize: '14px',
+                color: '#666'
+              }}>
+                Edit instructor, duration, and skill level
+              </p>
+            </div>
+
+            {/* Content */}
+            <div style={{
+              padding: '32px',
+              overflowY: 'auto',
+              flex: 1
+            }}>
+              <div style={{ marginBottom: '24px' }}>
+                <label className="block text-sm font-semibold text-[#fff] mb-3">Instructor Name</label>
+                <input
+                  type="text"
+                  value={module?.instructor?.name || ''}
+                  onChange={(e) => {
+                    if (module) {
+                      setModule({
+                        ...module,
+                        instructor: { ...module.instructor, name: e.target.value }
+                      })
+                    }
+                  }}
+                  className="w-full px-4 py-3 bg-[#000] border border-[#333] rounded-lg text-[#fff] focus:ring-2 focus:ring-[#fff] focus:border-[#fff] transition-all"
+                />
+              </div>
+
+              <div style={{ marginBottom: '24px' }}>
+                <label className="block text-sm font-semibold text-[#fff] mb-3">Duration</label>
+                <input
+                  type="text"
+                  value={module?.duration || ''}
+                  onChange={(e) => {
+                    if (module) {
+                      setModule({ ...module, duration: e.target.value })
+                    }
+                  }}
+                  placeholder="e.g., 2 hours"
+                  className="w-full px-4 py-3 bg-[#000] border border-[#333] rounded-lg text-[#fff] focus:ring-2 focus:ring-[#fff] focus:border-[#fff] transition-all placeholder-[#666]"
+                />
+              </div>
+
+              <div style={{ marginBottom: '24px' }}>
+                <label className="block text-sm font-semibold text-[#fff] mb-3">Skill Level</label>
+                <select
+                  value={module?.skillLevel || ''}
+                  onChange={(e) => {
+                    if (module) {
+                      setModule({ ...module, skillLevel: e.target.value })
+                    }
+                  }}
+                  className="w-full px-4 py-3 bg-[#000] border border-[#333] rounded-lg text-[#fff] focus:ring-2 focus:ring-[#fff] focus:border-[#fff] transition-all"
+                >
+                  <option value="beginner">Beginner</option>
+                  <option value="intermediate">Intermediate</option>
+                  <option value="advanced">Advanced</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div style={{
+              padding: '24px 32px',
+              borderTop: '1px solid #1a1a1a',
+              display: 'flex',
+              gap: '12px'
+            }}>
+              <button
+                onClick={() => setShowSettings(false)}
+                className="flex-1 px-6 py-3 bg-[#fff] text-[#000] rounded-lg font-medium hover:bg-[#f0f0f0]"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Editor + Preview */}
       <div className={`grid ${showPreview ? 'grid-cols-2' : 'grid-cols-1'} gap-8 max-w-[1800px] mx-auto px-8 py-8`}>

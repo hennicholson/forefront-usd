@@ -88,6 +88,7 @@ export interface UserProfile {
   phone?: string
   website?: string
   profileImage?: string
+  bannerImage?: string
 
   // Summary
   summary?: string

@@ -18,22 +18,25 @@ export function Header() {
     <>
       <header style={{
         position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
+        top: '20px',
+        left: '50%',
+        transform: 'translateX(-50%)',
         zIndex: 1000,
-        background: 'rgba(0, 0, 0, 0.8)',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-        padding: '20px'
+        background: 'rgba(26, 26, 26, 0.9)',
+        backdropFilter: 'blur(10px)',
+        WebkitBackdropFilter: 'blur(10px)',
+        border: '1px solid #333',
+        borderRadius: '50px',
+        padding: '12px 30px',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+        maxWidth: 'calc(100vw - 40px)',
+        width: 'auto'
       }}>
         <div style={{
-          maxWidth: '1200px',
-          margin: '0 auto',
           display: 'flex',
           justifyContent: 'space-between',
-          alignItems: 'center'
+          alignItems: 'center',
+          gap: '40px'
         }}>
           <Link
             href="/"
@@ -54,53 +57,65 @@ export function Header() {
           {/* Desktop Navigation */}
           <div style={{
             display: 'flex',
-            gap: '32px',
+            gap: '30px',
             alignItems: 'center'
           }} className="desktop-nav">
             <Link
-              href="/#modules"
+              href="/modules"
               style={{
-                fontSize: '14px',
-                textTransform: 'uppercase',
-                letterSpacing: '1.5px',
-                color: '#fff',
+                fontSize: '0.95rem',
+                color: '#e0e0e0',
                 textDecoration: 'none',
                 fontWeight: 500,
-                transition: 'opacity 0.3s ease'
+                transition: 'color 0.3s ease',
+                position: 'relative'
               }}
-              className="hover:opacity-70"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = '#fff'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = '#e0e0e0'
+              }}
             >
-              modules
+              Modules
             </Link>
             <Link
               href="/network"
               style={{
-                fontSize: '14px',
-                textTransform: 'uppercase',
-                letterSpacing: '1.5px',
-                color: '#fff',
+                fontSize: '0.95rem',
+                color: '#e0e0e0',
                 textDecoration: 'none',
                 fontWeight: 500,
-                transition: 'opacity 0.3s ease'
+                transition: 'color 0.3s ease',
+                position: 'relative'
               }}
-              className="hover:opacity-70"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = '#fff'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = '#e0e0e0'
+              }}
             >
-              network
+              Network
             </Link>
             <Link
               href="/about"
               style={{
-                fontSize: '14px',
-                textTransform: 'uppercase',
-                letterSpacing: '1.5px',
-                color: '#fff',
+                fontSize: '0.95rem',
+                color: '#e0e0e0',
                 textDecoration: 'none',
                 fontWeight: 500,
-                transition: 'opacity 0.3s ease'
+                transition: 'color 0.3s ease',
+                position: 'relative'
               }}
-              className="hover:opacity-70"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = '#fff'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = '#e0e0e0'
+              }}
             >
-              about
+              About
             </Link>
 
             {isAuthenticated ? (
@@ -279,29 +294,28 @@ export function Header() {
               <button
                 onClick={() => setShowLoginModal(true)}
                 style={{
-                  fontSize: '14px',
-                  textTransform: 'uppercase',
-                  letterSpacing: '1.5px',
+                  fontSize: '0.9rem',
                   color: '#000',
                   background: '#fff',
                   border: 'none',
-                  padding: '10px 20px',
-                  borderRadius: '8px',
-                  fontWeight: 600,
+                  padding: '8px 20px',
+                  borderRadius: '25px',
+                  fontWeight: 500,
                   cursor: 'pointer',
                   transition: 'all 0.3s ease',
-                  fontFamily: 'inherit'
+                  fontFamily: 'inherit',
+                  whiteSpace: 'nowrap'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-2px)'
-                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 255, 255, 0.3)'
+                  e.currentTarget.style.background = '#f0f0f0'
+                  e.currentTarget.style.transform = 'translateY(-1px)'
                 }}
                 onMouseLeave={(e) => {
+                  e.currentTarget.style.background = '#fff'
                   e.currentTarget.style.transform = 'translateY(0)'
-                  e.currentTarget.style.boxShadow = 'none'
                 }}
               >
-                sign in
+                Sign Up
               </button>
             )}
           </div>
@@ -332,18 +346,19 @@ export function Header() {
         </div>
 
         {/* Mobile Menu */}
-        {showMobileMenu && (
-          <div className="mobile-menu" style={{
+        <div className={`mobile-menu ${showMobileMenu ? 'mobile-menu-active' : ''}`} style={{
             position: 'absolute',
-            top: '100%',
-            left: 0,
-            right: 0,
-            background: 'rgba(0, 0, 0, 0.95)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+            top: 'calc(100% + 10px)',
+            left: '0',
+            right: '0',
+            background: 'rgba(26, 26, 26, 0.95)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+            border: '1px solid #333',
+            borderRadius: '20px',
             padding: '20px',
-            display: 'none'
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+            transition: 'opacity 0.3s ease, transform 0.3s ease'
           }}>
             <div style={{
               display: 'flex',
@@ -351,52 +366,49 @@ export function Header() {
               gap: '20px'
             }}>
               <Link
-                href="/#modules"
+                href="/modules"
                 onClick={() => setShowMobileMenu(false)}
                 style={{
                   fontSize: '16px',
-                  textTransform: 'uppercase',
-                  letterSpacing: '1.5px',
-                  color: '#fff',
+                  color: '#e0e0e0',
                   textDecoration: 'none',
                   fontWeight: 500,
                   padding: '12px 0',
-                  borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+                  borderBottom: '1px solid #333',
+                  transition: 'color 0.3s ease'
                 }}
               >
-                modules
+                Modules
               </Link>
               <Link
                 href="/network"
                 onClick={() => setShowMobileMenu(false)}
                 style={{
                   fontSize: '16px',
-                  textTransform: 'uppercase',
-                  letterSpacing: '1.5px',
-                  color: '#fff',
+                  color: '#e0e0e0',
                   textDecoration: 'none',
                   fontWeight: 500,
                   padding: '12px 0',
-                  borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+                  borderBottom: '1px solid #333',
+                  transition: 'color 0.3s ease'
                 }}
               >
-                network
+                Network
               </Link>
               <Link
                 href="/about"
                 onClick={() => setShowMobileMenu(false)}
                 style={{
                   fontSize: '16px',
-                  textTransform: 'uppercase',
-                  letterSpacing: '1.5px',
-                  color: '#fff',
+                  color: '#e0e0e0',
                   textDecoration: 'none',
                   fontWeight: 500,
                   padding: '12px 0',
-                  borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+                  borderBottom: '1px solid #333',
+                  transition: 'color 0.3s ease'
                 }}
               >
-                about
+                About
               </Link>
 
               {isAuthenticated ? (
@@ -406,48 +418,45 @@ export function Header() {
                     onClick={() => setShowMobileMenu(false)}
                     style={{
                       fontSize: '16px',
-                      textTransform: 'uppercase',
-                      letterSpacing: '1.5px',
-                      color: '#fff',
+                      color: '#e0e0e0',
                       textDecoration: 'none',
                       fontWeight: 500,
                       padding: '12px 0',
-                      borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+                      borderBottom: '1px solid #333',
+                      transition: 'color 0.3s ease'
                     }}
                   >
-                    dashboard
+                    Dashboard
                   </Link>
                   <Link
                     href="/profile"
                     onClick={() => setShowMobileMenu(false)}
                     style={{
                       fontSize: '16px',
-                      textTransform: 'uppercase',
-                      letterSpacing: '1.5px',
-                      color: '#fff',
+                      color: '#e0e0e0',
                       textDecoration: 'none',
                       fontWeight: 500,
                       padding: '12px 0',
-                      borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+                      borderBottom: '1px solid #333',
+                      transition: 'color 0.3s ease'
                     }}
                   >
-                    profile
+                    Profile
                   </Link>
                   <Link
                     href="/submit"
                     onClick={() => setShowMobileMenu(false)}
                     style={{
                       fontSize: '16px',
-                      textTransform: 'uppercase',
-                      letterSpacing: '1.5px',
-                      color: '#fff',
+                      color: '#e0e0e0',
                       textDecoration: 'none',
                       fontWeight: 500,
                       padding: '12px 0',
-                      borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+                      borderBottom: '1px solid #333',
+                      transition: 'color 0.3s ease'
                     }}
                   >
-                    submit course
+                    Submit Course
                   </Link>
                   {user?.isAdmin && (
                     <Link
@@ -455,16 +464,15 @@ export function Header() {
                       onClick={() => setShowMobileMenu(false)}
                       style={{
                         fontSize: '16px',
-                        textTransform: 'uppercase',
-                        letterSpacing: '1.5px',
-                        color: '#fff',
+                        color: '#e0e0e0',
                         textDecoration: 'none',
                         fontWeight: 500,
                         padding: '12px 0',
-                        borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+                        borderBottom: '1px solid #333',
+                        transition: 'color 0.3s ease'
                       }}
                     >
-                      ⚙ admin
+                      ⚙ Admin
                     </Link>
                   )}
                   <button
@@ -474,19 +482,18 @@ export function Header() {
                     }}
                     style={{
                       fontSize: '16px',
-                      textTransform: 'uppercase',
-                      letterSpacing: '1.5px',
-                      color: '#fff',
+                      color: '#e0e0e0',
                       background: 'transparent',
                       border: 'none',
                       textAlign: 'left',
                       fontWeight: 500,
                       padding: '12px 0',
                       cursor: 'pointer',
-                      fontFamily: 'inherit'
+                      fontFamily: 'inherit',
+                      transition: 'color 0.3s ease'
                     }}
                   >
-                    sign out
+                    Sign Out
                   </button>
                 </>
               ) : (
@@ -497,29 +504,48 @@ export function Header() {
                   }}
                   style={{
                     fontSize: '16px',
-                    textTransform: 'uppercase',
-                    letterSpacing: '1.5px',
                     color: '#000',
                     background: '#fff',
                     border: 'none',
-                    padding: '16px',
-                    borderRadius: '8px',
-                    fontWeight: 600,
+                    padding: '14px 24px',
+                    borderRadius: '25px',
+                    fontWeight: 500,
                     cursor: 'pointer',
                     fontFamily: 'inherit',
-                    marginTop: '8px'
+                    marginTop: '8px',
+                    width: '100%',
+                    transition: 'background 0.3s ease'
                   }}
                 >
-                  sign in
+                  Sign Up
                 </button>
               )}
             </div>
           </div>
-        )}
       </header>
 
       <style jsx>{`
+        .mobile-menu {
+          opacity: 0;
+          transform: translateY(-10px);
+          pointer-events: none;
+          visibility: hidden;
+        }
+
+        .mobile-menu-active {
+          opacity: 1 !important;
+          transform: translateY(0) !important;
+          pointer-events: auto !important;
+          visibility: visible !important;
+        }
+
         @media (max-width: 768px) {
+          header {
+            top: 15px !important;
+            padding: 10px 20px !important;
+            width: calc(100% - 30px) !important;
+            max-width: none !important;
+          }
           .desktop-nav {
             display: none !important;
           }
@@ -527,7 +553,9 @@ export function Header() {
             display: block !important;
           }
           .mobile-menu {
-            display: block !important;
+            width: 100% !important;
+            left: 0 !important;
+            right: 0 !important;
           }
         }
       `}</style>

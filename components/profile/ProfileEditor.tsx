@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { UserProfile, Experience, Education, Skill, Certification, Project, Award } from '@/types/profile'
+import { ProfilePreview } from './ProfilePreview'
 
 interface ProfileEditorProps {
   profile: UserProfile
@@ -20,7 +21,8 @@ export function ProfileEditor({ profile: initialProfile, onSave, onCancel }: Pro
       awards: true
     }
   })
-  const [activeSection, setActiveSection] = useState<'basic' | 'experience' | 'education' | 'skills' | 'certifications' | 'projects' | 'awards' | 'visibility'>('basic')
+  const [activeSection, setActiveSection] = useState<'basic' | 'display' | 'experience' | 'education' | 'skills' | 'certifications' | 'projects' | 'awards'>('basic')
+  const [showPreview, setShowPreview] = useState(false)
 
   const updateBasic = (field: keyof UserProfile, value: any) => {
     setProfile(prev => ({ ...prev, [field]: value }))
@@ -348,6 +350,9 @@ export function ProfileEditor({ profile: initialProfile, onSave, onCancel }: Pro
           <button onClick={() => setActiveSection('basic')} style={sectionButtonStyle(activeSection === 'basic')}>
             basic
           </button>
+          <button onClick={() => setActiveSection('display')} style={sectionButtonStyle(activeSection === 'display')}>
+            display settings
+          </button>
           <button onClick={() => setActiveSection('experience')} style={sectionButtonStyle(activeSection === 'experience')}>
             experience ({profile.experience.length})
           </button>
@@ -365,9 +370,6 @@ export function ProfileEditor({ profile: initialProfile, onSave, onCancel }: Pro
           </button>
           <button onClick={() => setActiveSection('awards')} style={sectionButtonStyle(activeSection === 'awards')}>
             awards ({profile.awards.length})
-          </button>
-          <button onClick={() => setActiveSection('visibility')} style={sectionButtonStyle(activeSection === 'visibility')}>
-            visibility
           </button>
         </div>
 
@@ -930,8 +932,8 @@ export function ProfileEditor({ profile: initialProfile, onSave, onCancel }: Pro
             </div>
           )}
 
-          {/* Visibility Section */}
-          {activeSection === 'visibility' && (
+          {/* Display Settings Section */}
+          {activeSection === 'display' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div style={{ marginBottom: '12px' }}>
                 <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '8px' }}>
@@ -985,9 +987,25 @@ export function ProfileEditor({ profile: initialProfile, onSave, onCancel }: Pro
                       fontSize: '12px',
                       fontWeight: 600,
                       cursor: 'pointer',
-                      transition: 'all 0.2s ease'
+                      transition: 'all 0.2s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
                     }}
                   >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      {profile.profileVisibility?.[key as keyof typeof profile.profileVisibility] ? (
+                        <>
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                          <circle cx="12" cy="12" r="3" />
+                        </>
+                      ) : (
+                        <>
+                          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                          <line x1="1" y1="1" x2="23" y2="23" />
+                        </>
+                      )}
+                    </svg>
                     {profile.profileVisibility?.[key as keyof typeof profile.profileVisibility] ? 'visible' : 'hidden'}
                   </button>
                 </div>
@@ -1015,11 +1033,28 @@ export function ProfileEditor({ profile: initialProfile, onSave, onCancel }: Pro
           >
             cancel
           </button>
+          <button
+            onClick={() => setShowPreview(true)}
+            style={{
+              ...buttonStyle,
+              background: '#fff',
+              color: '#000',
+              border: '2px solid #000'
+            }}
+          >
+            preview profile
+          </button>
           <button onClick={() => onSave(profile)} style={buttonStyle}>
             save changes
           </button>
         </div>
       </div>
+
+      <ProfilePreview
+        profile={profile}
+        isOpen={showPreview}
+        onClose={() => setShowPreview(false)}
+      />
     </div>
   )
 }

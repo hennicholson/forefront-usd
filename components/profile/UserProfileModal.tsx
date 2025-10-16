@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { UserProfile, Experience, Education, Certification, Project, Award } from '@/types/profile'
+import { ExpandableSection } from './ExpandableSection'
 
 interface UserProfileModalProps {
   userId: string
@@ -15,26 +16,6 @@ export function UserProfileModal({ userId, isOpen, onClose }: UserProfileModalPr
   const [loading, setLoading] = useState(true)
   const [aiSummary, setAiSummary] = useState<string | null>(null)
   const [summarizing, setSummarizing] = useState(false)
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    about: true,
-    summary: false,
-    experience: true,
-    education: false,
-    skills: false,
-    certifications: false,
-    awards: false,
-    projects: false,
-    interests: false,
-    social: false,
-    availability: false
-  })
-
-  const toggleSection = (section: string) => {
-    setExpandedSections(prev => ({
-      ...prev,
-      [section]: !prev[section]
-    }))
-  }
 
   useEffect(() => {
     if (!isOpen || !userId) return
@@ -317,11 +298,7 @@ export function UserProfileModal({ userId, isOpen, onClose }: UserProfileModalPr
 
                   {/* Section: About */}
                   {profile.bio && (
-                    <SectionCollapsible
-                      title="about"
-                      expanded={expandedSections.about}
-                      onToggle={() => toggleSection('about')}
-                    >
+                    <ExpandableSection title="about" defaultExpanded={true}>
                       <p style={{
                         fontSize: 'clamp(13px, 2vw, 14px)',
                         color: '#333',
@@ -330,16 +307,12 @@ export function UserProfileModal({ userId, isOpen, onClose }: UserProfileModalPr
                       }}>
                         {profile.bio}
                       </p>
-                    </SectionCollapsible>
+                    </ExpandableSection>
                   )}
 
                   {/* Section: Summary */}
                   {profile.summary && (
-                    <SectionCollapsible
-                      title="summary"
-                      expanded={expandedSections.summary}
-                      onToggle={() => toggleSection('summary')}
-                    >
+                    <ExpandableSection title="summary">
                       <p style={{
                         fontSize: 'clamp(13px, 2vw, 14px)',
                         color: '#333',
@@ -349,15 +322,14 @@ export function UserProfileModal({ userId, isOpen, onClose }: UserProfileModalPr
                       }}>
                         {profile.summary}
                       </p>
-                    </SectionCollapsible>
+                    </ExpandableSection>
                   )}
 
                   {/* Section: Experience */}
                   {profile.experience && profile.experience.length > 0 && profile.profileVisibility?.experience !== false && (
-                    <SectionCollapsible
+                    <ExpandableSection
                       title={`experience (${profile.experience.length})`}
-                      expanded={expandedSections.experience}
-                      onToggle={() => toggleSection('experience')}
+                      defaultExpanded={true}
                     >
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                         {profile.experience.map((exp: Experience) => (
@@ -394,16 +366,12 @@ export function UserProfileModal({ userId, isOpen, onClose }: UserProfileModalPr
                           </div>
                         ))}
                       </div>
-                    </SectionCollapsible>
+                    </ExpandableSection>
                   )}
 
                   {/* Section: Education */}
                   {profile.education && profile.education.length > 0 && profile.profileVisibility?.education !== false && (
-                    <SectionCollapsible
-                      title={`education (${profile.education.length})`}
-                      expanded={expandedSections.education}
-                      onToggle={() => toggleSection('education')}
-                    >
+                    <ExpandableSection title={`education (${profile.education.length})`}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                         {profile.education.map((edu: Education) => (
                           <div key={edu.id} style={{
@@ -436,16 +404,12 @@ export function UserProfileModal({ userId, isOpen, onClose }: UserProfileModalPr
                           </div>
                         ))}
                       </div>
-                    </SectionCollapsible>
+                    </ExpandableSection>
                   )}
 
                   {/* Section: Skills */}
                   {profile.skills && profile.skills.length > 0 && profile.profileVisibility?.skills !== false && (
-                    <SectionCollapsible
-                      title={`skills (${profile.skills.length})`}
-                      expanded={expandedSections.skills}
-                      onToggle={() => toggleSection('skills')}
-                    >
+                    <ExpandableSection title={`skills (${profile.skills.length})`}>
                       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                         {profile.skills.map((skill, i) => (
                           <span
@@ -464,7 +428,7 @@ export function UserProfileModal({ userId, isOpen, onClose }: UserProfileModalPr
                           </span>
                         ))}
                       </div>
-                    </SectionCollapsible>
+                    </ExpandableSection>
                   )}
 
                   {/* Two Column Grid for Certifications & Awards */}
@@ -476,10 +440,8 @@ export function UserProfileModal({ userId, isOpen, onClose }: UserProfileModalPr
                   }}>
                     {/* Section: Certifications */}
                     {profile.certifications && profile.certifications.length > 0 && profile.profileVisibility?.certifications !== false && (
-                      <SectionCollapsible
+                      <ExpandableSection
                         title={`certifications (${profile.certifications.length})`}
-                        expanded={expandedSections.certifications}
-                        onToggle={() => toggleSection('certifications')}
                       >
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                           {profile.certifications.map((cert: Certification) => (
@@ -519,15 +481,13 @@ export function UserProfileModal({ userId, isOpen, onClose }: UserProfileModalPr
                             </div>
                           ))}
                         </div>
-                      </SectionCollapsible>
+                      </ExpandableSection>
                     )}
 
                     {/* Section: Awards */}
                     {profile.awards && profile.awards.length > 0 && profile.profileVisibility?.awards !== false && (
-                      <SectionCollapsible
+                      <ExpandableSection
                         title={`awards & honors (${profile.awards.length})`}
-                        expanded={expandedSections.awards}
-                        onToggle={() => toggleSection('awards')}
                       >
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                           {profile.awards.map((award: Award) => (
@@ -554,16 +514,14 @@ export function UserProfileModal({ userId, isOpen, onClose }: UserProfileModalPr
                             </div>
                           ))}
                         </div>
-                      </SectionCollapsible>
+                      </ExpandableSection>
                     )}
                   </div>
 
                   {/* Section: Projects */}
                   {profile.projects && profile.projects.length > 0 && profile.profileVisibility?.projects !== false && (
-                    <SectionCollapsible
+                    <ExpandableSection
                       title={`projects (${profile.projects.length})`}
-                      expanded={expandedSections.projects}
-                      onToggle={() => toggleSection('projects')}
                     >
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                         {profile.projects.map((proj: Project) => (
@@ -620,15 +578,13 @@ export function UserProfileModal({ userId, isOpen, onClose }: UserProfileModalPr
                           </div>
                         ))}
                       </div>
-                    </SectionCollapsible>
+                    </ExpandableSection>
                   )}
 
                   {/* Section: Interests */}
                   {profile.interests && profile.interests.length > 0 && (
-                    <SectionCollapsible
+                    <ExpandableSection
                       title={`interests (${profile.interests.length})`}
-                      expanded={expandedSections.interests}
-                      onToggle={() => toggleSection('interests')}
                     >
                       <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                         {profile.interests.map((interest, i) => (
@@ -650,16 +606,12 @@ export function UserProfileModal({ userId, isOpen, onClose }: UserProfileModalPr
                           </span>
                         ))}
                       </div>
-                    </SectionCollapsible>
+                    </ExpandableSection>
                   )}
 
                   {/* Section: Social Links */}
                   {profile.socialLinks && Object.values(profile.socialLinks).some(link => link) && (
-                    <SectionCollapsible
-                      title="connect"
-                      expanded={expandedSections.social}
-                      onToggle={() => toggleSection('social')}
-                    >
+                    <ExpandableSection title="connect">
                       <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                         {profile.socialLinks.linkedin && (
                           <a
@@ -778,16 +730,12 @@ export function UserProfileModal({ userId, isOpen, onClose }: UserProfileModalPr
                           </a>
                         )}
                       </div>
-                    </SectionCollapsible>
+                    </ExpandableSection>
                   )}
 
                   {/* Section: Availability */}
                   {profile.availability && (
-                    <SectionCollapsible
-                      title="availability"
-                      expanded={expandedSections.availability}
-                      onToggle={() => toggleSection('availability')}
-                    >
+                    <ExpandableSection title="availability">
                       <p style={{
                         fontSize: 'clamp(13px, 2vw, 15px)',
                         color: '#000',
@@ -797,7 +745,7 @@ export function UserProfileModal({ userId, isOpen, onClose }: UserProfileModalPr
                       }}>
                         {profile.availability}
                       </p>
-                    </SectionCollapsible>
+                    </ExpandableSection>
                   )}
 
                   {/* Meeting Room */}
@@ -865,76 +813,5 @@ export function UserProfileModal({ userId, isOpen, onClose }: UserProfileModalPr
         </div>
       </div>
     </>
-  )
-}
-
-// Collapsible Section Component
-function SectionCollapsible({
-  title,
-  expanded,
-  onToggle,
-  children
-}: {
-  title: string
-  expanded: boolean
-  onToggle: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <div style={{ marginBottom: '20px' }}>
-      <div
-        onClick={onToggle}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '14px 18px',
-          background: '#fafafa',
-          cursor: 'pointer',
-          transition: 'all 0.2s ease',
-          border: '2px solid #e0e0e0',
-          borderRadius: expanded ? '10px 10px 0 0' : '10px',
-          marginBottom: expanded ? '0' : '0'
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.borderColor = '#000'
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.borderColor = '#e0e0e0'
-        }}
-      >
-        <h3 style={{
-          fontSize: 'clamp(12px, 2vw, 14px)',
-          fontWeight: 700,
-          textTransform: 'lowercase',
-          letterSpacing: '0px',
-          color: '#000',
-          margin: 0,
-          transition: 'color 0.2s ease'
-        }}>
-          {title}
-        </h3>
-        <span style={{
-          fontSize: '18px',
-          color: '#666',
-          transition: 'transform 0.2s ease',
-          transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
-          display: 'inline-block'
-        }}>
-          ↓
-        </span>
-      </div>
-      {expanded && (
-        <div style={{
-          background: '#fff',
-          padding: '20px',
-          border: '2px solid #e0e0e0',
-          borderTop: 'none',
-          borderRadius: '0 0 10px 10px'
-        }}>
-          {children}
-        </div>
-      )}
-    </div>
   )
 }
