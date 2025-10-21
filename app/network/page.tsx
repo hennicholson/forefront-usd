@@ -122,6 +122,12 @@ export default function NetworkPage() {
   const [pendingPostIds, setPendingPostIds] = useState<Set<string>>(new Set())
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null)
 
+  // Load users once on mount, not on every state change
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id) return
+    loadUsers()
+  }, [isAuthenticated, user?.id])
+
   useEffect(() => {
     if (!isAuthenticated || !user?.id) return
 
@@ -129,12 +135,71 @@ export default function NetworkPage() {
       loadPosts()
       loadChannelCounts()
 
-      // Set up polling for silent updates every 5 seconds
-      const pollInterval = setInterval(() => {
-        loadPosts(true) // Silent reload
-      }, 5000)
+      // Smart polling with backoff and visibility detection
+      let pollInterval: NodeJS.Timeout | null = null
+      let pollDelay = 5000 // Start with 5 seconds
+      let unchangedCount = 0
+      let lastPostCount = 0
 
-      return () => clearInterval(pollInterval)
+      const startPolling = () => {
+        if (pollInterval) clearInterval(pollInterval)
+
+        pollInterval = setInterval(async () => {
+          // Pause polling when tab is hidden
+          if (document.hidden) return
+
+          const currentCount = posts.length
+          await loadPosts(true) // Silent reload
+
+          // If post count hasn't changed, increase backoff
+          if (currentCount === lastPostCount) {
+            unchangedCount++
+            if (unchangedCount >= 3) {
+              // After 3 unchanged polls, slow down to 15s
+              pollDelay = 15000
+              if (pollInterval) clearInterval(pollInterval)
+              startPolling()
+            }
+          } else {
+            // Reset backoff when new data arrives
+            unchangedCount = 0
+            if (pollDelay !== 5000) {
+              pollDelay = 5000
+              if (pollInterval) clearInterval(pollInterval)
+              startPolling()
+            }
+          }
+          lastPostCount = currentCount
+        }, pollDelay)
+      }
+
+      // Resume fast polling on user interaction
+      const handleUserActivity = () => {
+        unchangedCount = 0
+        if (pollDelay !== 5000) {
+          pollDelay = 5000
+          if (pollInterval) clearInterval(pollInterval)
+          startPolling()
+        }
+      }
+
+      // Listen for visibility changes to resume polling
+      const handleVisibilityChange = () => {
+        if (!document.hidden) {
+          loadPosts(true) // Refresh immediately when tab becomes visible
+        }
+      }
+
+      document.addEventListener('visibilitychange', handleVisibilityChange)
+      window.addEventListener('focus', handleUserActivity)
+
+      startPolling()
+
+      return () => {
+        if (pollInterval) clearInterval(pollInterval)
+        document.removeEventListener('visibilitychange', handleVisibilityChange)
+        window.removeEventListener('focus', handleUserActivity)
+      }
     } else if (viewMode === 'dm') {
       loadConversations()
       if (activeConversation) {
@@ -143,17 +208,23 @@ export default function NetworkPage() {
     } else if (viewMode === 'notifications') {
       loadNotifications()
     }
-    loadUsers()
-  }, [isAuthenticated, user, viewMode, activeChannel, activeConversation])
+  }, [isAuthenticated, user?.id, viewMode, activeChannel, activeConversation])
 
-  // Poll notifications every 10 seconds
+  // Poll notifications with smart backoff
   useEffect(() => {
     if (!isAuthenticated || !user?.id) return
 
     loadNotifications()
-    const interval = setInterval(loadNotifications, 10000)
+
+    const interval = setInterval(() => {
+      // Pause polling when tab is hidden
+      if (!document.hidden) {
+        loadNotifications()
+      }
+    }, 10000)
+
     return () => clearInterval(interval)
-  }, [isAuthenticated, user])
+  }, [isAuthenticated, user?.id])
 
   // Mobile detection
   useEffect(() => {
@@ -259,18 +330,12 @@ export default function NetworkPage() {
 
   const loadChannelCounts = async () => {
     try {
-      const counts: Record<string, number> = {}
-      for (const channel of CHANNELS) {
-        const url = channel.topic
-          ? `/api/posts?limit=1000&topic=${encodeURIComponent(channel.topic)}`
-          : '/api/posts?limit=1000'
-        const res = await fetch(url)
-        if (res.ok) {
-          const data = await res.json()
-          counts[channel.id] = Array.isArray(data) ? data.length : 0
-        }
+      // Use new batch endpoint - single call instead of 6 sequential calls
+      const res = await fetch('/api/channels/metrics')
+      if (res.ok) {
+        const counts = await res.json()
+        setChannelCounts(counts)
       }
-      setChannelCounts(counts)
     } catch (error) {
       console.error('Error loading channel counts:', error)
     }
@@ -348,10 +413,28 @@ export default function NetworkPage() {
               })
             })
             if (res.ok) {
+              const newMessage = await res.json()
               setInputValue('')
               setActiveConversation(mentionedUser.id)
-              await loadDirectMessages(mentionedUser.id)
-              await loadConversations()
+
+              // Set messages directly instead of loading
+              setDirectMessages([{
+                ...newMessage,
+                senderName: user.name,
+                senderProfileImage: user.profileImage
+              }])
+
+              // Add to conversations list instead of reloading
+              setConversations(prev => [{
+                userId: mentionedUser.id,
+                userName: mentionedUser.name,
+                userProfileImage: mentionedUser.profileImage,
+                userHeadline: mentionedUser.headline,
+                lastMessage: mentionMatch[2].trim(),
+                lastMessageTime: new Date(),
+                unreadCount: 0,
+                status: 'offline' as const
+              }, ...prev.filter(c => c.userId !== mentionedUser.id)])
             }
           } catch (err) {
             console.error('Error sending DM:', err)
@@ -464,9 +547,46 @@ export default function NetworkPage() {
         })
 
         if (res.ok) {
-          // Silent reload to get real message
-          loadDirectMessages(activeConversation)
-          loadConversations()
+          // Get the real message from server
+          const realMessage = await res.json()
+
+          // Update messages in place instead of full reload
+          setDirectMessages(prev => [
+            ...prev.filter(m => !m.id.startsWith('temp-')),
+            realMessage
+          ])
+
+          // Update conversations list locally instead of refetching
+          setConversations(prev => {
+            const existingConvIdx = prev.findIndex(c => c.userId === activeConversation)
+            if (existingConvIdx >= 0) {
+              // Update existing conversation
+              const updated = [...prev]
+              updated[existingConvIdx] = {
+                ...updated[existingConvIdx],
+                lastMessage: content,
+                lastMessageTime: new Date()
+              }
+              // Move to top
+              return [updated[existingConvIdx], ...updated.filter((_, i) => i !== existingConvIdx)]
+            } else {
+              // New conversation - add to top
+              const otherUser = allUsers.find(u => u.id === activeConversation)
+              if (otherUser) {
+                return [{
+                  userId: activeConversation,
+                  userName: otherUser.name,
+                  userProfileImage: otherUser.profileImage,
+                  userHeadline: otherUser.headline,
+                  lastMessage: content,
+                  lastMessageTime: new Date(),
+                  unreadCount: 0,
+                  status: 'offline' as const
+                }, ...prev]
+              }
+              return prev
+            }
+          })
         } else {
           // Revert on error
           setDirectMessages(directMessages)
