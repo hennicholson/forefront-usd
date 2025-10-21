@@ -48,8 +48,15 @@ export async function GET(request: Request) {
         .orderBy(desc(messages.createdAt))
         .limit(limit)
 
-      // Return in ascending order (oldest first)
-      return NextResponse.json(directMessages.reverse())
+      // Convert IDs to strings and return in ascending order (oldest first)
+      const messagesWithStringIds = directMessages.map(msg => ({
+        ...msg,
+        id: String(msg.id),
+        senderId: String(msg.senderId),
+        receiverId: String(msg.receiverId),
+      }))
+
+      return NextResponse.json(messagesWithStringIds.reverse())
     }
 
     // Otherwise, return conversations list with latest message and unread count
@@ -125,7 +132,7 @@ export async function GET(request: Request) {
           )
 
         return {
-          userId: otherUserId,
+          userId: String(otherUserId),
           userName: userInfo?.name || 'Unknown',
           userProfileImage: userInfo?.profileImage,
           userHeadline: userInfo?.headline,

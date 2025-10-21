@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { posts, users, reactions, comments, notifications } from '@/lib/db/schema'
-import { eq, desc, sql, like } from 'drizzle-orm'
+import { eq, desc, sql, like, inArray } from 'drizzle-orm'
 
 // GET all posts (with user info and counts)
 export async function GET(request: Request) {
@@ -37,33 +37,42 @@ export async function GET(request: Request) {
     // Optimization: Batch fetch all likes and comments counts in 2 queries instead of N+1
     const postIds = allPosts.map(p => p.id)
 
-    // Get all likes counts in one query
-    const likesData = await db
-      .select({
-        postId: reactions.postId,
-        count: sql<number>`cast(count(*) as int)`,
-      })
-      .from(reactions)
-      .where(sql`${reactions.postId} = ANY(${postIds})`)
-      .groupBy(reactions.postId)
+    // Initialize empty maps
+    let likesMap = new Map()
+    let commentsMap = new Map()
 
-    // Get all comments counts in one query
-    const commentsData = await db
-      .select({
-        postId: comments.postId,
-        count: sql<number>`cast(count(*) as int)`,
-      })
-      .from(comments)
-      .where(sql`${comments.postId} = ANY(${postIds})`)
-      .groupBy(comments.postId)
+    // Only fetch counts if we have posts
+    if (postIds.length > 0) {
+      // Get all likes counts in one query
+      const likesData = await db
+        .select({
+          postId: reactions.postId,
+          count: sql<number>`cast(count(*) as int)`,
+        })
+        .from(reactions)
+        .where(inArray(reactions.postId, postIds))
+        .groupBy(reactions.postId)
 
-    // Create lookup maps for O(1) access
-    const likesMap = new Map(likesData.map(l => [l.postId, l.count]))
-    const commentsMap = new Map(commentsData.map(c => [c.postId, c.count]))
+      // Get all comments counts in one query
+      const commentsData = await db
+        .select({
+          postId: comments.postId,
+          count: sql<number>`cast(count(*) as int)`,
+        })
+        .from(comments)
+        .where(inArray(comments.postId, postIds))
+        .groupBy(comments.postId)
+
+      // Create lookup maps for O(1) access
+      likesMap = new Map(likesData.map(l => [l.postId, l.count]))
+      commentsMap = new Map(commentsData.map(c => [c.postId, c.count]))
+    }
 
     // Combine posts with their counts
     const postsWithCounts = allPosts.map(post => ({
       ...post,
+      id: String(post.id), // Ensure ID is a string
+      userId: String(post.userId), // Ensure userId is a string
       likes: likesMap.get(post.id) || 0,
       commentsCount: commentsMap.get(post.id) || 0,
       timestamp: formatTimestamp(post.createdAt)
