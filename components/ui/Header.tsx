@@ -16,6 +16,23 @@ export function Header() {
 
   return (
     <>
+      {/* Mobile Menu Backdrop */}
+      {showMobileMenu && (
+        <div
+          onClick={() => setShowMobileMenu(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.6)',
+            backdropFilter: 'blur(4px)',
+            WebkitBackdropFilter: 'blur(4px)',
+            zIndex: 999,
+            transition: 'opacity 0.3s ease',
+            opacity: showMobileMenu ? 1 : 0
+          }}
+        />
+      )}
+
       <header style={{
         position: 'fixed',
         top: '20px',
@@ -119,9 +136,12 @@ export function Header() {
             </Link>
 
             {isAuthenticated ? (
-              <div style={{ position: 'relative' }}>
+              <div
+                style={{ position: 'relative' }}
+                onMouseEnter={() => setShowUserMenu(true)}
+                onMouseLeave={() => setShowUserMenu(false)}
+              >
                 <button
-                  onClick={() => setShowUserMenu(!showUserMenu)}
                   style={{
                     fontSize: '14px',
                     textTransform: 'uppercase',
@@ -140,155 +160,172 @@ export function Header() {
                     e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)'
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'
+                    e.currentTarget.style.background = showUserMenu ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 255, 255, 0.1)'
                   }}
                 >
                   [{user?.name}]
                 </button>
 
-                {showUserMenu && (
+                <div style={{
+                  position: 'absolute',
+                  top: 'calc(100% - 4px)',
+                  right: 0,
+                  paddingTop: '12px',
+                  opacity: showUserMenu ? 1 : 0,
+                  transform: showUserMenu ? 'translateY(0)' : 'translateY(-10px)',
+                  pointerEvents: showUserMenu ? 'auto' : 'none',
+                  transition: 'opacity 0.25s ease, transform 0.25s ease'
+                }}>
                   <div style={{
-                    position: 'absolute',
-                    top: '100%',
-                    right: 0,
-                    marginTop: '12px',
-                    background: '#fff',
-                    borderRadius: '12px',
-                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
-                    minWidth: '200px',
+                    background: 'rgba(26, 26, 26, 0.95)',
+                    backdropFilter: 'blur(20px)',
+                    WebkitBackdropFilter: 'blur(20px)',
+                    borderRadius: '16px',
+                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1)',
+                    minWidth: '220px',
                     overflow: 'hidden'
                   }}>
+                  <Link
+                    href="/dashboard"
+                    onClick={() => setShowUserMenu(false)}
+                    style={{
+                      display: 'block',
+                      padding: '14px 20px',
+                      fontSize: '13px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px',
+                      color: '#e0e0e0',
+                      textDecoration: 'none',
+                      fontWeight: 500,
+                      borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'
+                      e.currentTarget.style.color = '#fff'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'transparent'
+                      e.currentTarget.style.color = '#e0e0e0'
+                    }}
+                  >
+                    dashboard
+                  </Link>
+                  <Link
+                    href="/profile"
+                    onClick={() => setShowUserMenu(false)}
+                    style={{
+                      display: 'block',
+                      padding: '14px 20px',
+                      fontSize: '13px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px',
+                      color: '#e0e0e0',
+                      textDecoration: 'none',
+                      fontWeight: 500,
+                      borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'
+                      e.currentTarget.style.color = '#fff'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'transparent'
+                      e.currentTarget.style.color = '#e0e0e0'
+                    }}
+                  >
+                    profile settings
+                  </Link>
+                  <Link
+                    href="/submit"
+                    onClick={() => setShowUserMenu(false)}
+                    style={{
+                      display: 'block',
+                      padding: '14px 20px',
+                      fontSize: '13px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px',
+                      color: '#e0e0e0',
+                      textDecoration: 'none',
+                      fontWeight: 500,
+                      borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'
+                      e.currentTarget.style.color = '#fff'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'transparent'
+                      e.currentTarget.style.color = '#e0e0e0'
+                    }}
+                  >
+                    submit course
+                  </Link>
+                  {user?.isAdmin && (
                     <Link
-                      href="/dashboard"
+                      href="/admin"
                       onClick={() => setShowUserMenu(false)}
                       style={{
                         display: 'block',
-                        padding: '16px 20px',
-                        fontSize: '14px',
+                        padding: '14px 20px',
+                        fontSize: '13px',
                         textTransform: 'uppercase',
                         letterSpacing: '1px',
-                        color: '#000',
+                        color: '#e0e0e0',
                         textDecoration: 'none',
-                        fontWeight: 500,
-                        borderBottom: '1px solid #e0e0e0',
-                        transition: 'background 0.2s ease'
+                        fontWeight: 600,
+                        borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                        transition: 'all 0.2s ease',
+                        background: 'rgba(255, 255, 255, 0.05)'
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.background = '#fafafa'
+                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.12)'
+                        e.currentTarget.style.color = '#fff'
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'transparent'
+                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'
+                        e.currentTarget.style.color = '#e0e0e0'
                       }}
                     >
-                      dashboard
+                      ⚙ admin
                     </Link>
-                    <Link
-                      href="/profile"
-                      onClick={() => setShowUserMenu(false)}
-                      style={{
-                        display: 'block',
-                        padding: '16px 20px',
-                        fontSize: '14px',
-                        textTransform: 'uppercase',
-                        letterSpacing: '1px',
-                        color: '#000',
-                        textDecoration: 'none',
-                        fontWeight: 500,
-                        borderBottom: '1px solid #e0e0e0',
-                        transition: 'background 0.2s ease'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = '#fafafa'
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'transparent'
-                      }}
-                    >
-                      profile settings
-                    </Link>
-                    <Link
-                      href="/submit"
-                      onClick={() => setShowUserMenu(false)}
-                      style={{
-                        display: 'block',
-                        padding: '16px 20px',
-                        fontSize: '14px',
-                        textTransform: 'uppercase',
-                        letterSpacing: '1px',
-                        color: '#000',
-                        textDecoration: 'none',
-                        fontWeight: 500,
-                        borderBottom: '1px solid #e0e0e0',
-                        transition: 'background 0.2s ease'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = '#fafafa'
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'transparent'
-                      }}
-                    >
-                      submit course
-                    </Link>
-                    {user?.isAdmin && (
-                      <Link
-                        href="/admin"
-                        onClick={() => setShowUserMenu(false)}
-                        style={{
-                          display: 'block',
-                          padding: '16px 20px',
-                          fontSize: '14px',
-                          textTransform: 'uppercase',
-                          letterSpacing: '1px',
-                          color: '#000',
-                          textDecoration: 'none',
-                          fontWeight: 600,
-                          borderBottom: '1px solid #e0e0e0',
-                          transition: 'background 0.2s ease',
-                          background: '#fafafa'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = '#f0f0f0'
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = '#fafafa'
-                        }}
-                      >
-                        ⚙ admin
-                      </Link>
-                    )}
-                    <button
-                      onClick={() => {
-                        logout()
-                        setShowUserMenu(false)
-                        router.push('/')
-                      }}
-                      style={{
-                        width: '100%',
-                        padding: '16px 20px',
-                        fontSize: '14px',
-                        textTransform: 'uppercase',
-                        letterSpacing: '1px',
-                        color: '#000',
-                        background: 'transparent',
-                        border: 'none',
-                        textAlign: 'left',
-                        fontWeight: 500,
-                        cursor: 'pointer',
-                        transition: 'background 0.2s ease',
-                        fontFamily: 'inherit'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = '#fafafa'
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'transparent'
-                      }}
-                    >
-                      sign out
-                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      logout()
+                      setShowUserMenu(false)
+                      router.push('/')
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '14px 20px',
+                      fontSize: '13px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px',
+                      color: '#e0e0e0',
+                      background: 'transparent',
+                      border: 'none',
+                      textAlign: 'left',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      fontFamily: 'inherit'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'
+                      e.currentTarget.style.color = '#fff'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'transparent'
+                      e.currentTarget.style.color = '#e0e0e0'
+                    }}
+                  >
+                    sign out
+                  </button>
                   </div>
-                )}
+                </div>
               </div>
             ) : (
               <button
@@ -351,16 +388,42 @@ export function Header() {
             top: 'calc(100% + 10px)',
             left: '0',
             right: '0',
-            background: 'rgba(26, 26, 26, 0.95)',
-            backdropFilter: 'blur(10px)',
-            WebkitBackdropFilter: 'blur(10px)',
-            border: '1px solid #333',
             borderRadius: '20px',
             padding: '20px',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
-            transition: 'opacity 0.3s ease, transform 0.3s ease'
+            opacity: showMobileMenu ? 1 : 0,
+            transform: showMobileMenu ? 'translateY(0)' : 'translateY(-10px)',
+            pointerEvents: showMobileMenu ? 'auto' : 'none',
+            visibility: showMobileMenu ? 'visible' : 'hidden',
+            transition: 'opacity 0.3s ease, transform 0.3s ease',
+            overflow: 'hidden'
           }}>
+            {/* Liquid Glass Layers for Mobile Menu */}
             <div style={{
+              position: 'absolute',
+              inset: 0,
+              zIndex: 0,
+              backdropFilter: 'blur(20px) saturate(120%) brightness(1.15)',
+              WebkitBackdropFilter: 'blur(20px) saturate(120%) brightness(1.15)',
+              borderRadius: 'inherit'
+            }} />
+            <div style={{
+              position: 'absolute',
+              inset: 0,
+              zIndex: 1,
+              background: 'rgba(255, 255, 255, 0.15)',
+              borderRadius: 'inherit'
+            }} />
+            <div style={{
+              position: 'absolute',
+              inset: 0,
+              zIndex: 2,
+              boxShadow: 'inset 1px 1px 0 rgba(255, 255, 255, 0.4), inset 0 0 10px rgba(255, 255, 255, 0.2), 0 8px 32px rgba(0, 0, 0, 0.3)',
+              borderRadius: 'inherit',
+              border: '1px solid rgba(255, 255, 255, 0.25)'
+            }} />
+            <div style={{
+              position: 'relative',
+              zIndex: 3,
               display: 'flex',
               flexDirection: 'column',
               gap: '20px'
@@ -525,19 +588,6 @@ export function Header() {
       </header>
 
       <style jsx>{`
-        .mobile-menu {
-          opacity: 0;
-          transform: translateY(-10px);
-          pointer-events: none;
-          visibility: hidden;
-        }
-
-        .mobile-menu-active {
-          opacity: 1 !important;
-          transform: translateY(0) !important;
-          pointer-events: auto !important;
-          visibility: visible !important;
-        }
 
         @media (max-width: 768px) {
           header {

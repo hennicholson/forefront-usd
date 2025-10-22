@@ -266,6 +266,16 @@ html {
   pointer-events: none;
 }
 
+/* Hide scrollbar but keep functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 @media (max-width: 768px) {
   .section {
     padding: 60px 24px;

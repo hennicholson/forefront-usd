@@ -4,14 +4,12 @@ import { useAuth } from '@/contexts/AuthContext'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Send, Search, Users, MessageSquare, Check, CheckCheck, Hash, Video, Code, TrendingUp, Zap, HelpCircle, Heart, MessageCircle, ThumbsUp, Bell, ArrowLeft, Menu, X, ArrowUp, Plus, ChevronDown } from 'lucide-react'
+import { Send, Search, Users, MessageSquare, Check, CheckCheck, Hash, Video, Code, TrendingUp, Zap, HelpCircle, Heart, MessageCircle, ThumbsUp, Bell, ArrowLeft, Menu, X, ArrowUp, Plus } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { LoginModal } from '@/components/auth/LoginModal'
 import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow'
 import { UserProfileModal } from '@/components/profile/UserProfileModal'
 import { MarbleBackground } from '@/components/ui/MarbleBackground'
-import { NotificationBanner } from '@/components/notifications/NotificationBanner'
-import { useNotifications } from '@/hooks/useNotifications'
 
 interface Post {
   id: string
@@ -92,7 +90,6 @@ const CHANNELS: Channel[] = [
 
 export default function NetworkPage() {
   const { isAuthenticated, user, signup } = useAuth()
-  const { sendNotification } = useNotifications()
   const [viewMode, setViewMode] = useState<'channels' | 'dm' | 'notifications'>('channels')
   const [activeChannel, setActiveChannel] = useState('general')
   const [activeConversation, setActiveConversation] = useState<string | null>(null)
@@ -114,25 +111,16 @@ export default function NetworkPage() {
   const inputRef = useRef<HTMLInputElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true)
-  const [showScrollButton, setShowScrollButton] = useState(false)
-  const [isNearBottom, setIsNearBottom] = useState(true)
   const [mentionQuery, setMentionQuery] = useState('')
   const [showMentionDropdown, setShowMentionDropdown] = useState(false)
   const [mentionCursorPosition, setMentionCursorPosition] = useState(0)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
-  const [previousUnreadCount, setPreviousUnreadCount] = useState(0)
   const [isMobile, setIsMobile] = useState(false)
   const [showMobileSidebar, setShowMobileSidebar] = useState(false)
   const [showMobileChat, setShowMobileChat] = useState(false)
   const [pendingPostIds, setPendingPostIds] = useState<Set<string>>(new Set())
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null)
-
-  // Load users once on mount, not on every state change
-  useEffect(() => {
-    if (!isAuthenticated || !user?.id) return
-    loadUsers()
-  }, [isAuthenticated, user?.id])
 
   useEffect(() => {
     if (!isAuthenticated || !user?.id) return
@@ -141,71 +129,12 @@ export default function NetworkPage() {
       loadPosts()
       loadChannelCounts()
 
-      // Smart polling with backoff and visibility detection
-      let pollInterval: NodeJS.Timeout | null = null
-      let pollDelay = 5000 // Start with 5 seconds
-      let unchangedCount = 0
-      let lastPostCount = 0
+      // Set up polling for silent updates every 5 seconds
+      const pollInterval = setInterval(() => {
+        loadPosts(true) // Silent reload
+      }, 5000)
 
-      const startPolling = () => {
-        if (pollInterval) clearInterval(pollInterval)
-
-        pollInterval = setInterval(async () => {
-          // Pause polling when tab is hidden
-          if (document.hidden) return
-
-          const currentCount = posts.length
-          await loadPosts(true) // Silent reload
-
-          // If post count hasn't changed, increase backoff
-          if (currentCount === lastPostCount) {
-            unchangedCount++
-            if (unchangedCount >= 3) {
-              // After 3 unchanged polls, slow down to 15s
-              pollDelay = 15000
-              if (pollInterval) clearInterval(pollInterval)
-              startPolling()
-            }
-          } else {
-            // Reset backoff when new data arrives
-            unchangedCount = 0
-            if (pollDelay !== 5000) {
-              pollDelay = 5000
-              if (pollInterval) clearInterval(pollInterval)
-              startPolling()
-            }
-          }
-          lastPostCount = currentCount
-        }, pollDelay)
-      }
-
-      // Resume fast polling on user interaction
-      const handleUserActivity = () => {
-        unchangedCount = 0
-        if (pollDelay !== 5000) {
-          pollDelay = 5000
-          if (pollInterval) clearInterval(pollInterval)
-          startPolling()
-        }
-      }
-
-      // Listen for visibility changes to resume polling
-      const handleVisibilityChange = () => {
-        if (!document.hidden) {
-          loadPosts(true) // Refresh immediately when tab becomes visible
-        }
-      }
-
-      document.addEventListener('visibilitychange', handleVisibilityChange)
-      window.addEventListener('focus', handleUserActivity)
-
-      startPolling()
-
-      return () => {
-        if (pollInterval) clearInterval(pollInterval)
-        document.removeEventListener('visibilitychange', handleVisibilityChange)
-        window.removeEventListener('focus', handleUserActivity)
-      }
+      return () => clearInterval(pollInterval)
     } else if (viewMode === 'dm') {
       loadConversations()
       if (activeConversation) {
@@ -214,23 +143,17 @@ export default function NetworkPage() {
     } else if (viewMode === 'notifications') {
       loadNotifications()
     }
-  }, [isAuthenticated, user?.id, viewMode, activeChannel, activeConversation])
+    loadUsers()
+  }, [isAuthenticated, user, viewMode, activeChannel, activeConversation])
 
-  // Poll notifications with smart backoff
+  // Poll notifications every 10 seconds
   useEffect(() => {
     if (!isAuthenticated || !user?.id) return
 
     loadNotifications()
-
-    const interval = setInterval(() => {
-      // Pause polling when tab is hidden
-      if (!document.hidden) {
-        loadNotifications()
-      }
-    }, 10000)
-
+    const interval = setInterval(loadNotifications, 10000)
     return () => clearInterval(interval)
-  }, [isAuthenticated, user?.id])
+  }, [isAuthenticated, user])
 
   // Mobile detection
   useEffect(() => {
@@ -269,18 +192,20 @@ export default function NetworkPage() {
       const res = await fetch(`/api/messages?userId=${user.id}&otherUserId=${otherUserId}&limit=50`)
       if (res.ok) {
         setDirectMessages(await res.json())
-        // Clear loading first, then scroll after DOM updates
-        setTimeout(() => {
-          setLoading(false)
-          // Wait for loading skeleton to clear, then scroll with multiple RAF
+        // Scroll instantly while skeleton still showing, then reveal
+        requestAnimationFrame(() => {
           requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              requestAnimationFrame(() => {
-                setTimeout(() => scrollToBottom('auto'), 200)
-              })
-            })
+            const container = messagesContainerRef.current
+            if (container) {
+              // Instant scroll to bottom - no animation
+              container.scrollTop = container.scrollHeight
+            }
+            // Small delay to ensure scroll is applied, then hide skeleton and show messages
+            setTimeout(() => {
+              setLoading(false)
+            }, 100)
           })
-        }, 100)
+        })
       }
     } catch (error) {
       console.error('Error loading direct messages:', error)
@@ -294,58 +219,8 @@ export default function NetworkPage() {
       const res = await fetch(`/api/notifications?userId=${user.id}&limit=50`)
       if (res.ok) {
         const data = await res.json()
-        const currentUnreadCount = data.filter((n: Notification) => !n.read).length
-
-        // Check if there are NEW unread notifications
-        if (currentUnreadCount > previousUnreadCount && previousUnreadCount > 0) {
-          // Find the new unread notifications
-          const newNotifications = data
-            .filter((n: Notification) => !n.read)
-            .slice(0, currentUnreadCount - previousUnreadCount)
-
-          // Send browser notification for each new one
-          newNotifications.forEach((notification: Notification) => {
-            let notificationTitle = 'New Notification'
-            let notificationBody = notification.content
-            let tag = `notification-${notification.id}`
-
-            // Customize based on notification type
-            if (notification.type === 'message') {
-              notificationTitle = 'New Direct Message'
-              tag = 'dm-notification'
-            } else if (notification.type === 'mention') {
-              notificationTitle = 'You were mentioned'
-              tag = 'mention-notification'
-            } else if (notification.type === 'reaction') {
-              notificationTitle = 'Someone reacted to your post'
-              tag = 'reaction-notification'
-            } else if (notification.type === 'comment') {
-              notificationTitle = 'New comment on your post'
-              tag = 'comment-notification'
-            }
-
-            sendNotification({
-              title: notificationTitle,
-              body: notificationBody,
-              tag,
-              onClick: () => {
-                // Navigate to the notification when clicked
-                setViewMode('notifications')
-                if (notification.metadata?.channelId) {
-                  setViewMode('channels')
-                  setActiveChannel(notification.metadata.channelId)
-                } else if (notification.metadata?.userId) {
-                  setViewMode('dm')
-                  setActiveConversation(notification.metadata.userId)
-                }
-              }
-            })
-          })
-        }
-
         setNotifications(data)
-        setUnreadCount(currentUnreadCount)
-        setPreviousUnreadCount(currentUnreadCount)
+        setUnreadCount(data.filter((n: Notification) => !n.read).length)
       }
     } catch (error) {
       console.error('Error loading notifications:', error)
@@ -384,12 +259,18 @@ export default function NetworkPage() {
 
   const loadChannelCounts = async () => {
     try {
-      // Use new batch endpoint - single call instead of 6 sequential calls
-      const res = await fetch('/api/channels/metrics')
-      if (res.ok) {
-        const counts = await res.json()
-        setChannelCounts(counts)
+      const counts: Record<string, number> = {}
+      for (const channel of CHANNELS) {
+        const url = channel.topic
+          ? `/api/posts?limit=1000&topic=${encodeURIComponent(channel.topic)}`
+          : '/api/posts?limit=1000'
+        const res = await fetch(url)
+        if (res.ok) {
+          const data = await res.json()
+          counts[channel.id] = Array.isArray(data) ? data.length : 0
+        }
       }
+      setChannelCounts(counts)
     } catch (error) {
       console.error('Error loading channel counts:', error)
     }
@@ -418,22 +299,25 @@ export default function NetworkPage() {
 
         setPosts(postsArray)
 
-        // Clear loading first, then scroll after DOM updates
+        // Scroll to bottom after state update
         if (!silent) {
-          // Initial load - clear loading then scroll
-          setTimeout(() => {
-            setLoading(false)
-            // Wait for loading skeleton to clear, then scroll with multiple RAF
+          // Initial load - scroll instantly while skeleton still showing, then reveal
+          requestAnimationFrame(() => {
             requestAnimationFrame(() => {
-              requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                  setTimeout(() => scrollToBottom('auto'), 200)
-                })
-              })
+              const container = messagesContainerRef.current
+              if (container) {
+                // Instant scroll to bottom - no animation
+                container.scrollTop = container.scrollHeight
+              }
+              // Small delay to ensure scroll is applied, then hide skeleton and show messages
+              setTimeout(() => {
+                setLoading(false)
+              }, 100)
             })
-          }, 100)
-        } else if (wasAtBottom) {
-          // Silent reload and was at bottom - auto scroll will handle it via useEffect
+          })
+        } else if (wasAtBottom && shouldAutoScroll) {
+          // Silent reload and was at bottom - smooth scroll
+          setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
         }
       }
     } catch (err) {
@@ -464,28 +348,10 @@ export default function NetworkPage() {
               })
             })
             if (res.ok) {
-              const newMessage = await res.json()
               setInputValue('')
               setActiveConversation(mentionedUser.id)
-
-              // Set messages directly instead of loading
-              setDirectMessages([{
-                ...newMessage,
-                senderName: user.name,
-                senderProfileImage: user.profileImage
-              }])
-
-              // Add to conversations list instead of reloading
-              setConversations(prev => [{
-                userId: mentionedUser.id,
-                userName: mentionedUser.name,
-                userProfileImage: mentionedUser.profileImage,
-                userHeadline: mentionedUser.headline,
-                lastMessage: mentionMatch[2].trim(),
-                lastMessageTime: new Date(),
-                unreadCount: 0,
-                status: 'offline' as const
-              }, ...prev.filter(c => c.userId !== mentionedUser.id)])
+              await loadDirectMessages(mentionedUser.id)
+              await loadConversations()
             }
           } catch (err) {
             console.error('Error sending DM:', err)
@@ -598,46 +464,9 @@ export default function NetworkPage() {
         })
 
         if (res.ok) {
-          // Get the real message from server
-          const realMessage = await res.json()
-
-          // Update messages in place instead of full reload
-          setDirectMessages(prev => [
-            ...prev.filter(m => !m.id.startsWith('temp-')),
-            realMessage
-          ])
-
-          // Update conversations list locally instead of refetching
-          setConversations(prev => {
-            const existingConvIdx = prev.findIndex(c => c.userId === activeConversation)
-            if (existingConvIdx >= 0) {
-              // Update existing conversation
-              const updated = [...prev]
-              updated[existingConvIdx] = {
-                ...updated[existingConvIdx],
-                lastMessage: content,
-                lastMessageTime: new Date()
-              }
-              // Move to top
-              return [updated[existingConvIdx], ...updated.filter((_, i) => i !== existingConvIdx)]
-            } else {
-              // New conversation - add to top
-              const otherUser = allUsers.find(u => u.id === activeConversation)
-              if (otherUser) {
-                return [{
-                  userId: activeConversation,
-                  userName: otherUser.name,
-                  userProfileImage: otherUser.profileImage,
-                  userHeadline: otherUser.headline,
-                  lastMessage: content,
-                  lastMessageTime: new Date(),
-                  unreadCount: 0,
-                  status: 'offline' as const
-                }, ...prev]
-              }
-              return prev
-            }
-          })
+          // Silent reload to get real message
+          loadDirectMessages(activeConversation)
+          loadConversations()
         } else {
           // Revert on error
           setDirectMessages(directMessages)
@@ -659,31 +488,7 @@ export default function NetworkPage() {
 
   const formatTimestamp = (date: Date) => {
     try {
-      const messageDate = new Date(date)
-      const now = new Date()
-      const diffMs = now.getTime() - messageDate.getTime()
-      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-
-      // If over 1 day old, show date and time
-      if (diffDays >= 1) {
-        const options: Intl.DateTimeFormatOptions = {
-          month: 'short',
-          day: 'numeric',
-          hour: 'numeric',
-          minute: '2-digit',
-          hour12: true
-        }
-
-        // If over 1 year old, include year
-        if (diffDays >= 365) {
-          options.year = 'numeric'
-        }
-
-        return messageDate.toLocaleString('en-US', options)
-      }
-
-      // Less than 1 day old, use relative time
-      return formatDistanceToNow(messageDate, { addSuffix: true })
+      return formatDistanceToNow(new Date(date), { addSuffix: true })
     } catch {
       return 'just now'
     }
@@ -805,70 +610,6 @@ export default function NetworkPage() {
     c.userName.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  // Scroll detection and auto-scroll logic
-  const checkIfNearBottom = () => {
-    const container = messagesContainerRef.current
-    if (!container) return true
-    const threshold = 150 // pixels from bottom
-    const isNear = container.scrollHeight - container.scrollTop - container.clientHeight < threshold
-    return isNear
-  }
-
-  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
-    const container = messagesContainerRef.current
-
-    // Method 1: Scroll container to bottom
-    if (container) {
-      const scrollHeight = container.scrollHeight
-      const scrollTop = container.scrollTop
-      console.log(`[SCROLL] Attempting scroll - height: ${scrollHeight}, current: ${scrollTop}, behavior: ${behavior}`)
-
-      container.scrollTo({
-        top: scrollHeight,
-        behavior
-      })
-    }
-
-    // Method 2: Scroll end marker into view (more reliable for instant scroll)
-    if (messagesEndRef.current && behavior === 'auto') {
-      messagesEndRef.current.scrollIntoView({ behavior: 'auto', block: 'end' })
-    }
-  }
-
-  // Handle scroll events to show/hide scroll button
-  useEffect(() => {
-    const container = messagesContainerRef.current
-    if (!container) return
-
-    const handleScroll = () => {
-      const nearBottom = checkIfNearBottom()
-      setIsNearBottom(nearBottom)
-      setShowScrollButton(!nearBottom)
-    }
-
-    container.addEventListener('scroll', handleScroll)
-    return () => container.removeEventListener('scroll', handleScroll)
-  }, [])
-
-  // Auto-scroll to bottom when new messages arrive (only if user is near bottom AND not loading)
-  useEffect(() => {
-    if (isNearBottom && !loading) {
-      scrollToBottom('smooth')
-    }
-  }, [posts.length, directMessages.length, loading])
-
-  // Force scroll to bottom when loading completes with messages
-  useEffect(() => {
-    if (!loading && (posts.length > 0 || directMessages.length > 0)) {
-      // Wait for DOM to fully render the messages
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          scrollToBottom('auto')
-        })
-      })
-    }
-  }, [loading, posts.length > 0 ? posts[0]?.id : null, directMessages.length > 0 ? directMessages[0]?.id : null])
-
   if (!isAuthenticated) {
     return (
       <>
@@ -936,11 +677,10 @@ export default function NetworkPage() {
   }
 
   return (
-    <div className="h-screen overflow-hidden bg-black relative">
+    <div className="min-h-screen bg-black md:pt-24 pt-16 pb-20 md:pb-8 relative">
       <MarbleBackground />
-      <NotificationBanner />
-      <div className="max-w-[1800px] mx-auto md:px-4 px-2 relative z-10 h-full md:pt-24 pt-16 pb-20 md:pb-8 flex flex-col">
-        <div className="md:grid md:grid-cols-12 gap-4 flex-1 flex flex-col overflow-hidden">
+      <div className="max-w-[1800px] mx-auto md:px-4 px-2 relative z-10">
+        <div className="md:grid md:grid-cols-12 gap-4 h-[calc(100vh-120px)] md:h-[calc(100vh-120px)] flex flex-col">
 
           {/* Sidebar - Hidden on mobile unless in sidebar view */}
           <div className={`${
@@ -1260,7 +1000,7 @@ export default function NetworkPage() {
 
           {/* Main Chat Area */}
           <div className={`${
-            isMobile ? (showMobileChat ? 'flex' : 'hidden') : 'flex'
+            isMobile ? (showMobileChat ? 'flex' : 'hidden') : 'block'
           } md:col-span-9 bg-zinc-900/30 backdrop-blur-md border border-zinc-800/50 md:rounded-2xl rounded-xl flex-col overflow-hidden ${
             isMobile ? 'h-[calc(100vh-96px)] mt-0' : ''
           }`}>
@@ -1324,14 +1064,15 @@ export default function NetworkPage() {
             {/* Messages Area */}
             <div
               ref={messagesContainerRef}
-              className="flex-1 overflow-y-auto md:px-6 px-4 md:py-6 py-4 space-y-4"
+              className="flex-1 overflow-y-auto md:px-4 px-3 md:py-4 py-3 scrollbar-hide"
               style={{
                 scrollbarWidth: 'none',
-                msOverflowStyle: 'none',
-                minHeight: 0 // Critical for flex child scrolling
+                msOverflowStyle: 'none'
               }}
             >
+              <div className="max-w-3xl mx-auto">
                 {loading ? (
+                  <div className="bg-zinc-900/50 backdrop-blur-md border border-zinc-800/50 rounded-2xl md:p-6 p-4 space-y-4">
                   <div className="space-y-4">
                     {viewMode === 'channels' ? (
                       // Channel skeleton loaders
@@ -1387,8 +1128,9 @@ export default function NetworkPage() {
                       })
                     )}
                   </div>
+                  </div>
                 ) : (
-                  <>
+                  <div className="bg-zinc-900/50 backdrop-blur-md border border-zinc-800/50 rounded-2xl md:p-6 p-4 space-y-4">
                 {viewMode === 'channels' && posts.length === 0 ? (
                   <div className="flex items-center justify-center h-full">
                     <div className="text-center text-gray-400">
@@ -1531,24 +1273,14 @@ export default function NetworkPage() {
                   })
                 )}
                 <div ref={messagesEndRef} />
-                  </>
+                  </div>
                 )}
+              </div>
             </div>
 
-            {/* Scroll to Bottom Button */}
-            {showScrollButton && (
-              <button
-                onClick={() => scrollToBottom('smooth')}
-                className="absolute bottom-24 right-6 z-20 bg-white text-black rounded-full p-3 shadow-2xl hover:bg-gray-100 transition-all hover:scale-110 active:scale-95"
-                aria-label="Scroll to bottom"
-              >
-                <ChevronDown className="w-5 h-5" />
-              </button>
-            )}
-
             {/* Input Area */}
-            <div className="border-t border-zinc-800 bg-black/40 backdrop-blur-xl md:px-6 px-4 md:py-4 py-3">
-              <div className="max-w-4xl mx-auto relative">
+            <div className="md:px-4 px-3 md:pb-4 pb-3 pt-2">
+              <div className="max-w-3xl mx-auto relative">
                 {/* Mention Autocomplete Dropdown */}
                 {showMentionDropdown && filteredMentionUsers.length > 0 && (
                   <div className="absolute bottom-full left-0 mb-2 w-full max-w-xs bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl overflow-hidden z-50">
@@ -1576,7 +1308,7 @@ export default function NetworkPage() {
                   </div>
                 )}
 
-                <div className="flex items-end gap-3 p-4 rounded-2xl bg-zinc-900/50 backdrop-blur-md border border-zinc-700/50 focus-within:border-zinc-600 focus-within:bg-zinc-900/70 transition-all shadow-lg">
+                <div className="flex items-end gap-2 p-3 rounded-2xl bg-zinc-900/50 backdrop-blur-md border border-zinc-700/50 focus-within:border-zinc-600 focus-within:bg-zinc-900/70 transition-all shadow-lg">
                   <textarea
                     ref={inputRef as any}
                     value={inputValue}
@@ -1594,9 +1326,9 @@ export default function NetworkPage() {
                         ? '@mention someone to start...'
                         : `Message #${activeChannel}...`
                     }
-                    className="flex-1 bg-transparent border-none text-white placeholder:text-gray-500 focus:outline-none focus:ring-0 resize-none text-base leading-6 py-1 px-1 max-h-40 scrollbar-hide"
+                    className="flex-1 bg-transparent border-none text-white placeholder:text-gray-500 focus:outline-none focus:ring-0 resize-none text-sm leading-6 py-2 px-1 max-h-32 scrollbar-hide"
                     style={{
-                      minHeight: '40px',
+                      minHeight: '28px',
                       scrollbarWidth: 'none',
                       msOverflowStyle: 'none'
                     }}
@@ -1606,14 +1338,10 @@ export default function NetworkPage() {
                   <button
                     onClick={handleSendMessage}
                     disabled={!inputValue.trim() || sending}
-                    className="shrink-0 rounded-full p-3 bg-white text-black hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-gray-500 transition-all shadow-md"
-                    style={{ minHeight: '44px', minWidth: '44px' }}
+                    className="shrink-0 rounded-full p-2 bg-white text-black hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-gray-500 transition-all shadow-md"
+                    style={{ minHeight: '36px', minWidth: '36px' }}
                   >
-                    {sending ? (
-                      <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <ArrowUp className="w-5 h-5" />
-                    )}
+                    <ArrowUp className="w-4 h-4" />
                   </button>
                 </div>
               </div>

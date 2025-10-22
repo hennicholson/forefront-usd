@@ -33,6 +33,9 @@ export function ModuleCarousel({ isAuthenticated, onModuleClick }: ModuleCarouse
   const cardsRef = useRef<HTMLUListElement>(null)
   const galleryRef = useRef<HTMLDivElement>(null)
   const dragProxyRef = useRef<HTMLDivElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const mouseRef = useRef({ x: 0, y: 0 })
+  const animationRef = useRef<number>()
 
   useEffect(() => {
     loadModules()
@@ -57,6 +60,136 @@ export function ModuleCarousel({ isAuthenticated, onModuleClick }: ModuleCarouse
       initInfiniteScroll()
     }
   }, [loading, modules])
+
+  // Cursor arrow effect for CTA button - only active in CTA section
+  useEffect(() => {
+    const canvas = document.getElementById('cta-overlay') as HTMLCanvasElement
+    if (!canvas) return
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    let isEffectActive = false
+
+    // Update canvas size
+    const updateCanvasSize = () => {
+      canvas.width = window.innerWidth
+      canvas.height = window.innerHeight
+    }
+    updateCanvasSize()
+    window.addEventListener('resize', updateCanvasSize)
+
+    // Track mouse position
+    const handleMouseMove = (e: MouseEvent) => {
+      mouseRef.current = { x: e.clientX, y: e.clientY }
+    }
+    window.addEventListener('mousemove', handleMouseMove)
+
+    // Check scroll position to activate/deactivate effect
+    const checkScrollPosition = () => {
+      const target = document.getElementById('cta-target')
+      if (!target) return
+
+      const rect = target.getBoundingClientRect()
+      const windowHeight = window.innerHeight
+
+      // Activate when CTA button is in view (after passing modules)
+      // Deactivate when scrolled too far past or before
+      if (rect.top < windowHeight * 0.9 && rect.bottom > windowHeight * 0.1) {
+        isEffectActive = true
+      } else {
+        isEffectActive = false
+      }
+    }
+
+    // Add scroll listener
+    window.addEventListener('scroll', checkScrollPosition)
+    checkScrollPosition() // Check initial position
+
+    // Draw arrow function
+    const drawArrow = () => {
+      // Only draw if effect is active
+      if (!isEffectActive) return
+
+      const target = document.getElementById('cta-target')
+      if (!target || !ctx) return
+
+      const x0 = mouseRef.current.x
+      const y0 = mouseRef.current.y
+
+      if (!x0 || !y0) return
+
+      // Get target center
+      const rect = target.getBoundingClientRect()
+      const cx = rect.left + rect.width / 2
+      const cy = rect.top + rect.height / 2
+
+      // Calculate arrow endpoint
+      const angle = Math.atan2(cy - y0, cx - x0)
+      const x1 = cx - Math.cos(angle) * (rect.width / 2 + 12)
+      const y1 = cy - Math.sin(angle) * (rect.height / 2 + 12)
+
+      // Calculate curve control point
+      const midX = (x0 + x1) / 2
+      const midY = (y0 + y1) / 2
+      const offset = Math.min(200, Math.hypot(x1 - x0, y1 - y0) * 0.5)
+      const t = Math.max(-1, Math.min(1, (y0 - y1) / 200))
+      const controlX = midX
+      const controlY = midY + offset * t
+
+      // Calculate opacity based on distance
+      const r = Math.sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2)
+      const opacity = Math.min(0.75, Math.max(0, (r - Math.max(rect.width, rect.height) / 2 - 50) / 750))
+
+      // Fade in/out based on activation state
+      const finalOpacity = isEffectActive ? opacity : 0
+
+      ctx.strokeStyle = `rgba(255,255,255,${finalOpacity})`
+      ctx.lineWidth = 1
+
+      // Draw curved line
+      ctx.save()
+      ctx.beginPath()
+      ctx.moveTo(x0, y0)
+      ctx.quadraticCurveTo(controlX, controlY, x1, y1)
+      ctx.setLineDash([10, 4])
+      ctx.stroke()
+      ctx.restore()
+
+      // Draw arrowhead
+      const arrowAngle = Math.atan2(y1 - controlY, x1 - controlX)
+      const headLength = 10
+      ctx.beginPath()
+      ctx.moveTo(x1, y1)
+      ctx.lineTo(
+        x1 - headLength * Math.cos(arrowAngle - Math.PI / 6),
+        y1 - headLength * Math.sin(arrowAngle - Math.PI / 6)
+      )
+      ctx.moveTo(x1, y1)
+      ctx.lineTo(
+        x1 - headLength * Math.cos(arrowAngle + Math.PI / 6),
+        y1 - headLength * Math.sin(arrowAngle + Math.PI / 6)
+      )
+      ctx.stroke()
+    }
+
+    // Animation loop
+    const animate = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      drawArrow()
+      animationRef.current = requestAnimationFrame(animate)
+    }
+    animate()
+
+    return () => {
+      window.removeEventListener('resize', updateCanvasSize)
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('scroll', checkScrollPosition)
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current)
+      }
+    }
+  }, [loading])
 
   const initInfiniteScroll = () => {
     if (!cardsRef.current || !galleryRef.current) return
@@ -162,39 +295,58 @@ export function ModuleCarousel({ isAuthenticated, onModuleClick }: ModuleCarouse
     <div className="section" style={{ paddingTop: '30px', paddingBottom: '50px', background: '#000' }}>
       <div className="content">
         {/* Mission Statement */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          style={{ textAlign: 'center', maxWidth: '800px', margin: '0 auto 48px auto' }}
-        >
-          <div className="section-label" style={{ marginBottom: '16px', color: '#fff' }}>
+        <div style={{ textAlign: 'center', maxWidth: '900px', margin: '0 auto 48px auto' }}>
+          <motion.h2
+            initial={{ opacity: 0, y: 30, scale: 0.95 }}
+            whileInView={{ opacity: 1, y: 0, scale: 1 }}
+            viewport={{ once: true, amount: 0.5 }}
+            transition={{
+              duration: 0.8,
+              ease: [0.22, 1, 0.36, 1],
+              delay: 0.1
+            }}
+            className="text-4xl md:text-5xl lg:text-6xl font-bold text-white"
+            style={{ marginBottom: '24px' }}
+          >
             AI is Moving Fast. So Are We.
-          </div>
-          <p style={{
-            fontSize: 'clamp(16px, 2.5vw, 20px)',
-            lineHeight: 1.6,
-            color: 'rgba(255, 255, 255, 0.7)',
-            marginBottom: '24px'
-          }}>
+          </motion.h2>
+
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.5 }}
+            style={{
+              fontSize: 'clamp(16px, 2.5vw, 20px)',
+              lineHeight: 1.6,
+              color: 'rgba(255, 255, 255, 0.7)',
+              marginBottom: '24px'
+            }}
+          >
             Every day, new AI tools emerge. Every week, the bar rises. As students, we're not just learning—we're racing to stay ahead.
             That's why we built Forefront: <strong style={{ color: '#fff' }}>students teaching students</strong>, because nobody understands the learning curve better than those who just climbed it.
-          </p>
-          <div style={{
-            display: 'inline-block',
-            padding: '16px 32px',
-            background: '#fff',
-            color: '#000',
-            borderRadius: '8px',
-            fontSize: 'clamp(14px, 2vw, 16px)',
-            fontWeight: 600,
-            textTransform: 'uppercase',
-            letterSpacing: '0.5px'
-          }}>
+          </motion.p>
+
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.7 }}
+            style={{
+              display: 'inline-block',
+              padding: '16px 32px',
+              background: '#fff',
+              color: '#000',
+              borderRadius: '8px',
+              fontSize: 'clamp(14px, 2vw, 16px)',
+              fontWeight: 600,
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px'
+            }}
+          >
             100% Free • Student-Led • Real Skills
-          </div>
-        </motion.div>
+          </motion.div>
+        </div>
 
         {/* What You'll Learn Section */}
         <motion.div
@@ -416,7 +568,7 @@ export function ModuleCarousel({ isAuthenticated, onModuleClick }: ModuleCarouse
           <div ref={dragProxyRef} className="drag-proxy" style={{ visibility: 'hidden', position: 'absolute' }} />
         </div>
 
-        {/* View all modules CTA */}
+        {/* Clean CTA Section - No Heavy Container */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -424,62 +576,78 @@ export function ModuleCarousel({ isAuthenticated, onModuleClick }: ModuleCarouse
           transition={{ delay: 0.4 }}
           style={{
             textAlign: 'center',
-            marginTop: '56px',
-            padding: '40px 32px',
-            background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)',
-            borderRadius: '12px',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            backdropFilter: 'blur(10px)'
+            marginTop: '80px',
+            position: 'relative'
           }}
         >
           <div style={{
-            fontSize: 'clamp(18px, 3vw, 24px)',
+            fontSize: 'clamp(28px, 4vw, 42px)',
             fontWeight: 700,
-            textTransform: 'uppercase',
-            letterSpacing: '-0.5px',
-            marginBottom: '12px',
+            letterSpacing: '-1px',
+            marginBottom: '16px',
             color: '#fff'
           }}>
             Ready to Dive Deeper?
           </div>
           <p style={{
-            fontSize: 'clamp(14px, 2vw, 16px)',
-            color: 'rgba(255, 255, 255, 0.7)',
-            marginBottom: '24px',
-            maxWidth: '500px',
-            margin: '0 auto 24px auto',
+            fontSize: 'clamp(16px, 2vw, 18px)',
+            color: 'rgba(255, 255, 255, 0.6)',
+            marginBottom: '40px',
+            maxWidth: '600px',
+            margin: '0 auto 40px auto',
             lineHeight: 1.6
           }}>
             These are just the beginning. Browse {modules.length > 0 ? 'all our' : 'our full collection of'} modules and start building the skills that matter.
           </p>
+
+          {/* Clean CTA Button with minimal styling */}
           <Link
+            id="cta-target"
             href="/modules"
             style={{
               display: 'inline-block',
-              padding: '16px 40px',
-              background: 'linear-gradient(135deg, #4CAF50 0%, #8BC34A 100%)',
-              color: '#000',
-              borderRadius: '8px',
-              fontSize: 'clamp(14px, 2vw, 16px)',
-              fontWeight: 700,
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px',
+              padding: '14px 32px',
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              borderRadius: '12px',
+              color: '#fff',
+              fontSize: '16px',
+              fontWeight: 500,
               textDecoration: 'none',
-              transition: 'all 0.3s ease',
-              border: '1px solid transparent'
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              cursor: 'pointer',
+              background: 'transparent',
+              position: 'relative',
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)'
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translateY(-2px)'
-              e.currentTarget.style.boxShadow = '0 8px 24px rgba(76, 175, 80, 0.3)'
+              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.8)'
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'
+              e.currentTarget.style.transform = 'translateY(-1px)'
             }}
             onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)'
+              e.currentTarget.style.background = 'transparent'
               e.currentTarget.style.transform = 'translateY(0)'
-              e.currentTarget.style.boxShadow = 'none'
             }}
           >
-            Browse All Modules →
+            Browse All Modules
           </Link>
         </motion.div>
+
+        {/* Canvas for cursor arrow effect */}
+        <canvas
+          id="cta-overlay"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            pointerEvents: 'none',
+            zIndex: 9999
+          }}
+        />
       </div>
     </div>
   )

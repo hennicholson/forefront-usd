@@ -253,6 +253,31 @@ export default function AdminDashboardPage() {
     { id: 'newsletters' as Tab, label: 'Newsletters', icon: '✉' }
   ]
 
+  // Add database link to Quick Actions
+  const DatabaseLink = () => (
+    <Link href="/admin/database" style={{ textDecoration: 'none' }}>
+      <div style={{
+        background: '#0a0a0a',
+        border: '1px solid #1a1a1a',
+        borderRadius: '12px',
+        padding: '24px',
+        cursor: 'pointer',
+        transition: 'all 0.2s'
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = 'translateY(-2px)'
+        e.currentTarget.style.borderColor = '#fff'
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = 'translateY(0)'
+        e.currentTarget.style.borderColor = '#1a1a1a'
+      }}>
+        <div style={{ fontSize: '24px', marginBottom: '8px' }}>💾</div>
+        <div style={{ fontSize: '14px', fontWeight: 700, color: '#fff' }}>Database Monitoring</div>
+      </div>
+    </Link>
+  )
+
   const pendingSubmissions = submissions.filter(s => s.status === 'pending').length
 
   return (
@@ -596,6 +621,8 @@ export default function AdminDashboardPage() {
                       <div style={{ fontSize: '24px', marginBottom: '8px' }}>✓</div>
                       <div style={{ fontSize: '14px', fontWeight: 700, color: '#fff' }}>Review Submissions</div>
                     </div>
+
+                    <DatabaseLink />
                   </div>
                 </div>
               )}
