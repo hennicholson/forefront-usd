@@ -113,6 +113,10 @@ export default function NetworkPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
+
+  // Request deduplication and abort control
+  const loadingPostsRef = useRef(false)
+  const abortControllerRef = useRef<AbortController | null>(null)
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true)
   const [showScrollButton, setShowScrollButton] = useState(false)
   const [isNearBottom, setIsNearBottom] = useState(true)
@@ -396,49 +400,76 @@ export default function NetworkPage() {
   }
 
   const loadPosts = async (silent = false) => {
-    if (!silent) {
-      setLoading(true)
+    // Prevent concurrent requests (fixes race condition)
+    if (loadingPostsRef.current) {
+      console.log('[POSTS] Skipping concurrent request')
+      return
     }
+
+    // Cancel any in-flight request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+
+    loadingPostsRef.current = true
+    if (!silent) setLoading(true)
+
+    const abortController = new AbortController()
+    abortControllerRef.current = abortController
+
     try {
       const channel = CHANNELS.find(c => c.id === activeChannel)
       const url = channel?.topic
         ? `/api/posts?limit=50&topic=${encodeURIComponent(channel.topic)}`
         : '/api/posts?limit=50'
-      const res = await fetch(url)
-      if (res.ok) {
-        const data = await res.json()
-        const postsArray = Array.isArray(data) ? data : []
-        // Sort by createdAt ascending (oldest first, newest at bottom)
-        postsArray.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
 
-        // Save scroll position before update
-        const container = messagesContainerRef.current
-        const wasAtBottom = container ?
-          Math.abs(container.scrollHeight - container.scrollTop - container.clientHeight) < 10 : true
+      const res = await fetch(url, {
+        signal: abortController.signal
+      })
 
-        setPosts(postsArray)
+      if (!res.ok) throw new Error('Failed to fetch posts')
 
-        // Clear loading first, then scroll after DOM updates
-        if (!silent) {
-          // Initial load - clear loading then scroll
-          setTimeout(() => {
-            setLoading(false)
-            // Wait for loading skeleton to clear, then scroll with multiple RAF
+      const data = await res.json()
+      const postsArray = Array.isArray(data) ? data : []
+
+      // Sort by createdAt ascending (oldest first, newest at bottom)
+      postsArray.sort((a, b) =>
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      )
+
+      // Smart merge instead of replace (prevents flicker)
+      setPosts(prev => {
+        // If we have pending posts, preserve them
+        const pendingPosts = prev.filter(p => String(p.id).startsWith('temp-'))
+        const serverPosts = postsArray.filter(p => !String(p.id).startsWith('temp-'))
+
+        // Merge: server posts + pending posts (pending at end)
+        return [...serverPosts, ...pendingPosts]
+      })
+
+      // Clear loading first, then scroll after DOM updates
+      if (!silent) {
+        setTimeout(() => {
+          setLoading(false)
+          // Wait for loading skeleton to clear, then scroll
+          requestAnimationFrame(() => {
             requestAnimationFrame(() => {
               requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                  setTimeout(() => scrollToBottom('auto'), 200)
-                })
+                setTimeout(() => scrollToBottom('auto'), 200)
               })
             })
-          }, 100)
-        } else if (wasAtBottom) {
-          // Silent reload and was at bottom - auto scroll will handle it via useEffect
-        }
+          })
+        }, 100)
       }
-    } catch (err) {
-      console.error('Error loading posts:', err)
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        console.log('[POSTS] Request aborted')
+      } else {
+        console.error('Error loading posts:', err)
+      }
       if (!silent) setLoading(false)
+    } finally {
+      loadingPostsRef.current = false
     }
   }
 
@@ -555,13 +586,14 @@ export default function NetworkPage() {
               })
             })
           }
-          // Remove from pending
+          // Remove from pending - polling will pick up the real post
           setPendingPostIds(prev => {
             const newSet = new Set(prev)
             newSet.delete(tempId)
             return newSet
           })
-          loadPosts(true)
+          // Don't reload posts here - smart merge + polling will handle it
+          // This prevents the flicker issue
         } else {
           setPosts(posts)
           setPendingPostIds(prev => {
