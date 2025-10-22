@@ -151,6 +151,10 @@ export default function NetworkPage() {
     if (!isAuthenticated || !user?.id) return
 
     if (viewMode === 'channels') {
+      // Clear posts immediately when switching channels to prevent showing wrong channel data
+      setLoading(true)
+      setPosts([])
+
       loadPosts()
       loadChannelCounts()
 
@@ -446,6 +450,9 @@ export default function NetworkPage() {
         new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
       )
 
+      // Track temp IDs that need to be removed
+      const idsToRemove = new Set<string>()
+
       // Smart merge with deduplication (prevents flicker and duplicates)
       setPosts(prev => {
         // Separate temp (optimistic) and real server posts
@@ -461,13 +468,9 @@ export default function NetworkPage() {
             Math.abs(new Date(realPost.createdAt).getTime() - new Date(tempPost.createdAt).getTime()) < 5000 // Within 5 seconds
           )
 
-          // If we found a match, remove temp post from pendingPostIds
+          // If we found a match, mark temp ID for removal
           if (matchingRealPost) {
-            setPendingPostIds(prev => {
-              const newSet = new Set(prev)
-              newSet.delete(tempPost.id)
-              return newSet
-            })
+            idsToRemove.add(tempPost.id)
           }
 
           // Keep temp post only if no matching real post found
@@ -477,6 +480,15 @@ export default function NetworkPage() {
         // Merge: server posts + only non-duplicated pending posts
         return [...serverPosts, ...dedupedPending]
       })
+
+      // Clean up pendingPostIds after state update
+      if (idsToRemove.size > 0) {
+        setPendingPostIds(prev => {
+          const newSet = new Set(prev)
+          idsToRemove.forEach(id => newSet.delete(id))
+          return newSet
+        })
+      }
 
       // Clear loading first, then scroll after DOM updates
       if (!silent) {
@@ -1390,60 +1402,24 @@ export default function NetworkPage() {
               }}
             >
                 {loading ? (
-                  <div className="space-y-4">
-                    {viewMode === 'channels' ? (
-                      // Channel skeleton loaders
-                      [1, 2, 3, 4, 5].map((i) => (
-                        <div key={i} className="flex gap-3 items-start md:p-4 p-3 animate-pulse">
-                          {/* Avatar skeleton */}
-                          <div className="w-10 h-10 rounded-full bg-zinc-800/50 flex-shrink-0" />
-                          <div className="flex-1 space-y-2">
-                            {/* Name and timestamp skeleton */}
-                            <div className="flex items-center gap-2">
-                              <div className="h-4 bg-zinc-800/50 rounded w-24" />
-                              <div className="h-3 bg-zinc-800/50 rounded w-16" />
-                            </div>
-                            {/* Message content skeleton */}
-                            <div className="space-y-1.5">
-                              <div className="h-3 bg-zinc-800/50 rounded w-full" />
-                              <div className="h-3 bg-zinc-800/50 rounded w-5/6" />
-                            </div>
-                            {/* Action buttons skeleton */}
-                            <div className="flex gap-2 mt-3">
-                              <div className="h-8 bg-zinc-800/50 rounded-lg w-16" />
-                              <div className="h-8 bg-zinc-800/50 rounded-lg w-16" />
-                            </div>
-                          </div>
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center max-w-md px-6">
+                      {/* Elegant spinner */}
+                      <div className="relative mb-6">
+                        <div className="w-16 h-16 mx-auto">
+                          <div className="absolute inset-0 border-4 border-zinc-700/30 rounded-full"></div>
+                          <div className="absolute inset-0 border-4 border-transparent border-t-blue-500 rounded-full animate-spin"></div>
                         </div>
-                      ))
-                    ) : (
-                      // DM skeleton loaders
-                      [1, 2, 3, 4, 5].map((i) => {
-                        const isOwn = i % 2 === 0
-                        return (
-                          <div key={i} className={`flex gap-3 animate-pulse ${isOwn ? 'flex-row-reverse' : ''}`}>
-                            {!isOwn && (
-                              <div className="w-8 h-8 rounded-full bg-zinc-800/50 flex-shrink-0" />
-                            )}
-                            <div className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'} max-w-[70%]`}>
-                              {!isOwn && (
-                                <div className="h-3 bg-zinc-800/50 rounded w-20 mb-1" />
-                              )}
-                              <div
-                                className={`px-4 py-2.5 rounded-2xl ${
-                                  isOwn
-                                    ? 'bg-zinc-800/50 rounded-br-sm'
-                                    : 'bg-zinc-800/50 rounded-bl-sm'
-                                }`}
-                              >
-                                <div className="h-3 bg-zinc-700/50 rounded w-32 md:w-48" />
-                              </div>
-                              <div className="h-2 bg-zinc-800/50 rounded w-16 mt-1" />
-                            </div>
-                          </div>
-                        )
-                      })
-                    )}
+                      </div>
+
+                      {/* Loading text */}
+                      <h3 className="text-lg font-medium text-white mb-2">Loading messages...</h3>
+
+                      {/* Startup disclaimer */}
+                      <p className="text-xs text-gray-500 leading-relaxed">
+                        Thank you for your patience. We're a startup working hard to provide a free platform for everyone.
+                      </p>
+                    </div>
                   </div>
                 ) : (
                   <>
