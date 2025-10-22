@@ -460,6 +460,16 @@ export default function NetworkPage() {
             realPost.content === tempPost.content &&
             Math.abs(new Date(realPost.createdAt).getTime() - new Date(tempPost.createdAt).getTime()) < 5000 // Within 5 seconds
           )
+
+          // If we found a match, remove temp post from pendingPostIds
+          if (matchingRealPost) {
+            setPendingPostIds(prev => {
+              const newSet = new Set(prev)
+              newSet.delete(tempPost.id)
+              return newSet
+            })
+          }
+
           // Keep temp post only if no matching real post found
           return !matchingRealPost
         })

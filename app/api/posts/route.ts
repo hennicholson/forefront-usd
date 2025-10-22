@@ -14,8 +14,7 @@ export async function GET(request: Request) {
     const topic = searchParams.get('topic')
     const limit = parseInt(searchParams.get('limit') || '50')
 
-    // Ultra-fast query - removed expensive JOINs for reactions/comments
-    // Those counts are now fetched separately only when needed
+    // Ultra-fast query - INNER JOIN only, index-optimized WHERE clause
     const query = topic
       ? rawSql`
           SELECT
@@ -24,15 +23,13 @@ export async function GET(request: Request) {
             p.content,
             p.type,
             p.topic,
-            p.metadata,
             p.created_at as "createdAt",
             u.name as "userName",
-            u.bio as "userBio",
             u.profile_image as "userProfileImage",
             0 as likes,
             0 as "commentsCount"
           FROM posts p
-          LEFT JOIN users u ON p.user_id = u.id
+          INNER JOIN users u ON p.user_id = u.id
           WHERE p.topic = ${topic}
           ORDER BY p.created_at DESC
           LIMIT ${limit}
@@ -43,16 +40,14 @@ export async function GET(request: Request) {
             p.user_id::text as "userId",
             p.content,
             p.type,
-            p.topic,
-            p.metadata,
+            COALESCE(p.topic, '') as topic,
             p.created_at as "createdAt",
             u.name as "userName",
-            u.bio as "userBio",
             u.profile_image as "userProfileImage",
             0 as likes,
             0 as "commentsCount"
           FROM posts p
-          LEFT JOIN users u ON p.user_id = u.id
+          INNER JOIN users u ON p.user_id = u.id
           ORDER BY p.created_at DESC
           LIMIT ${limit}
         `
