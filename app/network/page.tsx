@@ -1418,8 +1418,8 @@ export default function NetworkPage() {
                 {loading ? (
                   <div className="space-y-4">
                     {/* Friendly startup message */}
-                    <div className="text-center py-6 px-4">
-                      <p className="text-xs text-gray-500 leading-relaxed">
+                    <div className="text-center py-2 px-4">
+                      <p className="text-[10px] text-gray-500 leading-tight">
                         Thank you for your patience. We're a startup working hard to provide a free platform for everyone.
                       </p>
                     </div>
