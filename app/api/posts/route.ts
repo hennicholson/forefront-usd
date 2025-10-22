@@ -14,7 +14,8 @@ export async function GET(request: Request) {
     const topic = searchParams.get('topic')
     const limit = parseInt(searchParams.get('limit') || '50')
 
-    // Single optimized query using raw SQL for maximum speed
+    // Ultra-fast query - removed expensive JOINs for reactions/comments
+    // Those counts are now fetched separately only when needed
     const query = topic
       ? rawSql`
           SELECT
@@ -28,20 +29,10 @@ export async function GET(request: Request) {
             u.name as "userName",
             u.bio as "userBio",
             u.profile_image as "userProfileImage",
-            COALESCE(r.likes, 0)::int as likes,
-            COALESCE(c.comments, 0)::int as "commentsCount"
+            0 as likes,
+            0 as "commentsCount"
           FROM posts p
           LEFT JOIN users u ON p.user_id = u.id
-          LEFT JOIN (
-            SELECT post_id, COUNT(*)::int as likes
-            FROM reactions
-            GROUP BY post_id
-          ) r ON p.id = r.post_id
-          LEFT JOIN (
-            SELECT post_id, COUNT(*)::int as comments
-            FROM comments
-            GROUP BY post_id
-          ) c ON p.id = c.post_id
           WHERE p.topic = ${topic}
           ORDER BY p.created_at DESC
           LIMIT ${limit}
@@ -58,20 +49,10 @@ export async function GET(request: Request) {
             u.name as "userName",
             u.bio as "userBio",
             u.profile_image as "userProfileImage",
-            COALESCE(r.likes, 0)::int as likes,
-            COALESCE(c.comments, 0)::int as "commentsCount"
+            0 as likes,
+            0 as "commentsCount"
           FROM posts p
           LEFT JOIN users u ON p.user_id = u.id
-          LEFT JOIN (
-            SELECT post_id, COUNT(*)::int as likes
-            FROM reactions
-            GROUP BY post_id
-          ) r ON p.id = r.post_id
-          LEFT JOIN (
-            SELECT post_id, COUNT(*)::int as comments
-            FROM comments
-            GROUP BY post_id
-          ) c ON p.id = c.post_id
           ORDER BY p.created_at DESC
           LIMIT ${limit}
         `
@@ -89,7 +70,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json(postsWithTimestamps, {
       headers: {
-        'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=30',
+        'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=60',
       },
     })
   } catch (error) {

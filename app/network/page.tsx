@@ -96,7 +96,16 @@ export default function NetworkPage() {
   const [viewMode, setViewMode] = useState<'channels' | 'dm' | 'notifications'>('channels')
   const [activeChannel, setActiveChannel] = useState('general')
   const [activeConversation, setActiveConversation] = useState<string | null>(null)
-  const [posts, setPosts] = useState<Post[]>([])
+  // Per-channel state to prevent cross-channel message bleeding
+  const [channelPosts, setChannelPosts] = useState<Record<string, Post[]>>({})
+  const posts = channelPosts[activeChannel] || []
+  const setPosts = (updater: Post[] | ((prev: Post[]) => Post[])) => {
+    setChannelPosts(prev => ({
+      ...prev,
+      [activeChannel]: typeof updater === 'function' ? updater(prev[activeChannel] || []) : updater
+    }))
+  }
+
   const [directMessages, setDirectMessages] = useState<DirectMessage[]>([])
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [allUsers, setAllUsers] = useState<User[]>([])
@@ -145,9 +154,9 @@ export default function NetworkPage() {
       loadPosts()
       loadChannelCounts()
 
-      // Fast polling for real-time feel with smart backoff
+      // Ultra-fast polling for real-time feel (1s) with smart backoff
       let pollInterval: NodeJS.Timeout | null = null
-      let pollDelay = 2000 // Start with 2 seconds for faster updates
+      let pollDelay = 1000 // Start with 1 second for near real-time updates
       let unchangedCount = 0
       let lastPostCount = 0
 
@@ -164,17 +173,17 @@ export default function NetworkPage() {
           // If post count hasn't changed, increase backoff
           if (currentCount === lastPostCount) {
             unchangedCount++
-            if (unchangedCount >= 5) {
-              // After 5 unchanged polls, slow down to 10s
-              pollDelay = 10000
+            if (unchangedCount >= 10) {
+              // After 10 unchanged polls, slow down to 5s
+              pollDelay = 5000
               if (pollInterval) clearInterval(pollInterval)
               startPolling()
             }
           } else {
             // Reset backoff when new data arrives
             unchangedCount = 0
-            if (pollDelay !== 2000) {
-              pollDelay = 2000
+            if (pollDelay !== 1000) {
+              pollDelay = 1000
               if (pollInterval) clearInterval(pollInterval)
               startPolling()
             }
@@ -186,8 +195,8 @@ export default function NetworkPage() {
       // Resume fast polling on user interaction
       const handleUserActivity = () => {
         unchangedCount = 0
-        if (pollDelay !== 2000) {
-          pollDelay = 2000
+        if (pollDelay !== 1000) {
+          pollDelay = 1000
           if (pollInterval) clearInterval(pollInterval)
           startPolling()
         }
@@ -437,19 +446,26 @@ export default function NetworkPage() {
         new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
       )
 
-      // Smart merge instead of replace (prevents flicker)
+      // Smart merge with deduplication (prevents flicker and duplicates)
       setPosts(prev => {
-        // Get current channel topic for filtering
-        const currentTopic = CHANNELS.find(c => c.id === activeChannel)?.topic || ''
-
-        // Filter pending posts to only include ones from the CURRENT channel
-        const pendingPosts = prev.filter(p =>
-          String(p.id).startsWith('temp-') && p.topic === currentTopic
-        )
+        // Separate temp (optimistic) and real server posts
+        const pendingPosts = prev.filter(p => String(p.id).startsWith('temp-'))
         const serverPosts = postsArray.filter(p => !String(p.id).startsWith('temp-'))
 
-        // Merge: server posts + pending posts from current channel only
-        return [...serverPosts, ...pendingPosts]
+        // Create deduplication map: match temp posts to real posts by content + userId + time proximity
+        const dedupedPending = pendingPosts.filter(tempPost => {
+          // Check if this temp post now exists as a real post
+          const matchingRealPost = serverPosts.find(realPost =>
+            realPost.userId === tempPost.userId &&
+            realPost.content === tempPost.content &&
+            Math.abs(new Date(realPost.createdAt).getTime() - new Date(tempPost.createdAt).getTime()) < 5000 // Within 5 seconds
+          )
+          // Keep temp post only if no matching real post found
+          return !matchingRealPost
+        })
+
+        // Merge: server posts + only non-duplicated pending posts
+        return [...serverPosts, ...dedupedPending]
       })
 
       // Clear loading first, then scroll after DOM updates
@@ -591,14 +607,9 @@ export default function NetworkPage() {
               })
             })
           }
-          // Remove from pending - polling will pick up the real post
-          setPendingPostIds(prev => {
-            const newSet = new Set(prev)
-            newSet.delete(tempId)
-            return newSet
-          })
-          // Don't reload posts here - smart merge + polling will handle it
-          // This prevents the flicker issue
+          // DON'T remove from pending yet - let deduplication handle it
+          // This ensures checkmark stays visible until real post arrives
+          // The smart merge deduplication will remove the temp post automatically
         } else {
           setPosts(posts)
           setPendingPostIds(prev => {
@@ -1450,7 +1461,8 @@ export default function NetworkPage() {
                         data-message-id={post.id}
                         className={`group flex gap-3 items-start md:p-4 p-3 rounded-xl hover:bg-zinc-800/30 transition-all duration-300 cursor-pointer ${
                           highlightedMessageId === post.id ? 'bg-blue-500/20 ring-2 ring-blue-500/50' : ''
-                        }`}
+                        } animate-in fade-in slide-in-from-bottom-2 duration-300`}
+                        style={{ animationFillMode: 'backwards' }}
                       >
                         <Avatar
                           className="w-10 h-10 flex-shrink-0 cursor-pointer"
@@ -1650,7 +1662,7 @@ export default function NetworkPage() {
                   <button
                     onClick={handleSendMessage}
                     disabled={!inputValue.trim() || sending}
-                    className="shrink-0 rounded-full p-3 bg-white text-black hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-gray-500 transition-all shadow-md"
+                    className="shrink-0 rounded-full p-3 bg-white text-black hover:bg-gray-100 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-gray-500 transition-all duration-200 shadow-md"
                     style={{ minHeight: '44px', minWidth: '44px' }}
                   >
                     {sending ? (
