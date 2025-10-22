@@ -13,8 +13,9 @@ envFile.split('\n').forEach(line => {
   }
 });
 
-// Read the SQL file
-const sql = fs.readFileSync('./migrations/network_performance_indexes.sql', 'utf8');
+// Read the SQL file (check if argument provided, otherwise use default)
+const sqlFile = process.argv[2] || './migrations/network_performance_indexes.sql'
+const sql = fs.readFileSync(sqlFile, 'utf8');
 
 // Parse DATABASE_URL
 const dbUrl = process.env.DATABASE_URL;
