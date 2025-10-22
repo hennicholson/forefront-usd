@@ -58,25 +58,25 @@ export async function GET(request: Request) {
 
     // Otherwise, get list of conversations (recent messages with each user)
     // OPTIMIZED: Single query with JOIN instead of N+1 (76% faster)
-    const conversationQuery = `
+    const conversations = await rawSql`
       WITH latest_messages AS (
         SELECT DISTINCT ON (
           CASE
-            WHEN sender_id = $1 THEN receiver_id
+            WHEN sender_id = ${userId} THEN receiver_id
             ELSE sender_id
           END
         )
           CASE
-            WHEN sender_id = $1 THEN receiver_id
+            WHEN sender_id = ${userId} THEN receiver_id
             ELSE sender_id
           END as partner_id,
           content as last_message,
           created_at as last_message_time
         FROM messages
-        WHERE sender_id = $1 OR receiver_id = $1
+        WHERE sender_id = ${userId} OR receiver_id = ${userId}
         ORDER BY
           CASE
-            WHEN sender_id = $1 THEN receiver_id
+            WHEN sender_id = ${userId} THEN receiver_id
             ELSE sender_id
           END,
           created_at DESC
@@ -93,8 +93,6 @@ export async function GET(request: Request) {
       LEFT JOIN users u ON lm.partner_id = u.id
       ORDER BY lm.last_message_time DESC
     `
-
-    const conversations = await rawSql(conversationQuery, [userId])
 
     return NextResponse.json(conversations, {
       headers: {
