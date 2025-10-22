@@ -1023,7 +1023,7 @@ export default function NetworkPage() {
     <div className="h-screen overflow-hidden bg-black relative">
       <MarbleBackground />
       <NotificationBanner />
-      <div className="max-w-[1800px] mx-auto md:px-4 px-2 relative z-10 h-full md:pt-20 pt-14 pb-20 md:pb-8 flex flex-col">
+      <div className="max-w-[1800px] mx-auto md:px-4 px-2 relative z-10 h-full md:pt-20 pt-14 pb-4 md:pb-4 flex flex-col">
         <div className="md:grid md:grid-cols-12 gap-4 flex-1 flex flex-col overflow-hidden">
 
           {/* Sidebar - Hidden on mobile unless in sidebar view */}
@@ -1646,7 +1646,7 @@ export default function NetworkPage() {
             )}
 
             {/* Input Area */}
-            <div className="border-t border-zinc-800 bg-black/40 backdrop-blur-xl md:px-6 px-4 md:py-4 py-3">
+            <div className="md:px-6 px-4 md:py-6 py-4 md:pb-6 pb-4">
               <div className="max-w-4xl mx-auto relative">
                 {/* Mention Autocomplete Dropdown */}
                 {showMentionDropdown && filteredMentionUsers.length > 0 && (
