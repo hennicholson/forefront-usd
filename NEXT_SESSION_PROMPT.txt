@@ -1,0 +1,42 @@
+Continue the network performance optimization from where we left off.
+
+CONTEXT:
+Phase 1 (Backend) is complete and deployed:
+- Created /api/conversations endpoint (95% faster than old code)
+- Applied 5 database indexes
+- Installed React Query and created custom hooks
+- All code is in branch: claude/project-planning-011CUMDZHPZ3Jj4wUX4GNkH7
+
+CURRENT PROBLEM:
+The network page (app/network/page.tsx) is still using the OLD slow code:
+- Still calls /api/messages (slow N+3 queries)
+- Still does manual polling with setInterval
+- Still has no caching or optimistic updates
+
+TASK - PHASE 2:
+Refactor app/network/page.tsx to use the React Query hooks we created:
+
+1. Replace loadConversations() with useConversations(user?.id)
+2. Replace loadDirectMessages() with useMessages(user?.id, activeConversation)
+3. Replace handleSendMessage() with useSendMessage() mutation
+4. Remove all manual polling useEffect blocks
+5. Remove redundant useState (conversations, directMessages, loading)
+6. Test that:
+   - Conversations load instantly (cached)
+   - Messages send with optimistic updates (instant UI)
+   - No more slow API calls
+   - Everything still works
+
+FILES TO MODIFY:
+- app/network/page.tsx (main refactor)
+
+HOOKS AVAILABLE (already created):
+- useConversations(userId) - in /hooks/useConversations.ts
+- useMessages(userId, otherUserId) - in /hooks/useMessages.ts
+- useSendMessage() - in /hooks/useMessages.ts
+- useSendPost() - in /hooks/useMessages.ts
+
+EXPECTED RESULT:
+Network page loads 95% faster with instant message sending like Discord.
+
+See CONTINUE_HERE.md for detailed code examples and complete guide.
