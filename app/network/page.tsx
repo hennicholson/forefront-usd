@@ -811,7 +811,7 @@ export default function NetworkPage() {
           setPosts(posts)
           setPendingPostIds(prev => {
             const newSet = new Set(prev)
-            newSet.delete(tempId)
+            newSet.delete(optimisticId)
             return newSet
           })
           setInputValue(content)
