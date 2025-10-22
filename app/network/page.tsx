@@ -611,6 +611,16 @@ export default function NetworkPage() {
         })
 
         if (res.ok) {
+          const realPost = await res.json()
+
+          // IMMEDIATELY replace temp post with real post to prevent duplicates
+          setPosts(prev => prev.map(p => p.id === tempId ? realPost : p))
+          setPendingPostIds(prev => {
+            const newSet = new Set(prev)
+            newSet.delete(tempId)
+            return newSet
+          })
+
           // Create notifications for mentioned users
           for (const mentionedUser of mentionedUsers) {
             await fetch('/api/notifications', {
@@ -629,9 +639,6 @@ export default function NetworkPage() {
               })
             })
           }
-          // DON'T remove from pending yet - let deduplication handle it
-          // This ensures checkmark stays visible until real post arrives
-          // The smart merge deduplication will remove the temp post automatically
         } else {
           setPosts(posts)
           setPendingPostIds(prev => {
@@ -1478,12 +1485,12 @@ export default function NetworkPage() {
                             <span className="text-xs text-gray-500">{formatTimestamp(post.createdAt)}</span>
                             {/* Show status indicator only for user's own messages */}
                             {post.userId === user?.id && (
-                              isPending ? (
+                              String(post.id).startsWith('temp-') ? (
                                 <div className="flex items-center gap-1">
                                   <div className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
                                   <span className="text-xs text-gray-400">Sending...</span>
                                 </div>
-                              ) : !String(post.id).startsWith('temp-') && (
+                              ) : (
                                 <div className="flex items-center gap-1">
                                   <Check className="w-3 h-3 text-green-500" />
                                   <span className="text-xs text-green-500">Sent</span>
