@@ -153,48 +153,9 @@ export default function NetworkPage() {
 
       console.log('📨 [ABLY] Received message:', message)
 
-      // Skip our own optimistic messages (we already have them in UI)
-      if (message.isOptimistic && message.userId === user.id) {
-        console.log('⏭️ [ABLY] Skipping own optimistic message')
-        return
-      }
-
-      // Handle replacement of optimistic with real post
-      if (message.replacesOptimistic) {
-        console.log('🔄 [ABLY] Replacing optimistic post:', message.replacesOptimistic)
-
-        setPosts(prev => {
-          // If we have the optimistic post, replace it with real post
-          if (prev.some(p => p.id === message.replacesOptimistic)) {
-            return prev.map(p =>
-              p.id === message.replacesOptimistic
-                ? {
-                    id: message.id || `ably-${Date.now()}`,
-                    userId: message.userId,
-                    userName: message.userName,
-                    userProfileImage: message.userProfileImage || '',
-                    content: message.content,
-                    createdAt: new Date(message.timestamp),
-                    topic: message.topic || '',
-                    likes: 0,
-                    commentsCount: 0
-                  }
-                : p
-            )
-          }
-          // Otherwise just add the real post (we missed the optimistic one)
-          return [...prev, {
-            id: message.id || `ably-${Date.now()}`,
-            userId: message.userId,
-            userName: message.userName,
-            userProfileImage: message.userProfileImage || '',
-            content: message.content,
-            createdAt: new Date(message.timestamp),
-            topic: message.topic || '',
-            likes: 0,
-            commentsCount: 0
-          }]
-        })
+      // Skip our own messages (we already have them in UI via optimistic update)
+      if (message.userId === user.id) {
+        console.log('⏭️ [ABLY] Skipping own message (already in UI)')
         return
       }
 
@@ -222,7 +183,7 @@ export default function NetworkPage() {
       })
 
       // Auto-scroll for new messages from others
-      if (message.userId !== user?.id && isNearBottom) {
+      if (isNearBottom) {
         setTimeout(() => scrollToBottom('smooth'), 100)
       }
     },
@@ -249,38 +210,21 @@ export default function NetworkPage() {
     console.log(`📊 [STATE] Current posts in channelPosts[${activeChannel}]:`, channelPosts[activeChannel]?.length || 0)
 
     if (viewMode === 'channels') {
-      // DO NOT clear posts - per-channel state handles isolation
       console.log(`📢 [CHANNEL-SWITCH] Switching to channel: ${activeChannel}`)
-      console.log(`📦 [CHANNEL-STATE] Posts already in state for ${activeChannel}:`, channelPosts[activeChannel]?.length || 0)
+
+      // ALWAYS reload from database to ensure fresh data
+      // Even if we have cached posts, they may be stale
+      console.log(`🔄 [CACHE-INVALIDATE] Reloading channel ${activeChannel} from database`)
       setLoading(true)
 
       loadPosts()
       loadChannelCounts()
 
-      // REAL-TIME via Ably WebSocket (instant) with polling fallback
-      // Only poll if Ably is disconnected
-      let pollInterval: NodeJS.Timeout | null = null
+      // REAL-TIME via Ably WebSocket only (no polling fallback)
+      // Ably handles reconnection automatically
+      console.log('✅ [ABLY] Using WebSocket for real-time updates (no polling)')
 
-      if (!ablyConnected) {
-        console.log('⚠️ [FALLBACK] Ably disconnected, using polling fallback')
-
-        pollInterval = setInterval(async () => {
-          // Skip this poll if user just sent a message
-          if (skipNextPollRef.current) {
-            skipNextPollRef.current = false
-            return
-          }
-
-          // Pause polling when tab is hidden
-          if (document.hidden) return
-
-          await loadPosts(true) // Silent reload
-        }, 2000) // Slower polling since it's just a fallback
-      } else {
-        console.log('✅ [ABLY] Connected - using WebSocket for real-time updates')
-      }
-
-      // Listen for visibility changes to refresh
+      // Listen for visibility changes to refresh when tab becomes visible
       const handleVisibilityChange = () => {
         if (!document.hidden) {
           loadPosts(true) // Refresh immediately when tab becomes visible
@@ -290,7 +234,6 @@ export default function NetworkPage() {
       document.addEventListener('visibilitychange', handleVisibilityChange)
 
       return () => {
-        if (pollInterval) clearInterval(pollInterval)
         document.removeEventListener('visibilitychange', handleVisibilityChange)
       }
     } else if (viewMode === 'dm') {
@@ -565,10 +508,7 @@ export default function NetworkPage() {
       console.log(`✅ [API-SUCCESS] Received ${postsArray.length} posts in ${Date.now() - startTime}ms`)
       console.log(`📦 [RAW-DATA] First post topic:`, postsArray[0]?.topic, 'User:', postsArray[0]?.userName)
 
-      // Sort by createdAt ascending (oldest first, newest at bottom)
-      postsArray.sort((a, b) =>
-        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-      )
+      // No need to sort - database returns them in correct order (ASC)
 
       // Track temp IDs that need to be removed
       const idsToRemove = new Set<string>()
@@ -726,26 +666,15 @@ export default function NetworkPage() {
           commentsCount: 0
         }
 
-        // Add optimistic post to UI immediately
+        // Add optimistic post to UI immediately (sender only)
         setPosts([...posts, optimisticPost])
         setPendingPostIds(new Set([...pendingPostIds, optimisticId]))
         setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
 
-        // INSTANT: Broadcast via Ably FIRST for real-time delivery
-        if (channelReady) {
-          await sendAblyMessage(content, {
-            id: optimisticId,
-            userName: user.name,
-            userProfileImage: user.profileImage,
-            topic: CHANNELS.find(c => c.id === activeChannel)?.topic || '',
-            isOptimistic: true
-          })
-          console.log('✅ [ABLY] Message broadcast instantly (optimistic)')
-        } else {
-          console.log('⏳ [ABLY] Channel not ready, skipping real-time broadcast')
-        }
+        // NOTE: We DON'T broadcast optimistic message via Ably
+        // Only broadcast AFTER database confirms to prevent duplicates for other users
 
-        // PERSISTENT: Save to database in background
+        // PERSISTENT: Save to database first
         const res = await fetch('/api/posts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -773,16 +702,15 @@ export default function NetworkPage() {
             return newSet
           })
 
-          // Broadcast real ID via Ably so other users get the database ID
+          // INSTANT: Now broadcast to ALL users via Ably with the real database ID
           if (channelReady) {
             await sendAblyMessage(content, {
               id: realPost.id,
               userName: user.name,
               userProfileImage: user.profileImage,
-              topic: CHANNELS.find(c => c.id === activeChannel)?.topic || '',
-              replacesOptimistic: optimisticId
+              topic: CHANNELS.find(c => c.id === activeChannel)?.topic || ''
             })
-            console.log('✅ [ABLY] Real post ID broadcast')
+            console.log('✅ [ABLY] Message broadcast with database ID:', realPost.id)
           }
 
           // Skip the next poll - we just updated with the real post

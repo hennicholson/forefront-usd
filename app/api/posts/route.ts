@@ -15,6 +15,7 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get('limit') || '50')
 
     // Ultra-fast query - INNER JOIN only, index-optimized WHERE clause
+    // ORDER BY ASC (oldest first) so UI doesn't need to re-sort
     const query = topic
       ? rawSql`
           SELECT
@@ -31,7 +32,7 @@ export async function GET(request: Request) {
           FROM posts p
           INNER JOIN users u ON p.user_id = u.id
           WHERE p.topic = ${topic}
-          ORDER BY p.created_at DESC
+          ORDER BY p.created_at ASC
           LIMIT ${limit}
         `
       : rawSql`
@@ -49,7 +50,7 @@ export async function GET(request: Request) {
           FROM posts p
           INNER JOIN users u ON p.user_id = u.id
           WHERE p.topic IS NULL OR p.topic = ''
-          ORDER BY p.created_at DESC
+          ORDER BY p.created_at ASC
           LIMIT ${limit}
         `
 

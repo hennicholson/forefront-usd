@@ -168,17 +168,17 @@ export function useAblyChat({
         } catch (err) {
           console.warn('⚠️ [ABLY] Error leaving channel:', err)
         }
+
+        // Clear seen message IDs when switching channels to prevent cross-channel contamination
+        seenMessageIds.current.clear()
+        console.log('🧹 [ABLY] Cleared seen message IDs for new channel')
       }
 
       if (isCancelled) return
 
       // Join new channel
       console.log('🔄 [ABLY] Joining channel:', channelName)
-      const channel = client.channels.get(channelName, {
-        params: {
-          rewind: '100', // Fetch last 100 messages from history
-        },
-      })
+      const channel = client.channels.get(channelName)
       channelRef.current = channel
 
       // Wait for channel to attach
@@ -206,31 +206,13 @@ export function useAblyChat({
       console.log('✅ [ABLY] Channel attached:', channelName)
       setChannelReady(true)
 
-      // Fetch history (recent messages) to populate UI without database query
-      // This prevents showing stale data while database loads
-      try {
-        const history = await channel.history({ limit: 50, direction: 'backwards' })
-        if (history.items.length > 0) {
-          console.log(`📜 [ABLY] Loaded ${history.items.length} messages from history`)
-
-          // Process history messages in reverse (oldest first)
-          for (const item of history.items.reverse()) {
-            if (item.name === 'message' && item.data) {
-              const messageId = item.data.id || item.id
-              if (messageId && !seenMessageIds.current.has(messageId)) {
-                seenMessageIds.current.add(messageId)
-                onMessageRef.current?.(item.data)
-              }
-            }
-          }
-        }
-      } catch (err) {
-        console.warn('⚠️ [ABLY] Error fetching history:', err)
-      }
+      // NOTE: We DO NOT load Ably history here. Database is the source of truth.
+      // Ably is only used for real-time delivery of NEW messages.
+      // This prevents stale message display and ensures consistency.
 
       if (isCancelled) return
 
-      // Subscribe to NEW messages (after history)
+      // Subscribe to NEW messages
       channel.subscribe('message', (message) => {
         const messageId = message.data.id || message.id
 
