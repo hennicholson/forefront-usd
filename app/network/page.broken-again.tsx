@@ -12,7 +12,6 @@ import { UserProfileModal } from '@/components/profile/UserProfileModal'
 import { MarbleBackground } from '@/components/ui/MarbleBackground'
 import { NotificationBanner } from '@/components/notifications/NotificationBanner'
 import { useNotifications } from '@/hooks/useNotifications'
-import { useAblyChat } from '@/hooks/useAblyChat'
 
 interface Post {
   id: string
@@ -127,7 +126,6 @@ export default function NetworkPage() {
   // Request deduplication and abort control
   const loadingPostsRef = useRef(false)
   const abortControllerRef = useRef<AbortController | null>(null)
-  const skipNextPollRef = useRef(false) // Skip next poll after sending message
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true)
   const [showScrollButton, setShowScrollButton] = useState(false)
   const [isNearBottom, setIsNearBottom] = useState(true)
@@ -143,99 +141,6 @@ export default function NetworkPage() {
   const [pendingPostIds, setPendingPostIds] = useState<Set<string>>(new Set())
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null)
 
-  // Ably real-time chat for instant messaging (only initialize if user is authenticated)
-  const ablyHookResult = useAblyChat({
-    userId: user?.id || 'anonymous',
-    channelName: `channel:${activeChannel}`,
-    enabled: !!user?.id && isAuthenticated, // Only enable when authenticated
-    onMessage: (message) => {
-      if (!user?.id) return // Ignore messages if not authenticated
-
-      console.log('📨 [ABLY] Received message:', message)
-
-      // Skip our own optimistic messages (we already have them in UI)
-      if (message.isOptimistic && message.userId === user.id) {
-        console.log('⏭️ [ABLY] Skipping own optimistic message')
-        return
-      }
-
-      // Handle replacement of optimistic with real post
-      if (message.replacesOptimistic) {
-        console.log('🔄 [ABLY] Replacing optimistic post:', message.replacesOptimistic)
-
-        setPosts(prev => {
-          // If we have the optimistic post, replace it with real post
-          if (prev.some(p => p.id === message.replacesOptimistic)) {
-            return prev.map(p =>
-              p.id === message.replacesOptimistic
-                ? {
-                    id: message.id,
-                    userId: message.userId,
-                    userName: message.userName,
-                    userProfileImage: message.userProfileImage,
-                    content: message.content,
-                    createdAt: new Date(message.timestamp),
-                    topic: message.topic,
-                    likes: 0,
-                    commentsCount: 0
-                  }
-                : p
-            )
-          }
-          // Otherwise just add the real post (we missed the optimistic one)
-          return [...prev, {
-            id: message.id,
-            userId: message.userId,
-            userName: message.userName,
-            userProfileImage: message.userProfileImage,
-            content: message.content,
-            createdAt: new Date(message.timestamp),
-            topic: message.topic,
-            likes: 0,
-            commentsCount: 0
-          }]
-        })
-        return
-      }
-
-      // Add new message from other users
-      const newPost: Post = {
-        id: message.id || `ably-${Date.now()}`,
-        userId: message.userId,
-        userName: message.userName,
-        userProfileImage: message.userProfileImage,
-        content: message.content,
-        createdAt: new Date(message.timestamp),
-        topic: message.topic,
-        likes: 0,
-        commentsCount: 0
-      }
-
-      setPosts(prev => {
-        // Prevent duplicates
-        if (prev.some(p => p.id === newPost.id)) {
-          console.log('⏭️ [ABLY] Skipping duplicate:', newPost.id)
-          return prev
-        }
-        console.log('✅ [ABLY] Adding new post from other user')
-        return [...prev, newPost]
-      })
-
-      // Auto-scroll for new messages from others
-      if (message.userId !== user?.id && isNearBottom) {
-        setTimeout(() => scrollToBottom('smooth'), 100)
-      }
-    },
-    onPresence: (presenceEvent) => {
-      console.log('👋 [ABLY] Presence event:', presenceEvent)
-    },
-    onTyping: (typingUsers) => {
-      console.log('⌨️ [ABLY] Typing users:', typingUsers)
-    }
-  })
-
-  const { connected: ablyConnected, channelReady, sendMessage: sendAblyMessage, presence, typing } = ablyHookResult
-
   // Load users once on mount, not on every state change
   useEffect(() => {
     if (!isAuthenticated || !user?.id) return
@@ -245,42 +150,63 @@ export default function NetworkPage() {
   useEffect(() => {
     if (!isAuthenticated || !user?.id) return
 
-    console.log(`🔄 [VIEW-CHANGE] viewMode: ${viewMode}, activeChannel: ${activeChannel}, activeConversation: ${activeConversation}`)
-    console.log(`📊 [STATE] Current posts in channelPosts[${activeChannel}]:`, channelPosts[activeChannel]?.length || 0)
-
     if (viewMode === 'channels') {
-      // DO NOT clear posts - per-channel state handles isolation
-      console.log(`📢 [CHANNEL-SWITCH] Switching to channel: ${activeChannel}`)
-      console.log(`📦 [CHANNEL-STATE] Posts already in state for ${activeChannel}:`, channelPosts[activeChannel]?.length || 0)
+      // Clear posts immediately when switching channels to prevent showing wrong channel data
       setLoading(true)
+      setPosts([])
 
       loadPosts()
       loadChannelCounts()
 
-      // REAL-TIME via Ably WebSocket (instant) with polling fallback
-      // Only poll if Ably is disconnected
+      // Ultra-fast polling for real-time feel (1s) with smart backoff
       let pollInterval: NodeJS.Timeout | null = null
+      let pollDelay = 1000 // Start with 1 second for near real-time updates
+      let unchangedCount = 0
+      let lastPostCount = 0
 
-      if (!ablyConnected) {
-        console.log('⚠️ [FALLBACK] Ably disconnected, using polling fallback')
+      const startPolling = () => {
+        if (pollInterval) clearInterval(pollInterval)
 
         pollInterval = setInterval(async () => {
-          // Skip this poll if user just sent a message
-          if (skipNextPollRef.current) {
-            skipNextPollRef.current = false
-            return
-          }
-
           // Pause polling when tab is hidden
           if (document.hidden) return
 
+          const currentCount = posts.length
           await loadPosts(true) // Silent reload
-        }, 2000) // Slower polling since it's just a fallback
-      } else {
-        console.log('✅ [ABLY] Connected - using WebSocket for real-time updates')
+
+          // If post count hasn't changed, increase backoff
+          if (currentCount === lastPostCount) {
+            unchangedCount++
+            if (unchangedCount >= 10) {
+              // After 10 unchanged polls, slow down to 5s
+              pollDelay = 5000
+              if (pollInterval) clearInterval(pollInterval)
+              startPolling()
+            }
+          } else {
+            // Reset backoff when new data arrives
+            unchangedCount = 0
+            if (pollDelay !== 1000) {
+              pollDelay = 1000
+              if (pollInterval) clearInterval(pollInterval)
+              startPolling()
+            }
+          }
+          lastPostCount = currentCount
+        }, pollDelay)
       }
 
-      // Listen for visibility changes to refresh
+      // Resume fast polling on user interaction
+      const handleUserActivity = () => {
+        unchangedCount = 0
+        if (pollDelay !== 1000) {
+          pollDelay = 1000
+          if (pollInterval) clearInterval(pollInterval)
+          startPolling()
+        }
+      }
+
+      // Listen for visibility changes to resume polling
       const handleVisibilityChange = () => {
         if (!document.hidden) {
           loadPosts(true) // Refresh immediately when tab becomes visible
@@ -288,10 +214,14 @@ export default function NetworkPage() {
       }
 
       document.addEventListener('visibilitychange', handleVisibilityChange)
+      window.addEventListener('focus', handleUserActivity)
+
+      startPolling()
 
       return () => {
         if (pollInterval) clearInterval(pollInterval)
         document.removeEventListener('visibilitychange', handleVisibilityChange)
+        window.removeEventListener('focus', handleUserActivity)
       }
     } else if (viewMode === 'dm') {
       loadConversations()
@@ -318,43 +248,6 @@ export default function NetworkPage() {
 
     return () => clearInterval(interval)
   }, [isAuthenticated, user?.id])
-
-  // Poll DMs for ULTRA-FAST real-time updates (500ms)
-  useEffect(() => {
-    if (!isAuthenticated || !user?.id || viewMode !== 'dm' || !activeConversation) return
-
-    const pollMessages = async () => {
-      try {
-        const res = await fetch(`/api/messages?userId=${user.id}&otherUserId=${activeConversation}&limit=50`)
-        if (res.ok) {
-          const messages = await res.json()
-          setDirectMessages(prev => {
-            // Keep temp messages, merge with real messages
-            const tempMessages = prev.filter(m => String(m.id).startsWith('temp-'))
-            const realMessages = messages.filter((m: DirectMessage) => !String(m.id).startsWith('temp-'))
-
-            // Remove temp messages that match real messages (within 5 seconds)
-            const dedupedTemp = tempMessages.filter(temp => {
-              const exists = realMessages.find((real: DirectMessage) =>
-                real.senderId === temp.senderId &&
-                real.content === temp.content &&
-                Math.abs(new Date(real.createdAt).getTime() - new Date(temp.createdAt).getTime()) < 5000
-              )
-              return !exists
-            })
-
-            return [...realMessages, ...dedupedTemp]
-          })
-        }
-      } catch (error) {
-        console.error('Error polling messages:', error)
-      }
-    }
-
-    // Poll every 500ms for instant DM delivery
-    const interval = setInterval(pollMessages, 500)
-    return () => clearInterval(interval)
-  }, [isAuthenticated, user?.id, viewMode, activeConversation])
 
   // Mobile detection
   useEffect(() => {
@@ -520,18 +413,14 @@ export default function NetworkPage() {
   }
 
   const loadPosts = async (silent = false) => {
-    const startTime = Date.now()
-    console.log(`🚀 [LOAD-POSTS] Starting loadPosts for channel: ${activeChannel}, silent: ${silent}`)
-
     // Prevent concurrent requests (fixes race condition)
     if (loadingPostsRef.current) {
-      console.log('⏭️  [POSTS] Skipping concurrent request')
+      console.log('[POSTS] Skipping concurrent request')
       return
     }
 
     // Cancel any in-flight request
     if (abortControllerRef.current) {
-      console.log('🚫 [POSTS] Aborting previous request')
       abortControllerRef.current.abort()
     }
 
@@ -547,23 +436,14 @@ export default function NetworkPage() {
         ? `/api/posts?limit=50&topic=${encodeURIComponent(channel.topic)}`
         : '/api/posts?limit=50'
 
-      console.log(`📡 [API-CALL] Fetching: ${url}`)
-      console.log(`📋 [CHANNEL-INFO] Channel: ${channel?.name}, Topic: ${channel?.topic || 'NULL (general)'}`)
-
       const res = await fetch(url, {
         signal: abortController.signal
       })
 
-      if (!res.ok) {
-        console.error(`❌ [API-ERROR] Status: ${res.status}, URL: ${url}`)
-        throw new Error('Failed to fetch posts')
-      }
+      if (!res.ok) throw new Error('Failed to fetch posts')
 
       const data = await res.json()
       const postsArray = Array.isArray(data) ? data : []
-
-      console.log(`✅ [API-SUCCESS] Received ${postsArray.length} posts in ${Date.now() - startTime}ms`)
-      console.log(`📦 [RAW-DATA] First post topic:`, postsArray[0]?.topic, 'User:', postsArray[0]?.userName)
 
       // Sort by createdAt ascending (oldest first, newest at bottom)
       postsArray.sort((a, b) =>
@@ -575,13 +455,9 @@ export default function NetworkPage() {
 
       // Smart merge with deduplication (prevents flicker and duplicates)
       setPosts(prev => {
-        console.log(`🔀 [MERGE] Previous posts in state for ${activeChannel}:`, prev.length)
-
         // Separate temp (optimistic) and real server posts
         const pendingPosts = prev.filter(p => String(p.id).startsWith('temp-'))
         const serverPosts = postsArray.filter(p => !String(p.id).startsWith('temp-'))
-
-        console.log(`⏳ [MERGE] Temp posts: ${pendingPosts.length}, Server posts: ${serverPosts.length}`)
 
         // Create deduplication map: match temp posts to real posts by content + userId + time proximity
         const dedupedPending = pendingPosts.filter(tempPost => {
@@ -601,11 +477,8 @@ export default function NetworkPage() {
           return !matchingRealPost
         })
 
-        const finalPosts = [...serverPosts, ...dedupedPending]
-        console.log(`✨ [MERGE-RESULT] Final posts for ${activeChannel}: ${finalPosts.length} (${serverPosts.length} server + ${dedupedPending.length} temp)`)
-
         // Merge: server posts + only non-duplicated pending posts
-        return finalPosts
+        return [...serverPosts, ...dedupedPending]
       })
 
       // Clean up pendingPostIds after state update
@@ -710,12 +583,10 @@ export default function NetworkPage() {
 
     try {
       if (viewMode === 'channels') {
-        // Generate ID upfront for both optimistic UI and Ably
-        const timestamp = Date.now()
-        const optimisticId = `opt-${timestamp}`
-
+        // Optimistic update for channel messages
+        const tempId = `temp-${Date.now()}`
         const optimisticPost: Post = {
-          id: optimisticId,
+          id: tempId,
           userId: user.id,
           userName: user.name,
           userProfileImage: user.profileImage,
@@ -725,27 +596,10 @@ export default function NetworkPage() {
           likes: 0,
           commentsCount: 0
         }
-
-        // Add optimistic post to UI immediately
         setPosts([...posts, optimisticPost])
-        setPendingPostIds(new Set([...pendingPostIds, optimisticId]))
+        setPendingPostIds(new Set([...pendingPostIds, tempId]))
         setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
 
-        // INSTANT: Broadcast via Ably FIRST for real-time delivery
-        if (channelReady) {
-          await sendAblyMessage(content, {
-            id: optimisticId,
-            userName: user.name,
-            userProfileImage: user.profileImage,
-            topic: CHANNELS.find(c => c.id === activeChannel)?.topic || '',
-            isOptimistic: true
-          })
-          console.log('✅ [ABLY] Message broadcast instantly (optimistic)')
-        } else {
-          console.log('⏳ [ABLY] Channel not ready, skipping real-time broadcast')
-        }
-
-        // PERSISTENT: Save to database in background
         const res = await fetch('/api/posts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -759,35 +613,20 @@ export default function NetworkPage() {
         if (res.ok) {
           const realPost = await res.json()
 
-          // Replace optimistic post with real database post
+          // IMMEDIATELY replace temp post with real post to prevent duplicates
+          // Merge user info from optimistic post since server doesn't return it
           const fullRealPost = {
             ...realPost,
             userName: user.name,
             userProfileImage: user.profileImage
           }
 
-          setPosts(prev => prev.map(p => p.id === optimisticId ? fullRealPost : p))
+          setPosts(prev => prev.map(p => p.id === tempId ? fullRealPost : p))
           setPendingPostIds(prev => {
             const newSet = new Set(prev)
-            newSet.delete(optimisticId)
+            newSet.delete(tempId)
             return newSet
           })
-
-          // Broadcast real ID via Ably so other users get the database ID
-          if (channelReady) {
-            await sendAblyMessage(content, {
-              id: realPost.id,
-              userName: user.name,
-              userProfileImage: user.profileImage,
-              topic: CHANNELS.find(c => c.id === activeChannel)?.topic || '',
-              replacesOptimistic: optimisticId
-            })
-            console.log('✅ [ABLY] Real post ID broadcast')
-          }
-
-          // Skip the next poll - we just updated with the real post
-          skipNextPollRef.current = true
-          console.log('✅ [SEND] Message saved to database')
 
           // Create notifications for mentioned users
           for (const mentionedUser of mentionedUsers) {
@@ -848,7 +687,7 @@ export default function NetworkPage() {
 
           // Update messages in place instead of full reload
           setDirectMessages(prev => [
-            ...prev.filter(m => !String(m.id).startsWith('temp-')),
+            ...prev.filter(m => !m.id.startsWith('temp-')),
             realMessage
           ])
 
@@ -1656,13 +1495,10 @@ export default function NetworkPage() {
                     </div>
                   </div>
                 ) : viewMode === 'channels' ? (
-                  (() => {
-                    console.log(`🎨 [RENDER] Rendering ${posts.length} posts for channel: ${activeChannel}`)
-                    console.log(`📝 [RENDER-DATA] First 3 posts:`, posts.slice(0, 3).map(p => ({ id: p.id, user: p.userName, content: p.content.substring(0, 30) })))
-                    return posts.map((post) => {
-                      const isLiked = likedPosts.has(post.id)
-                      const isPending = pendingPostIds.has(post.id)
-                      return (
+                  posts.map((post) => {
+                    const isLiked = likedPosts.has(post.id)
+                    const isPending = pendingPostIds.has(post.id)
+                    return (
                       <div
                         key={post.id}
                         data-message-id={post.id}
@@ -1736,8 +1572,7 @@ export default function NetworkPage() {
                         </div>
                       </div>
                     )
-                    })
-                  })()
+                  })
                 ) : (
                   directMessages.map((message) => {
                     const isOwn = message.senderId === user?.id

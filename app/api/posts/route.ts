@@ -48,6 +48,7 @@ export async function GET(request: Request) {
             0 as "commentsCount"
           FROM posts p
           INNER JOIN users u ON p.user_id = u.id
+          WHERE p.topic IS NULL OR p.topic = ''
           ORDER BY p.created_at DESC
           LIMIT ${limit}
         `

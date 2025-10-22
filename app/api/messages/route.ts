@@ -57,41 +57,38 @@ export async function GET(request: Request) {
     }
 
     // Otherwise, get list of conversations (recent messages with each user)
-    // OPTIMIZED: Single query with JOIN instead of N+1 (76% faster)
+    // OPTIMIZED: Using ROW_NUMBER to avoid DISTINCT ON ordering issues
     const conversations = await rawSql`
-      WITH latest_messages AS (
-        SELECT DISTINCT ON (
-          CASE
-            WHEN sender_id = ${userId} THEN receiver_id
-            ELSE sender_id
-          END
-        )
+      WITH ranked_messages AS (
+        SELECT
           CASE
             WHEN sender_id = ${userId} THEN receiver_id
             ELSE sender_id
           END as partner_id,
           content as last_message,
-          created_at as last_message_time
+          created_at as last_message_time,
+          ROW_NUMBER() OVER (
+            PARTITION BY CASE
+              WHEN sender_id = ${userId} THEN receiver_id
+              ELSE sender_id
+            END
+            ORDER BY created_at DESC
+          ) as rn
         FROM messages
         WHERE sender_id = ${userId} OR receiver_id = ${userId}
-        ORDER BY
-          CASE
-            WHEN sender_id = ${userId} THEN receiver_id
-            ELSE sender_id
-          END,
-          created_at DESC
       )
       SELECT
-        lm.partner_id::text as "userId",
+        rm.partner_id::text as "userId",
         u.name as "userName",
         u.profile_image as "userProfileImage",
         u.headline as "userHeadline",
-        lm.last_message as "lastMessage",
-        lm.last_message_time as "lastMessageTime",
+        rm.last_message as "lastMessage",
+        rm.last_message_time as "lastMessageTime",
         0 as "unreadCount"
-      FROM latest_messages lm
-      LEFT JOIN users u ON lm.partner_id = u.id
-      ORDER BY lm.last_message_time DESC
+      FROM ranked_messages rm
+      LEFT JOIN users u ON rm.partner_id = u.id
+      WHERE rm.rn = 1
+      ORDER BY rm.last_message_time DESC
     `
 
     return NextResponse.json(conversations, {
