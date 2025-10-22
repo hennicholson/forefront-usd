@@ -1,12 +1,17 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Bell, X } from 'lucide-react'
 import { useNotifications } from '@/hooks/useNotifications'
 
 export function NotificationBanner() {
-  const { requestPermission, dismissBanner, shouldShowBanner } = useNotifications()
-  const [isVisible, setIsVisible] = useState(shouldShowBanner())
+  const { requestPermission, dismissBanner, shouldShowBanner, isSupported, permission } = useNotifications()
+  const [isVisible, setIsVisible] = useState(false)
   const [isRequesting, setIsRequesting] = useState(false)
+
+  // Update visibility after component mounts and notification support is checked
+  useEffect(() => {
+    setIsVisible(shouldShowBanner())
+  }, [isSupported, permission, shouldShowBanner])
 
   const handleEnable = async () => {
     setIsRequesting(true)

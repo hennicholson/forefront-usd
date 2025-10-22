@@ -1,88 +1,97 @@
 import { NextResponse } from 'next/server'
+import { neon } from '@neondatabase/serverless'
 import { db } from '@/lib/db'
 import { posts, users, reactions, comments, notifications } from '@/lib/db/schema'
 import { eq, desc, sql, like, inArray } from 'drizzle-orm'
 
-// GET all posts (with user info and counts)
+const rawSql = neon(process.env.DATABASE_URL!)
+
+// GET all posts (with user info and counts) - ULTRA FAST with raw SQL
 export async function GET(request: Request) {
   try {
     const startTime = Date.now()
     const { searchParams } = new URL(request.url)
-    const userId = searchParams.get('userId')
     const topic = searchParams.get('topic')
-    const limit = parseInt(searchParams.get('limit') || '10')
+    const limit = parseInt(searchParams.get('limit') || '50')
 
-    let query = db
-      .select({
-        id: posts.id,
-        userId: posts.userId,
-        content: posts.content,
-        type: posts.type,
-        topic: posts.topic,
-        metadata: posts.metadata,
-        createdAt: posts.createdAt,
-        userName: users.name,
-        userBio: users.bio,
-        userProfileImage: users.profileImage,
-      })
-      .from(posts)
-      .leftJoin(users, eq(posts.userId, users.id))
-      .orderBy(desc(posts.createdAt))
-      .limit(limit)
+    // Single optimized query using raw SQL for maximum speed
+    const query = topic
+      ? rawSql`
+          SELECT
+            p.id::text,
+            p.user_id::text as "userId",
+            p.content,
+            p.type,
+            p.topic,
+            p.metadata,
+            p.created_at as "createdAt",
+            u.name as "userName",
+            u.bio as "userBio",
+            u.profile_image as "userProfileImage",
+            COALESCE(r.likes, 0)::int as likes,
+            COALESCE(c.comments, 0)::int as "commentsCount"
+          FROM posts p
+          LEFT JOIN users u ON p.user_id = u.id
+          LEFT JOIN (
+            SELECT post_id, COUNT(*)::int as likes
+            FROM reactions
+            GROUP BY post_id
+          ) r ON p.id = r.post_id
+          LEFT JOIN (
+            SELECT post_id, COUNT(*)::int as comments
+            FROM comments
+            GROUP BY post_id
+          ) c ON p.id = c.post_id
+          WHERE p.topic = ${topic}
+          ORDER BY p.created_at DESC
+          LIMIT ${limit}
+        `
+      : rawSql`
+          SELECT
+            p.id::text,
+            p.user_id::text as "userId",
+            p.content,
+            p.type,
+            p.topic,
+            p.metadata,
+            p.created_at as "createdAt",
+            u.name as "userName",
+            u.bio as "userBio",
+            u.profile_image as "userProfileImage",
+            COALESCE(r.likes, 0)::int as likes,
+            COALESCE(c.comments, 0)::int as "commentsCount"
+          FROM posts p
+          LEFT JOIN users u ON p.user_id = u.id
+          LEFT JOIN (
+            SELECT post_id, COUNT(*)::int as likes
+            FROM reactions
+            GROUP BY post_id
+          ) r ON p.id = r.post_id
+          LEFT JOIN (
+            SELECT post_id, COUNT(*)::int as comments
+            FROM comments
+            GROUP BY post_id
+          ) c ON p.id = c.post_id
+          ORDER BY p.created_at DESC
+          LIMIT ${limit}
+        `
 
-    // Filter by topic if provided
-    const allPosts = topic
-      ? await query.where(eq(posts.topic, topic))
-      : await query
+    const postsData = await query
 
-    // Optimization: Batch fetch all likes and comments counts in 2 queries instead of N+1
-    const postIds = allPosts.map(p => p.id)
-
-    // Initialize empty maps
-    let likesMap = new Map()
-    let commentsMap = new Map()
-
-    // Only fetch counts if we have posts
-    if (postIds.length > 0) {
-      // Get all likes counts in one query
-      const likesData = await db
-        .select({
-          postId: reactions.postId,
-          count: sql<number>`cast(count(*) as int)`,
-        })
-        .from(reactions)
-        .where(inArray(reactions.postId, postIds))
-        .groupBy(reactions.postId)
-
-      // Get all comments counts in one query
-      const commentsData = await db
-        .select({
-          postId: comments.postId,
-          count: sql<number>`cast(count(*) as int)`,
-        })
-        .from(comments)
-        .where(inArray(comments.postId, postIds))
-        .groupBy(comments.postId)
-
-      // Create lookup maps for O(1) access
-      likesMap = new Map(likesData.map(l => [l.postId, l.count]))
-      commentsMap = new Map(commentsData.map(c => [c.postId, c.count]))
-    }
-
-    // Combine posts with their counts
-    const postsWithCounts = allPosts.map(post => ({
+    // Add timestamps
+    const postsWithTimestamps = postsData.map(post => ({
       ...post,
-      id: String(post.id), // Ensure ID is a string
-      userId: String(post.userId), // Ensure userId is a string
-      likes: likesMap.get(post.id) || 0,
-      commentsCount: commentsMap.get(post.id) || 0,
-      timestamp: formatTimestamp(post.createdAt)
+      timestamp: formatTimestamp(new Date(post.createdAt))
     }))
 
     const totalTime = Date.now() - startTime
-    console.log(`[PERF] Posts API: ${totalTime}ms (${postIds.length} posts, topic: ${topic || 'all'})`)
+    console.log(`[PERF-FAST] Posts API: ${totalTime}ms (${postsData.length} posts, topic: ${topic || 'all'})`)
 
-    return NextResponse.json(postsWithCounts)
+    return NextResponse.json(postsWithTimestamps, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=30',
+      },
+    })
   } catch (error) {
     console.error('Error fetching posts:', error)
     return NextResponse.json(
@@ -168,17 +177,17 @@ export async function POST(request: Request) {
   }
 }
 
-function formatTimestamp(date: Date | null): string {
-  if (!date) return 'just now'
-
+function formatTimestamp(date: Date): string {
   const now = new Date()
   const diffMs = now.getTime() - date.getTime()
   const diffMins = Math.floor(diffMs / 60000)
   const diffHours = Math.floor(diffMs / 3600000)
   const diffDays = Math.floor(diffMs / 86400000)
 
-  if (diffMins < 1) return 'just now'
-  if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`
-  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`
-  return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`
+  if (diffMins < 1) return 'Just now'
+  if (diffMins < 60) return `${diffMins}m ago`
+  if (diffHours < 24) return `${diffHours}h ago`
+  if (diffDays < 7) return `${diffDays}d ago`
+
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
