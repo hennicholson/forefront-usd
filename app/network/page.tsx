@@ -614,7 +614,14 @@ export default function NetworkPage() {
           const realPost = await res.json()
 
           // IMMEDIATELY replace temp post with real post to prevent duplicates
-          setPosts(prev => prev.map(p => p.id === tempId ? realPost : p))
+          // Merge user info from optimistic post since server doesn't return it
+          const fullRealPost = {
+            ...realPost,
+            userName: user.name,
+            userProfileImage: user.profileImage
+          }
+
+          setPosts(prev => prev.map(p => p.id === tempId ? fullRealPost : p))
           setPendingPostIds(prev => {
             const newSet = new Set(prev)
             newSet.delete(tempId)
@@ -1467,7 +1474,7 @@ export default function NetworkPage() {
                         >
                           <AvatarImage src={post.userProfileImage || undefined} />
                           <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-500 text-white">
-                            {post.userName[0]}
+                            {post.userName?.[0] || 'U'}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
