@@ -1023,7 +1023,7 @@ export default function NetworkPage() {
     <div className="h-screen overflow-hidden bg-black relative">
       <MarbleBackground />
       <NotificationBanner />
-      <div className="max-w-[1800px] mx-auto md:px-4 px-2 relative z-10 h-full md:pt-24 pt-16 pb-20 md:pb-8 flex flex-col">
+      <div className="max-w-[1800px] mx-auto md:px-4 px-2 relative z-10 h-full md:pt-20 pt-14 pb-20 md:pb-8 flex flex-col">
         <div className="md:grid md:grid-cols-12 gap-4 flex-1 flex flex-col overflow-hidden">
 
           {/* Sidebar - Hidden on mobile unless in sidebar view */}
