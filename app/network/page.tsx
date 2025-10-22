@@ -169,13 +169,13 @@ export default function NetworkPage() {
             return prev.map(p =>
               p.id === message.replacesOptimistic
                 ? {
-                    id: message.id,
+                    id: message.id || `ably-${Date.now()}`,
                     userId: message.userId,
                     userName: message.userName,
-                    userProfileImage: message.userProfileImage,
+                    userProfileImage: message.userProfileImage || '',
                     content: message.content,
                     createdAt: new Date(message.timestamp),
-                    topic: message.topic,
+                    topic: message.topic || '',
                     likes: 0,
                     commentsCount: 0
                   }
@@ -184,13 +184,13 @@ export default function NetworkPage() {
           }
           // Otherwise just add the real post (we missed the optimistic one)
           return [...prev, {
-            id: message.id,
+            id: message.id || `ably-${Date.now()}`,
             userId: message.userId,
             userName: message.userName,
-            userProfileImage: message.userProfileImage,
+            userProfileImage: message.userProfileImage || '',
             content: message.content,
             createdAt: new Date(message.timestamp),
-            topic: message.topic,
+            topic: message.topic || '',
             likes: 0,
             commentsCount: 0
           }]
