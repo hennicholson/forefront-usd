@@ -145,9 +145,9 @@ export default function NetworkPage() {
       loadPosts()
       loadChannelCounts()
 
-      // Smart polling with backoff and visibility detection
+      // Fast polling for real-time feel with smart backoff
       let pollInterval: NodeJS.Timeout | null = null
-      let pollDelay = 5000 // Start with 5 seconds
+      let pollDelay = 2000 // Start with 2 seconds for faster updates
       let unchangedCount = 0
       let lastPostCount = 0
 
@@ -164,17 +164,17 @@ export default function NetworkPage() {
           // If post count hasn't changed, increase backoff
           if (currentCount === lastPostCount) {
             unchangedCount++
-            if (unchangedCount >= 3) {
-              // After 3 unchanged polls, slow down to 15s
-              pollDelay = 15000
+            if (unchangedCount >= 5) {
+              // After 5 unchanged polls, slow down to 10s
+              pollDelay = 10000
               if (pollInterval) clearInterval(pollInterval)
               startPolling()
             }
           } else {
             // Reset backoff when new data arrives
             unchangedCount = 0
-            if (pollDelay !== 5000) {
-              pollDelay = 5000
+            if (pollDelay !== 2000) {
+              pollDelay = 2000
               if (pollInterval) clearInterval(pollInterval)
               startPolling()
             }
@@ -186,8 +186,8 @@ export default function NetworkPage() {
       // Resume fast polling on user interaction
       const handleUserActivity = () => {
         unchangedCount = 0
-        if (pollDelay !== 5000) {
-          pollDelay = 5000
+        if (pollDelay !== 2000) {
+          pollDelay = 2000
           if (pollInterval) clearInterval(pollInterval)
           startPolling()
         }
@@ -439,11 +439,16 @@ export default function NetworkPage() {
 
       // Smart merge instead of replace (prevents flicker)
       setPosts(prev => {
-        // If we have pending posts, preserve them
-        const pendingPosts = prev.filter(p => String(p.id).startsWith('temp-'))
+        // Get current channel topic for filtering
+        const currentTopic = CHANNELS.find(c => c.id === activeChannel)?.topic || ''
+
+        // Filter pending posts to only include ones from the CURRENT channel
+        const pendingPosts = prev.filter(p =>
+          String(p.id).startsWith('temp-') && p.topic === currentTopic
+        )
         const serverPosts = postsArray.filter(p => !String(p.id).startsWith('temp-'))
 
-        // Merge: server posts + pending posts (pending at end)
+        // Merge: server posts + pending posts from current channel only
         return [...serverPosts, ...pendingPosts]
       })
 
@@ -1473,12 +1478,19 @@ export default function NetworkPage() {
                               {post.userName}
                             </span>
                             <span className="text-xs text-gray-500">{formatTimestamp(post.createdAt)}</span>
-                            {isPending ? (
-                              <div className="flex items-center gap-1">
-                                <div className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-                              </div>
-                            ) : !String(post.id).startsWith('temp-') && (
-                              <Check className="w-3 h-3 text-green-500" />
+                            {/* Show status indicator only for user's own messages */}
+                            {post.userId === user?.id && (
+                              isPending ? (
+                                <div className="flex items-center gap-1">
+                                  <div className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                                  <span className="text-xs text-gray-400">Sending...</span>
+                                </div>
+                              ) : !String(post.id).startsWith('temp-') && (
+                                <div className="flex items-center gap-1">
+                                  <Check className="w-3 h-3 text-green-500" />
+                                  <span className="text-xs text-green-500">Sent</span>
+                                </div>
+                              )
                             )}
                           </div>
                           <p className="text-gray-200 text-sm mb-3 break-words leading-relaxed">{renderMessageContent(post.content)}</p>
