@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -12,6 +12,7 @@ import { UserProfileModal } from '@/components/profile/UserProfileModal'
 import { MarbleBackground } from '@/components/ui/MarbleBackground'
 import { NotificationBanner } from '@/components/notifications/NotificationBanner'
 import { useNotifications } from '@/hooks/useNotifications'
+import { useRealtimeNotifications } from '@/hooks/useRealtimeNotifications'
 import { useAblyChat } from '@/hooks/useAblyChat'
 
 interface Post {
@@ -197,6 +198,59 @@ export default function NetworkPage() {
 
   const { connected: ablyConnected, channelReady, sendMessage: sendAblyMessage, presence, typing } = ablyHookResult
 
+  // Real-time notification handler
+  const handleRealtimeNotification = useCallback((notification: Notification) => {
+    console.log('🔔 [SSE] Received real-time notification:', notification)
+
+    // Add to notifications list
+    setNotifications(prev => [notification, ...prev])
+    setUnreadCount(prev => prev + 1)
+
+    // Send browser notification if appropriate
+    let notificationTitle = 'New Notification'
+    let notificationBody = notification.content
+    let tag = `notification-${notification.id}`
+
+    // Customize based on notification type
+    if (notification.type === 'new_message') {
+      notificationTitle = 'New Direct Message'
+      tag = 'dm-notification'
+    } else if (notification.type === 'mention') {
+      notificationTitle = 'You were mentioned'
+      tag = 'mention-notification'
+    } else if (notification.type === 'reaction') {
+      notificationTitle = 'Someone reacted to your post'
+      tag = 'reaction-notification'
+    } else if (notification.type === 'comment') {
+      notificationTitle = 'New comment on your post'
+      tag = 'comment-notification'
+    }
+
+    sendNotification({
+      title: notificationTitle,
+      body: notificationBody,
+      tag,
+      onClick: () => {
+        // Navigate to the notification when clicked
+        setViewMode('notifications')
+        if (notification.metadata?.channelId) {
+          setViewMode('channels')
+          setActiveChannel(notification.metadata.channelId)
+        } else if (notification.metadata?.senderId) {
+          setViewMode('dm')
+          setActiveConversation(notification.metadata.senderId)
+        }
+      }
+    })
+  }, [sendNotification])
+
+  // Real-time notifications via SSE
+  useRealtimeNotifications({
+    userId: user?.id,
+    enabled: !!user?.id && isAuthenticated,
+    onNotification: handleRealtimeNotification
+  })
+
   // Load users once on mount, not on every state change
   useEffect(() => {
     if (!isAuthenticated || !user?.id) return
@@ -377,7 +431,7 @@ export default function NetworkPage() {
             let tag = `notification-${notification.id}`
 
             // Customize based on notification type
-            if (notification.type === 'message') {
+            if (notification.type === 'new_message') {
               notificationTitle = 'New Direct Message'
               tag = 'dm-notification'
             } else if (notification.type === 'mention') {
@@ -401,9 +455,9 @@ export default function NetworkPage() {
                 if (notification.metadata?.channelId) {
                   setViewMode('channels')
                   setActiveChannel(notification.metadata.channelId)
-                } else if (notification.metadata?.userId) {
+                } else if (notification.metadata?.senderId) {
                   setViewMode('dm')
-                  setActiveConversation(notification.metadata.userId)
+                  setActiveConversation(notification.metadata.senderId)
                 }
               }
             })

@@ -3,6 +3,7 @@ import { neon } from '@neondatabase/serverless'
 import { db } from '@/lib/db'
 import { messages, users, notifications } from '@/lib/db/schema'
 import { eq, desc, and, or } from 'drizzle-orm'
+import { realtime } from '@/lib/prisma'
 
 const rawSql = neon(process.env.DATABASE_URL!)
 
@@ -135,7 +136,7 @@ export async function POST(request: Request) {
       .where(eq(users.id, senderId))
 
     // Create notification for receiver
-    await db.insert(notifications).values({
+    const [notification] = await db.insert(notifications).values({
       userId: receiverId,
       type: 'new_message',
       content: `${sender?.name || 'Someone'} sent you a message`,
@@ -145,6 +146,12 @@ export async function POST(request: Request) {
         senderName: sender?.name,
         preview: content.substring(0, 50),
       },
+    }).returning()
+
+    // Emit real-time notification event for instant delivery
+    realtime.emit(`user:${receiverId}`, {
+      type: 'notification',
+      data: notification
     })
 
     return NextResponse.json(newMessage, { status: 201 })
