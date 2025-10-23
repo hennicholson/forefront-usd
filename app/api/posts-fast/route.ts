@@ -75,16 +75,10 @@ export async function GET(request: Request) {
 
     const posts = await query
 
-    // Add timestamps
-    const postsWithTimestamps = posts.map(post => ({
-      ...post,
-      timestamp: formatTimestamp(new Date(post.createdAt))
-    }))
-
     const totalTime = Date.now() - startTime
     console.log(`[PERF-FAST] Posts API: ${totalTime}ms (${posts.length} posts, topic: ${topic || 'all'})`)
 
-    return NextResponse.json(postsWithTimestamps, {
+    return NextResponse.json(posts, {
       headers: {
         'Cache-Control': 'no-store, must-revalidate',
       },
@@ -96,19 +90,4 @@ export async function GET(request: Request) {
       { status: 500 }
     )
   }
-}
-
-function formatTimestamp(date: Date): string {
-  const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffMins = Math.floor(diffMs / 60000)
-  const diffHours = Math.floor(diffMs / 3600000)
-  const diffDays = Math.floor(diffMs / 86400000)
-
-  if (diffMins < 1) return 'Just now'
-  if (diffMins < 60) return `${diffMins}m ago`
-  if (diffHours < 24) return `${diffHours}h ago`
-  if (diffDays < 7) return `${diffDays}d ago`
-
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }

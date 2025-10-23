@@ -28,6 +28,7 @@ interface UseAblyChatSDKOptions {
   onPresence?: (presence: { type: 'enter' | 'leave'; userId: string }) => void
   onTyping?: (typingUsers: string[]) => void
   onRoomReaction?: (reaction: { name: string; userId: string; timestamp: number }) => void
+  onMessageReaction?: (event: { messageSerial: string; summary: any }) => void
   onConnectionStateChange?: (state: Ably.ConnectionState) => void
   enabled?: boolean // Allow disabling the hook
 }
@@ -39,6 +40,7 @@ export function useAblyChatSDK({
   onPresence,
   onTyping,
   onRoomReaction,
+  onMessageReaction,
   onConnectionStateChange,
   enabled = true,
 }: UseAblyChatSDKOptions) {
@@ -61,13 +63,15 @@ export function useAblyChatSDK({
   const onPresenceRef = useRef(onPresence)
   const onTypingRef = useRef(onTyping)
   const onRoomReactionRef = useRef(onRoomReaction)
+  const onMessageReactionRef = useRef(onMessageReaction)
 
   useEffect(() => {
     onMessageRef.current = onMessage
     onPresenceRef.current = onPresence
     onTypingRef.current = onTyping
     onRoomReactionRef.current = onRoomReaction
-  }, [onMessage, onPresence, onTyping, onRoomReaction])
+    onMessageReactionRef.current = onMessageReaction
+  }, [onMessage, onPresence, onTyping, onRoomReaction, onMessageReaction])
 
   // Initialize ChatClient once
   useEffect(() => {
@@ -287,12 +291,22 @@ export function useAblyChatSDK({
           })
         })
 
+        // Subscribe to message-level reactions (like ❤️ on specific messages)
+        const { unsubscribe: unsubscribeMessageReactions } = room.messages.reactions.subscribe((reactionEvent) => {
+          console.log('💖 [ABLY-CHAT] Message reaction:', reactionEvent)
+          onMessageReactionRef.current?.({
+            messageSerial: reactionEvent.messageSerial,
+            summary: reactionEvent.summary
+          })
+        })
+
         // Store cleanup functions
         return () => {
           unsubscribeMessages()
           unsubscribePresence()
           unsubscribeTyping()
           unsubscribeReactions()
+          unsubscribeMessageReactions()
         }
 
       } catch (error) {
@@ -452,6 +466,40 @@ export function useAblyChatSDK({
     }
   }, [])
 
+  // Send message reaction (like ❤️ on a specific message)
+  const sendMessageReaction = useCallback(async (messageSerial: string, reactionName: string) => {
+    if (!currentRoomRef.current) {
+      console.error('❌ [ABLY-CHAT] Room not initialized')
+      return false
+    }
+
+    try {
+      await currentRoomRef.current.messages.reactions.send(messageSerial, { name: reactionName })
+      console.log('✅ [ABLY-CHAT] Message reaction sent:', reactionName, 'to:', messageSerial)
+      return true
+    } catch (error) {
+      console.error('❌ [ABLY-CHAT] Failed to send message reaction:', error)
+      return false
+    }
+  }, [])
+
+  // Delete message reaction
+  const deleteMessageReaction = useCallback(async (messageSerial: string, reactionName: string) => {
+    if (!currentRoomRef.current) {
+      console.error('❌ [ABLY-CHAT] Room not initialized')
+      return false
+    }
+
+    try {
+      await currentRoomRef.current.messages.reactions.delete(messageSerial, { name: reactionName })
+      console.log('✅ [ABLY-CHAT] Message reaction deleted:', reactionName, 'from:', messageSerial)
+      return true
+    } catch (error) {
+      console.error('❌ [ABLY-CHAT] Failed to delete message reaction:', error)
+      return false
+    }
+  }, [])
+
   return {
     connected,
     connectionState,
@@ -462,5 +510,7 @@ export function useAblyChatSDK({
     sendTyping,
     getHistory, // New feature: access to message history
     sendRoomReaction, // New feature: send room-level reactions
+    sendMessageReaction, // New feature: send per-message reactions
+    deleteMessageReaction, // New feature: delete per-message reactions
   }
 }
