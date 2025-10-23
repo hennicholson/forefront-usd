@@ -195,7 +195,7 @@ export default function NetworkPage() {
     }
   })
 
-  const { connected: ablyConnected, channelReady, sendMessage: sendAblyMessage, presence, typing } = ablyHookResult
+  const { connected: ablyConnected, channelReady, sendMessage: sendAblyMessage, presence, typing, sendTyping, getHistory } = ablyHookResult
 
   // Load users once on mount, not on every state change
   useEffect(() => {
@@ -599,6 +599,11 @@ export default function NetworkPage() {
   const handleSendMessage = async () => {
     if (!inputValue.trim() || !user?.id || sending) return
 
+    // Stop typing indicator when message is sent
+    if (viewMode === 'channels') {
+      sendTyping?.(false)
+    }
+
     if (viewMode === 'dm' && !activeConversation) {
       const mentionMatch = inputValue.trim().match(/^@(\w+)\s*(.*)/)
       if (mentionMatch) {
@@ -940,6 +945,11 @@ export default function NetworkPage() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const value = e.target.value
     setInputValue(value)
+
+    // Send typing indicator when user types (only for channels)
+    if (viewMode === 'channels' && value.length > 0) {
+      sendTyping?.(true)
+    }
 
     // Detect @ mentions
     const cursorPos = e.target.selectionStart || 0
@@ -1778,6 +1788,15 @@ export default function NetworkPage() {
                         </div>
                       </button>
                     ))}
+                  </div>
+                )}
+
+                {/* Typing indicator */}
+                {typing && typing.length > 0 && viewMode === 'channels' && (
+                  <div className="px-4 py-2 text-sm text-gray-400">
+                    {typing.length === 1 && `${typing[0]} is typing...`}
+                    {typing.length === 2 && `${typing[0]} and ${typing[1]} are typing...`}
+                    {typing.length > 2 && `${typing.length} people are typing...`}
                   </div>
                 )}
 
