@@ -142,6 +142,7 @@ export default function NetworkPage() {
   const [showMobileChat, setShowMobileChat] = useState(false)
   const [pendingPostIds, setPendingPostIds] = useState<Set<string>>(new Set())
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null)
+  const [messageReactions, setMessageReactions] = useState<Record<string, any>>({})
 
   // Ably Chat SDK for ultra-fast real-time messaging with optimized room management
   const ablyHookResult = useAblyChatSDK({
@@ -205,10 +206,28 @@ export default function NetworkPage() {
     },
     onTyping: (typingUsers) => {
       console.log('⌨️ [ABLY-CHAT] Typing users:', typingUsers)
+    },
+    onMessageReaction: (event) => {
+      console.log('💖 [ABLY-CHAT] Message reaction event:', event)
+      // Update message reactions in state
+      setMessageReactions(prev => ({
+        ...prev,
+        [event.messageSerial]: event.summary
+      }))
     }
   })
 
-  const { connected: ablyConnected, channelReady, sendMessage: sendAblyMessage, presence, typing, sendTyping, getHistory } = ablyHookResult
+  const {
+    connected: ablyConnected,
+    channelReady,
+    sendMessage: sendAblyMessage,
+    presence,
+    typing,
+    sendTyping,
+    getHistory,
+    sendMessageReaction,
+    deleteMessageReaction
+  } = ablyHookResult
 
   // Load users once on mount, not on every state change
   useEffect(() => {
@@ -1681,7 +1700,7 @@ export default function NetworkPage() {
                             )}
                           </div>
                           <p className="text-gray-200 text-sm mb-3 break-words leading-relaxed">{renderMessageContent(post.content)}</p>
-                          <div className="flex gap-2">
+                          <div className="flex gap-2 flex-wrap">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation()
@@ -1700,6 +1719,39 @@ export default function NetworkPage() {
                               <MessageCircle className="w-4 h-4" />
                               <span className="text-xs font-medium">{post.commentsCount}</span>
                             </button>
+
+                            {/* Quick Reaction Emojis */}
+                            {['👍', '❤️', '😂', '🎉', '🔥'].map((emoji) => {
+                              const reactionSummary = messageReactions[post.id]
+                              const uniqueReactions = reactionSummary?.unique || {}
+                              const reactionData = uniqueReactions[emoji]
+                              const count = reactionData?.count || 0
+                              const hasReacted = reactionData?.clientIds?.includes(user?.id || '') || false
+
+                              return (
+                                <button
+                                  key={emoji}
+                                  onClick={async (e) => {
+                                    e.stopPropagation()
+                                    if (!post.id) return
+
+                                    if (hasReacted && deleteMessageReaction) {
+                                      await deleteMessageReaction(post.id, emoji)
+                                    } else if (sendMessageReaction) {
+                                      await sendMessageReaction(post.id, emoji)
+                                    }
+                                  }}
+                                  className={`flex items-center gap-1 px-2 py-1 rounded-lg transition-all text-sm ${
+                                    hasReacted
+                                      ? 'bg-blue-500/20 ring-1 ring-blue-500/50'
+                                      : 'bg-zinc-800/50 hover:bg-zinc-800'
+                                  }`}
+                                >
+                                  <span>{emoji}</span>
+                                  {count > 0 && <span className="text-xs text-gray-400">{count}</span>}
+                                </button>
+                              )
+                            })}
                           </div>
                         </div>
                       </div>
@@ -1756,6 +1808,41 @@ export default function NetworkPage() {
                             </span>
                             {isOwn && message.read && <CheckCheck className="w-3 h-3 text-blue-500" />}
                             {isOwn && !message.read && <Check className="w-3 h-3 text-gray-500" />}
+                          </div>
+
+                          {/* Quick Reaction Emojis for DMs */}
+                          <div className="flex gap-1 mt-1 flex-wrap">
+                            {['👍', '❤️', '😂'].map((emoji) => {
+                              const reactionSummary = messageReactions[message.id]
+                              const uniqueReactions = reactionSummary?.unique || {}
+                              const reactionData = uniqueReactions[emoji]
+                              const count = reactionData?.count || 0
+                              const hasReacted = reactionData?.clientIds?.includes(user?.id || '') || false
+
+                              return (
+                                <button
+                                  key={emoji}
+                                  onClick={async (e) => {
+                                    e.stopPropagation()
+                                    if (!message.id) return
+
+                                    if (hasReacted && deleteMessageReaction) {
+                                      await deleteMessageReaction(message.id, emoji)
+                                    } else if (sendMessageReaction) {
+                                      await sendMessageReaction(message.id, emoji)
+                                    }
+                                  }}
+                                  className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-lg transition-all text-xs ${
+                                    hasReacted
+                                      ? 'bg-blue-500/20 ring-1 ring-blue-500/50'
+                                      : 'bg-zinc-800/50 hover:bg-zinc-800'
+                                  }`}
+                                >
+                                  <span className="text-sm">{emoji}</span>
+                                  {count > 0 && <span className="text-xs text-gray-400 ml-0.5">{count}</span>}
+                                </button>
+                              )
+                            })}
                           </div>
                         </div>
                       </div>
