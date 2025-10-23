@@ -3,6 +3,7 @@ import { neon } from '@neondatabase/serverless'
 import { drizzle } from 'drizzle-orm/neon-http'
 import { notifications } from '@/lib/db/schema'
 import { eq, desc } from 'drizzle-orm'
+import { realtime } from '@/lib/prisma'
 
 const connectionString = process.env.DATABASE_URL!
 const sqlClient = neon(connectionString)
@@ -61,6 +62,12 @@ export async function POST(request: Request) {
         read: false,
       })
       .returning()
+
+    // Emit real-time event to user for instant notification delivery
+    realtime.emit(`user:${userId}`, {
+      type: 'notification',
+      data: newNotification
+    })
 
     return NextResponse.json(newNotification, { status: 201 })
   } catch (error) {
