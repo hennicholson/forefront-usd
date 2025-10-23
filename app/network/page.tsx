@@ -508,8 +508,12 @@ export default function NetworkPage() {
       const data = await res.json()
       const postsArray = Array.isArray(data) ? data : []
 
+      // CRITICAL: API returns newest first (DESC), but UI needs oldest first
+      // Reverse the array so oldest messages appear at top, newest at bottom
+      const postsInChronologicalOrder = [...postsArray].reverse()
+
       console.log(`✅ [API-SUCCESS] Received ${postsArray.length} posts in ${Date.now() - startTime}ms`)
-      console.log(`📦 [RAW-DATA] First post topic:`, postsArray[0]?.topic, 'User:', postsArray[0]?.userName)
+      console.log(`📦 [RAW-DATA] First post topic:`, postsInChronologicalOrder[0]?.topic, 'User:', postsInChronologicalOrder[0]?.userName)
 
       // CRITICAL FIX: Verify we're still on the same channel before updating state
       if (targetChannel !== activeChannel) {
@@ -529,7 +533,7 @@ export default function NetworkPage() {
 
         // Separate temp (optimistic) and real server posts
         const pendingPosts = prev.filter(p => String(p.id).startsWith('temp-') || String(p.id).startsWith('opt-'))
-        const serverPosts = postsArray.filter(p => !String(p.id).startsWith('temp-') && !String(p.id).startsWith('opt-'))
+        const serverPosts = postsInChronologicalOrder.filter(p => !String(p.id).startsWith('temp-') && !String(p.id).startsWith('opt-'))
 
         console.log(`⏳ [MERGE] Temp posts: ${pendingPosts.length}, Server posts: ${serverPosts.length}`)
 
