@@ -23,8 +23,8 @@ export function useRealtimeNotifications({
   const reconnectAttemptsRef = useRef(0)
 
   useEffect(() => {
-    // Don't connect if disabled or no userId
-    if (!enabled || !userId) {
+    // Don't connect if disabled, no userId, or not in browser
+    if (!enabled || !userId || typeof window === 'undefined') {
       return
     }
 
@@ -95,6 +95,6 @@ export function useRealtimeNotifications({
   }, [userId, enabled, onNotification])
 
   return {
-    connected: eventSourceRef.current?.readyState === EventSource.OPEN
+    connected: typeof window !== 'undefined' && eventSourceRef.current?.readyState === EventSource.OPEN
   }
 }

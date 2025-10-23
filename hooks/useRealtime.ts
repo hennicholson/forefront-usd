@@ -1,6 +1,7 @@
 // React hook for real-time SSE subscriptions
 // Provides instant message/post updates with automatic reconnection
 
+'use client'
 import { useEffect, useRef, useState, useCallback } from 'react'
 
 export type RealtimeEvent =
@@ -34,6 +35,11 @@ export function useRealtime({
   const reconnectAttempts = useRef(0)
 
   const connect = useCallback(() => {
+    // Only run in browser
+    if (typeof window === 'undefined') {
+      return
+    }
+
     if (eventSourceRef.current) {
       eventSourceRef.current.close()
     }
