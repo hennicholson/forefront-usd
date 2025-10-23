@@ -182,6 +182,19 @@ export default function NetworkPage() {
         return [...prev, newPost]
       })
 
+      // Send browser push notification for new messages (only if user is not actively viewing)
+      const channelInfo = CHANNELS.find(c => c.id === activeChannel)
+      sendNotification({
+        title: `New message in #${channelInfo?.name || activeChannel}`,
+        body: `${message.userName}: ${message.content}`,
+        tag: `channel-${activeChannel}`,
+        onClick: () => {
+          // Navigate to the channel when notification is clicked
+          setViewMode('channels')
+          setActiveChannel(activeChannel)
+        }
+      })
+
       // Auto-scroll for new messages from others
       if (isNearBottom) {
         setTimeout(() => scrollToBottom('smooth'), 100)
