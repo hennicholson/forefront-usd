@@ -12,7 +12,7 @@ import { UserProfileModal } from '@/components/profile/UserProfileModal'
 import { MarbleBackground } from '@/components/ui/MarbleBackground'
 import { NotificationBanner } from '@/components/notifications/NotificationBanner'
 import { useNotifications } from '@/hooks/useNotifications'
-import { useAblyChat } from '@/hooks/useAblyChat'
+import { useAblyChatSDK } from '@/hooks/useAblyChatSDK'
 
 interface Post {
   id: string
@@ -143,19 +143,19 @@ export default function NetworkPage() {
   const [pendingPostIds, setPendingPostIds] = useState<Set<string>>(new Set())
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null)
 
-  // Ably real-time chat for instant messaging (only initialize if user is authenticated)
-  const ablyHookResult = useAblyChat({
+  // Ably Chat SDK for ultra-fast real-time messaging with optimized room management
+  const ablyHookResult = useAblyChatSDK({
     userId: user?.id || 'anonymous',
     channelName: `channel:${activeChannel}`,
     enabled: !!user?.id && isAuthenticated, // Only enable when authenticated
     onMessage: (message) => {
       if (!user?.id) return // Ignore messages if not authenticated
 
-      console.log('📨 [ABLY] Received message:', message)
+      console.log('📨 [ABLY-CHAT] Received message:', message)
 
       // Skip our own messages (we already have them in UI via optimistic update)
       if (message.userId === user.id) {
-        console.log('⏭️ [ABLY] Skipping own message (already in UI)')
+        console.log('⏭️ [ABLY-CHAT] Skipping own message (already in UI)')
         return
       }
 
@@ -175,10 +175,10 @@ export default function NetworkPage() {
       setPosts(prev => {
         // Prevent duplicates
         if (prev.some(p => p.id === newPost.id)) {
-          console.log('⏭️ [ABLY] Skipping duplicate:', newPost.id)
+          console.log('⏭️ [ABLY-CHAT] Skipping duplicate:', newPost.id)
           return prev
         }
-        console.log('✅ [ABLY] Adding new post from other user')
+        console.log('✅ [ABLY-CHAT] Adding new post from other user')
         return [...prev, newPost]
       })
 
@@ -188,10 +188,10 @@ export default function NetworkPage() {
       }
     },
     onPresence: (presenceEvent) => {
-      console.log('👋 [ABLY] Presence event:', presenceEvent)
+      console.log('👋 [ABLY-CHAT] Presence event:', presenceEvent)
     },
     onTyping: (typingUsers) => {
-      console.log('⌨️ [ABLY] Typing users:', typingUsers)
+      console.log('⌨️ [ABLY-CHAT] Typing users:', typingUsers)
     }
   })
 
@@ -464,7 +464,9 @@ export default function NetworkPage() {
 
   const loadPosts = async (silent = false) => {
     const startTime = Date.now()
-    console.log(`🚀 [LOAD-POSTS] Starting loadPosts for channel: ${activeChannel}, silent: ${silent}`)
+    // CRITICAL FIX: Capture channel at function start to prevent stale closure bug
+    const targetChannel = activeChannel
+    console.log(`🚀 [LOAD-POSTS] Starting loadPosts for channel: ${targetChannel}, silent: ${silent}`)
 
     // Prevent concurrent requests (fixes race condition)
     if (loadingPostsRef.current) {
@@ -485,16 +487,18 @@ export default function NetworkPage() {
     abortControllerRef.current = abortController
 
     try {
-      const channel = CHANNELS.find(c => c.id === activeChannel)
+      const channel = CHANNELS.find(c => c.id === targetChannel)
       const url = channel?.topic
-        ? `/api/posts?limit=50&topic=${encodeURIComponent(channel.topic)}`
-        : '/api/posts?limit=50'
+        ? `/api/posts-fast?limit=50&topic=${encodeURIComponent(channel.topic)}`
+        : '/api/posts-fast?limit=50'
 
       console.log(`📡 [API-CALL] Fetching: ${url}`)
       console.log(`📋 [CHANNEL-INFO] Channel: ${channel?.name}, Topic: ${channel?.topic || 'NULL (general)'}`)
 
       const res = await fetch(url, {
-        signal: abortController.signal
+        signal: abortController.signal,
+        // Add aggressive caching for faster loads
+        next: { revalidate: 5 }
       })
 
       if (!res.ok) {
@@ -508,18 +512,25 @@ export default function NetworkPage() {
       console.log(`✅ [API-SUCCESS] Received ${postsArray.length} posts in ${Date.now() - startTime}ms`)
       console.log(`📦 [RAW-DATA] First post topic:`, postsArray[0]?.topic, 'User:', postsArray[0]?.userName)
 
-      // No need to sort - database returns them in correct order (ASC)
+      // CRITICAL FIX: Verify we're still on the same channel before updating state
+      if (targetChannel !== activeChannel) {
+        console.log(`⏭️ [POSTS] Channel changed during fetch (${targetChannel} → ${activeChannel}), discarding results`)
+        if (!silent) setLoading(false)
+        return
+      }
 
       // Track temp IDs that need to be removed
       const idsToRemove = new Set<string>()
 
       // Smart merge with deduplication (prevents flicker and duplicates)
-      setPosts(prev => {
-        console.log(`🔀 [MERGE] Previous posts in state for ${activeChannel}:`, prev.length)
+      // Use setChannelPosts directly with captured targetChannel to avoid stale closure
+      setChannelPosts(prevChannelPosts => {
+        const prev = prevChannelPosts[targetChannel] || []
+        console.log(`🔀 [MERGE] Previous posts in state for ${targetChannel}:`, prev.length)
 
         // Separate temp (optimistic) and real server posts
-        const pendingPosts = prev.filter(p => String(p.id).startsWith('temp-'))
-        const serverPosts = postsArray.filter(p => !String(p.id).startsWith('temp-'))
+        const pendingPosts = prev.filter(p => String(p.id).startsWith('temp-') || String(p.id).startsWith('opt-'))
+        const serverPosts = postsArray.filter(p => !String(p.id).startsWith('temp-') && !String(p.id).startsWith('opt-'))
 
         console.log(`⏳ [MERGE] Temp posts: ${pendingPosts.length}, Server posts: ${serverPosts.length}`)
 
@@ -542,10 +553,13 @@ export default function NetworkPage() {
         })
 
         const finalPosts = [...serverPosts, ...dedupedPending]
-        console.log(`✨ [MERGE-RESULT] Final posts for ${activeChannel}: ${finalPosts.length} (${serverPosts.length} server + ${dedupedPending.length} temp)`)
+        console.log(`✨ [MERGE-RESULT] Final posts for ${targetChannel}: ${finalPosts.length} (${serverPosts.length} server + ${dedupedPending.length} temp)`)
 
-        // Merge: server posts + only non-duplicated pending posts
-        return finalPosts
+        // Return updated channel posts with correct channel key
+        return {
+          ...prevChannelPosts,
+          [targetChannel]: finalPosts
+        }
       })
 
       // Clean up pendingPostIds after state update
