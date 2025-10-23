@@ -1792,13 +1792,25 @@ export default function NetworkPage() {
                 )}
 
                 {/* Typing indicator */}
-                {typing && typing.length > 0 && viewMode === 'channels' && (
-                  <div className="px-4 py-2 text-sm text-gray-400">
-                    {typing.length === 1 && `${typing[0]} is typing...`}
-                    {typing.length === 2 && `${typing[0]} and ${typing[1]} are typing...`}
-                    {typing.length > 2 && `${typing.length} people are typing...`}
-                  </div>
-                )}
+                {typing && typing.length > 0 && viewMode === 'channels' && (() => {
+                  // Map user IDs to user names from allUsers array
+                  const typingUserNames = typing
+                    .map(userId => {
+                      const user = allUsers.find(u => u.id === userId)
+                      return user?.name || userId
+                    })
+                    .filter(name => name !== user?.id) // Don't show current user typing to themselves
+
+                  if (typingUserNames.length === 0) return null
+
+                  return (
+                    <div className="px-4 py-2 text-sm text-gray-400">
+                      {typingUserNames.length === 1 && `${typingUserNames[0]} is typing...`}
+                      {typingUserNames.length === 2 && `${typingUserNames[0]} and ${typingUserNames[1]} are typing...`}
+                      {typingUserNames.length > 2 && `${typingUserNames.length} people are typing...`}
+                    </div>
+                  )
+                })()}
 
                 <div className="flex items-end gap-3 p-4 rounded-2xl bg-zinc-900/50 backdrop-blur-md border border-zinc-700/50 focus-within:border-zinc-600 focus-within:bg-zinc-900/70 transition-all shadow-lg">
                   <textarea
