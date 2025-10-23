@@ -6,7 +6,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { ChatClient, Room, Message as AblyChatMessage } from '@ably/chat'
+import { ChatClient, Room, Message as AblyChatMessage, OrderBy } from '@ably/chat'
 import * as Ably from 'ably'
 
 interface NetworkMessage {
@@ -368,9 +368,16 @@ export function useAblyChatSDK({
     if (!currentRoomRef.current) return
 
     try {
-      // TODO: Fix typing API - temporarily disabled due to API mismatch
-      // The Ably Chat SDK typing API signature needs to be verified
-      console.log('⌨️ [ABLY-CHAT] Typing indicator:', isTyping ? 'started' : 'stopped')
+      const room = currentRoomRef.current
+      if (isTyping) {
+        // Call keystroke() to indicate user is typing
+        await room.typing.keystroke()
+        console.log('⌨️ [ABLY-CHAT] Typing started')
+      } else {
+        // Call stop() to indicate user stopped typing
+        await room.typing.stop()
+        console.log('⌨️ [ABLY-CHAT] Typing stopped')
+      }
     } catch (error) {
       console.error('❌ [ABLY-CHAT] Typing indicator failed:', error)
     }
@@ -384,10 +391,29 @@ export function useAblyChatSDK({
     }
 
     try {
-      // TODO: Fix messages.get API - temporarily disabled due to API mismatch
-      // The Ably Chat SDK messages.get signature needs to be verified
-      console.log('📜 [ABLY-CHAT] History fetch disabled - API mismatch')
-      return []
+      const room = currentRoomRef.current
+
+      // Use messages.history() with proper parameters
+      const result = await room.messages.history({
+        limit,
+        orderBy: OrderBy.NewestFirst,
+      })
+
+      console.log('📜 [ABLY-CHAT] Fetched history:', result.items.length, 'messages')
+
+      // Convert Ably messages to NetworkMessage format
+      return result.items.map((msg: any) => {
+        const metadata = msg.metadata || {}
+        return {
+          id: String(metadata.id || msg.serial),
+          userId: String(metadata.userId || msg.clientId || 'unknown'),
+          userName: String(metadata.userName || 'Unknown'),
+          userProfileImage: metadata.userProfileImage ? String(metadata.userProfileImage) : undefined,
+          content: typeof msg.text === 'string' ? msg.text : '',
+          timestamp: msg.timestamp.getTime(),
+          topic: metadata.topic ? String(metadata.topic) : undefined,
+        }
+      })
     } catch (error) {
       console.error('❌ [ABLY-CHAT] Failed to get history:', error)
       return []

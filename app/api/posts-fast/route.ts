@@ -86,7 +86,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json(postsWithTimestamps, {
       headers: {
-        'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30',
+        'Cache-Control': 'no-store, must-revalidate',
       },
     })
   } catch (error) {

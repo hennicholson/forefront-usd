@@ -497,8 +497,7 @@ export default function NetworkPage() {
 
       const res = await fetch(url, {
         signal: abortController.signal,
-        // Add aggressive caching for faster loads
-        next: { revalidate: 5 }
+        cache: 'no-store'
       })
 
       if (!res.ok) {
