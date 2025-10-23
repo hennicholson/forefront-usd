@@ -27,6 +27,7 @@ interface UseAblyChatSDKOptions {
   onMessage?: (message: NetworkMessage) => void
   onPresence?: (presence: { type: 'enter' | 'leave'; userId: string }) => void
   onTyping?: (typingUsers: string[]) => void
+  onRoomReaction?: (reaction: { name: string; userId: string; timestamp: number }) => void
   onConnectionStateChange?: (state: Ably.ConnectionState) => void
   enabled?: boolean // Allow disabling the hook
 }
@@ -37,6 +38,7 @@ export function useAblyChatSDK({
   onMessage,
   onPresence,
   onTyping,
+  onRoomReaction,
   onConnectionStateChange,
   enabled = true,
 }: UseAblyChatSDKOptions) {
@@ -58,12 +60,14 @@ export function useAblyChatSDK({
   const onMessageRef = useRef(onMessage)
   const onPresenceRef = useRef(onPresence)
   const onTypingRef = useRef(onTyping)
+  const onRoomReactionRef = useRef(onRoomReaction)
 
   useEffect(() => {
     onMessageRef.current = onMessage
     onPresenceRef.current = onPresence
     onTypingRef.current = onTyping
-  }, [onMessage, onPresence, onTyping])
+    onRoomReactionRef.current = onRoomReaction
+  }, [onMessage, onPresence, onTyping, onRoomReaction])
 
   // Initialize ChatClient once
   useEffect(() => {
@@ -273,11 +277,22 @@ export function useAblyChatSDK({
           onTypingRef.current?.(Array.from(typingEvent.currentlyTyping))
         })
 
+        // Subscribe to room-level reactions (like 🎉 for celebrating)
+        const { unsubscribe: unsubscribeReactions } = room.reactions.subscribe((reactionEvent) => {
+          console.log('🎉 [ABLY-CHAT] Room reaction:', reactionEvent.reaction)
+          onRoomReactionRef.current?.({
+            name: reactionEvent.reaction.type,
+            userId: reactionEvent.clientId,
+            timestamp: reactionEvent.reaction.createdAt.getTime()
+          })
+        })
+
         // Store cleanup functions
         return () => {
           unsubscribeMessages()
           unsubscribePresence()
           unsubscribeTyping()
+          unsubscribeReactions()
         }
 
       } catch (error) {
@@ -420,6 +435,23 @@ export function useAblyChatSDK({
     }
   }, [])
 
+  // Send room-level reaction (like "🎉" for celebrating in the whole room)
+  const sendRoomReaction = useCallback(async (reactionName: string) => {
+    if (!currentRoomRef.current) {
+      console.error('❌ [ABLY-CHAT] Room not initialized')
+      return false
+    }
+
+    try {
+      await currentRoomRef.current.reactions.send({ name: reactionName })
+      console.log('✅ [ABLY-CHAT] Room reaction sent:', reactionName)
+      return true
+    } catch (error) {
+      console.error('❌ [ABLY-CHAT] Failed to send room reaction:', error)
+      return false
+    }
+  }, [])
+
   return {
     connected,
     connectionState,
@@ -429,5 +461,6 @@ export function useAblyChatSDK({
     sendMessage,
     sendTyping,
     getHistory, // New feature: access to message history
+    sendRoomReaction, // New feature: send room-level reactions
   }
 }
