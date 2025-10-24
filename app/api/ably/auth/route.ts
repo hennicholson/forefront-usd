@@ -29,9 +29,9 @@ export async function GET(request: NextRequest) {
     // Generate a token request with the client ID
     const tokenRequest = await client.auth.createTokenRequest({
       clientId,
-      // Optional: add capability restrictions
+      // Add all required capabilities for Ably Chat SDK including message reactions
       capability: {
-        '*': ['publish', 'subscribe', 'presence']
+        '*': ['publish', 'subscribe', 'presence', 'annotation-publish', 'annotation-subscribe', 'history']
       }
     })
 
