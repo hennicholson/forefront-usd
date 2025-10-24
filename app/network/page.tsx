@@ -24,6 +24,7 @@ interface Post {
   topic?: string
   likes: number
   commentsCount: number
+  ablySerial?: string // Ably message serial for reactions
 }
 
 interface User {
@@ -170,7 +171,8 @@ export default function NetworkPage() {
         createdAt: new Date(message.timestamp),
         topic: message.topic,
         likes: 0,
-        commentsCount: 0
+        commentsCount: 0,
+        ablySerial: message.ablySerial
       }
 
       setPosts(prev => {
@@ -1733,16 +1735,23 @@ export default function NetworkPage() {
                                   key={emoji}
                                   onClick={async (e) => {
                                     e.stopPropagation()
-                                    if (!post.id) return
+                                    // Only allow reactions on messages that have an Ably serial
+                                    if (!post.ablySerial) {
+                                      console.warn('⚠️ Cannot react to this message - no Ably serial (message may be from database)')
+                                      return
+                                    }
 
                                     if (hasReacted && deleteMessageReaction) {
-                                      await deleteMessageReaction(post.id, emoji)
+                                      await deleteMessageReaction(post.ablySerial, emoji)
                                     } else if (sendMessageReaction) {
-                                      await sendMessageReaction(post.id, emoji)
+                                      await sendMessageReaction(post.ablySerial, emoji)
                                     }
                                   }}
+                                  disabled={!post.ablySerial}
                                   className={`flex items-center gap-1 px-2 py-1 rounded-lg transition-all text-sm ${
-                                    hasReacted
+                                    !post.ablySerial
+                                      ? 'opacity-30 cursor-not-allowed'
+                                      : hasReacted
                                       ? 'bg-blue-500/20 ring-1 ring-blue-500/50'
                                       : 'bg-zinc-800/50 hover:bg-zinc-800'
                                   }`}

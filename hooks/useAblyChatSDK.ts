@@ -19,6 +19,7 @@ interface NetworkMessage {
   topic?: string
   isOptimistic?: boolean
   replacesOptimistic?: string
+  ablySerial?: string // Ably message serial for reactions
 }
 
 interface UseAblyChatSDKOptions {
@@ -240,6 +241,7 @@ export function useAblyChatSDK({
             content: typeof message.text === 'string' ? message.text : '',
             timestamp: message.timestamp.getTime(),
             topic: metadata.topic ? String(metadata.topic) : undefined,
+            ablySerial: message.serial, // Store Ably serial for reactions
           }
 
           console.log('📨 [ABLY-CHAT] Message received:', messageData)
