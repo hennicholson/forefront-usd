@@ -637,6 +637,14 @@ export default function NetworkPage() {
   const handleSendMessage = async () => {
     if (!inputValue.trim() || !user?.id || sending) return
 
+    // Check message size - Ably has a 65KB limit
+    const messageSize = new Blob([inputValue]).size
+    const MAX_MESSAGE_SIZE = 65536 // 64KB
+    if (messageSize > MAX_MESSAGE_SIZE) {
+      alert(`Message too large! Maximum size is ${Math.floor(MAX_MESSAGE_SIZE / 1024)}KB, your message is ${Math.floor(messageSize / 1024)}KB`)
+      return
+    }
+
     // Stop typing indicator when message is sent
     if (viewMode === 'channels') {
       sendTyping?.(false)
@@ -1715,11 +1723,11 @@ export default function NetworkPage() {
                               }`}
                             >
                               <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
-                              <span className="text-xs font-medium">{post.likes}</span>
+                              <span className="text-xs font-medium">{post.likes || 0}</span>
                             </button>
                             <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800/50 text-gray-400 hover:bg-zinc-800 hover:text-blue-400 transition-all">
                               <MessageCircle className="w-4 h-4" />
-                              <span className="text-xs font-medium">{post.commentsCount}</span>
+                              <span className="text-xs font-medium">{post.commentsCount || 0}</span>
                             </button>
 
                             {/* Quick Reaction Emojis */}
