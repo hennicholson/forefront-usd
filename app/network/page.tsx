@@ -144,6 +144,8 @@ export default function NetworkPage() {
   const [pendingPostIds, setPendingPostIds] = useState<Set<string>>(new Set())
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null)
   const [messageReactions, setMessageReactions] = useState<Record<string, any>>({})
+  const [showReactionPicker, setShowReactionPicker] = useState<string | null>(null)
+  const [reactionPickerPosition, setReactionPickerPosition] = useState({ x: 0, y: 0 })
 
   // Ably Chat SDK for ultra-fast real-time messaging with optimized room management
   const ablyHookResult = useAblyChatSDK({
@@ -1710,11 +1712,17 @@ export default function NetworkPage() {
                             )}
                           </div>
                           <p className="text-gray-200 text-sm mb-3 break-words leading-relaxed">{renderMessageContent(post.content)}</p>
-                          <div className="flex gap-2 flex-wrap">
+                          <div className="flex gap-2 flex-wrap relative">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation()
                                 handleLike(post.id)
+                              }}
+                              onContextMenu={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                setShowReactionPicker(post.id)
+                                setReactionPickerPosition({ x: e.clientX, y: e.clientY })
                               }}
                               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
                                 isLiked
@@ -1730,45 +1738,45 @@ export default function NetworkPage() {
                               <span className="text-xs font-medium">{post.commentsCount || 0}</span>
                             </button>
 
-                            {/* Quick Reaction Emojis */}
-                            {['👍', '❤️', '😂', '🎉', '🔥'].map((emoji) => {
+                            {/* Show existing reactions */}
+                            {(() => {
                               const reactionSummary = messageReactions[post.id]
                               const uniqueReactions = reactionSummary?.unique || {}
-                              const reactionData = uniqueReactions[emoji]
-                              const count = reactionData?.count || 0
-                              const hasReacted = reactionData?.clientIds?.includes(user?.id || '') || false
 
-                              return (
-                                <button
-                                  key={emoji}
-                                  onClick={async (e) => {
-                                    e.stopPropagation()
-                                    // Only allow reactions on messages that have an Ably serial
-                                    if (!post.ablySerial) {
-                                      console.warn('⚠️ Cannot react to this message - no Ably serial (message may be from database)')
-                                      return
-                                    }
+                              return Object.entries(uniqueReactions).map(([emoji, data]: [string, any]) => {
+                                const count = data?.count || 0
+                                const hasReacted = data?.clientIds?.includes(user?.id || '') || false
 
-                                    if (hasReacted && deleteMessageReaction) {
-                                      await deleteMessageReaction(post.ablySerial, emoji)
-                                    } else if (sendMessageReaction) {
-                                      await sendMessageReaction(post.ablySerial, emoji)
-                                    }
-                                  }}
-                                  disabled={!post.ablySerial}
-                                  className={`flex items-center gap-1 px-2 py-1 rounded-lg transition-all text-sm ${
-                                    !post.ablySerial
-                                      ? 'opacity-30 cursor-not-allowed'
-                                      : hasReacted
-                                      ? 'bg-blue-500/20 ring-1 ring-blue-500/50'
-                                      : 'bg-zinc-800/50 hover:bg-zinc-800'
-                                  }`}
-                                >
-                                  <span>{emoji}</span>
-                                  {count > 0 && <span className="text-xs text-gray-400">{count}</span>}
-                                </button>
-                              )
-                            })}
+                                if (count === 0) return null
+
+                                return (
+                                  <button
+                                    key={emoji}
+                                    onClick={async (e) => {
+                                      e.stopPropagation()
+                                      if (!post.ablySerial) return
+
+                                      if (hasReacted && deleteMessageReaction) {
+                                        await deleteMessageReaction(post.ablySerial, emoji)
+                                      } else if (sendMessageReaction) {
+                                        await sendMessageReaction(post.ablySerial, emoji)
+                                      }
+                                    }}
+                                    disabled={!post.ablySerial}
+                                    className={`flex items-center gap-1 px-2 py-1 rounded-lg transition-all text-sm ${
+                                      !post.ablySerial
+                                        ? 'opacity-30 cursor-not-allowed'
+                                        : hasReacted
+                                        ? 'bg-blue-500/20 ring-1 ring-blue-500/50'
+                                        : 'bg-zinc-800/50 hover:bg-zinc-800'
+                                    }`}
+                                  >
+                                    <span>{emoji}</span>
+                                    <span className="text-xs text-gray-400">{count}</span>
+                                  </button>
+                                )
+                              })
+                            })()}
                           </div>
                         </div>
                       </div>
@@ -2043,6 +2051,46 @@ export default function NetworkPage() {
             setSelectedUserId(null)
           }}
         />
+      )}
+
+      {/* Reaction Picker Popup */}
+      {showReactionPicker && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setShowReactionPicker(null)}
+          />
+          {/* Picker */}
+          <div
+            className="fixed z-50 bg-zinc-900 border border-zinc-700 rounded-lg shadow-2xl p-2 flex gap-1"
+            style={{
+              left: `${reactionPickerPosition.x}px`,
+              top: `${reactionPickerPosition.y}px`,
+              transform: 'translate(-50%, -100%) translateY(-8px)'
+            }}
+          >
+            {['👍', '❤️', '😂', '🎉', '🔥', '😍', '🤔', '👏', '🙌', '🚀'].map((emoji) => {
+              const post = posts.find(p => p.id === showReactionPicker)
+              if (!post?.ablySerial) return null
+
+              return (
+                <button
+                  key={emoji}
+                  onClick={async () => {
+                    if (sendMessageReaction && post.ablySerial) {
+                      await sendMessageReaction(post.ablySerial, emoji)
+                      setShowReactionPicker(null)
+                    }
+                  }}
+                  className="text-2xl hover:scale-125 transition-transform p-2 rounded hover:bg-zinc-800"
+                >
+                  {emoji}
+                </button>
+              )
+            })}
+          </div>
+        </>
       )}
     </div>
   )
