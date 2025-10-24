@@ -1738,45 +1738,6 @@ export default function NetworkPage() {
                               <span className="text-xs font-medium">{post.commentsCount || 0}</span>
                             </button>
 
-                            {/* Show existing reactions */}
-                            {(() => {
-                              const reactionSummary = messageReactions[post.id]
-                              const uniqueReactions = reactionSummary?.unique || {}
-
-                              return Object.entries(uniqueReactions).map(([emoji, data]: [string, any]) => {
-                                const count = data?.count || 0
-                                const hasReacted = data?.clientIds?.includes(user?.id || '') || false
-
-                                if (count === 0) return null
-
-                                return (
-                                  <button
-                                    key={emoji}
-                                    onClick={async (e) => {
-                                      e.stopPropagation()
-                                      if (!post.ablySerial) return
-
-                                      if (hasReacted && deleteMessageReaction) {
-                                        await deleteMessageReaction(post.ablySerial, emoji)
-                                      } else if (sendMessageReaction) {
-                                        await sendMessageReaction(post.ablySerial, emoji)
-                                      }
-                                    }}
-                                    disabled={!post.ablySerial}
-                                    className={`flex items-center gap-1 px-2 py-1 rounded-lg transition-all text-sm ${
-                                      !post.ablySerial
-                                        ? 'opacity-30 cursor-not-allowed'
-                                        : hasReacted
-                                        ? 'bg-blue-500/20 ring-1 ring-blue-500/50'
-                                        : 'bg-zinc-800/50 hover:bg-zinc-800'
-                                    }`}
-                                  >
-                                    <span>{emoji}</span>
-                                    <span className="text-xs text-gray-400">{count}</span>
-                                  </button>
-                                )
-                              })
-                            })()}
                           </div>
                         </div>
                       </div>
