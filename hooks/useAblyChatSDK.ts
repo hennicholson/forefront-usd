@@ -295,7 +295,7 @@ export function useAblyChatSDK({
         })
 
         // Subscribe to room-level reactions (like 🎉 for celebrating)
-        const { unsubscribe: unsubscribeReactions } = room.reactions.subscribe((reactionEvent) => {
+        const { unsubscribe: unsubscribeReactions } = room.reactions.subscribe((reactionEvent: any) => {
           console.log('🎉 [ABLY-CHAT] Room reaction:', reactionEvent.reaction)
           onRoomReactionRef.current?.({
             name: reactionEvent.reaction.type,
