@@ -2,7 +2,7 @@
 // Uses Server-Sent Events for Netlify compatibility (no WebSocket needed)
 
 import { NextRequest } from 'next/server'
-import { realtime } from '@/lib/prisma'
+import { realtime } from '@/lib/realtime'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
