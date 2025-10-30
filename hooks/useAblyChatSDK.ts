@@ -305,7 +305,7 @@ export function useAblyChatSDK({
         })
 
         // Subscribe to message-level reactions (like ❤️ on specific messages)
-        const { unsubscribe: unsubscribeMessageReactions } = room.messages.reactions.subscribe((reactionEvent) => {
+        const { unsubscribe: unsubscribeMessageReactions } = room.messages.reactions.subscribe((reactionEvent: any) => {
           console.log('💖 [ABLY-CHAT] Message reaction:', reactionEvent)
           onMessageReactionRef.current?.({
             messageSerial: reactionEvent.messageSerial,
