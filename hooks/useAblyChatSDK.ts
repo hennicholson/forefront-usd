@@ -219,22 +219,32 @@ export function useAblyChatSDK({
         // Subscribe to messages using Chat SDK's optimized API
         const { unsubscribe: unsubscribeMessages } = room.messages.subscribe((messageEvent) => {
           const message = messageEvent.message
-          const messageId = message.clientId || String(message.serial)
 
-          // Prevent duplicates
-          if (messageId && seenMessageIds.current.has(messageId)) {
-            console.log('⏭️ [ABLY-CHAT] Skipping duplicate:', messageId)
+          // Use actual message ID from metadata or serial for deduplication
+          const metadata = message.metadata || {}
+          const actualMessageId = String(metadata.id || message.serial)
+
+          console.log('🔔 [ABLY-CHAT] Raw message event received:', {
+            serial: message.serial,
+            clientId: message.clientId,
+            actualMessageId,
+            text: message.text?.substring(0, 50),
+            metadata: message.metadata
+          })
+
+          // Prevent duplicates using actual message ID
+          if (actualMessageId && seenMessageIds.current.has(actualMessageId)) {
+            console.log('⏭️ [ABLY-CHAT] Skipping duplicate:', actualMessageId)
             return
           }
 
-          if (messageId) {
-            seenMessageIds.current.add(messageId)
+          if (actualMessageId) {
+            seenMessageIds.current.add(actualMessageId)
           }
 
-          // Parse message metadata from Chat SDK format
-          const metadata = message.metadata || {}
+          // Parse message metadata from Chat SDK format (already extracted above)
           const messageData: NetworkMessage = {
-            id: String(metadata.id || messageId),
+            id: actualMessageId,
             userId: String(metadata.userId || message.clientId || 'unknown'),
             userName: String(metadata.userName || 'Unknown'),
             userProfileImage: metadata.userProfileImage ? String(metadata.userProfileImage) : undefined,
@@ -244,7 +254,8 @@ export function useAblyChatSDK({
             ablySerial: message.serial, // Store Ably serial for reactions
           }
 
-          console.log('📨 [ABLY-CHAT] Message received:', messageData)
+          console.log('📨 [ABLY-CHAT] Parsed message data:', messageData)
+          console.log('📤 [ABLY-CHAT] Calling onMessage callback...')
           onMessageRef.current?.(messageData)
         })
 
@@ -356,17 +367,39 @@ export function useAblyChatSDK({
       }
     }
 
+    // Validate message size before sending (Ably limit is 65KB)
+    const messagePayload = {
+      text: content,
+      metadata: {
+        userId,
+        timestamp: Date.now(),
+        ...metadata,
+      },
+    }
+    const payloadSize = new Blob([JSON.stringify(messagePayload)]).size
+    const MAX_ABLY_SIZE = 60000 // 60KB safety margin (Ably limit is 65536)
+
+    if (payloadSize > MAX_ABLY_SIZE) {
+      console.error('❌ [ABLY-CHAT] Message too large:', {
+        size: payloadSize,
+        limit: MAX_ABLY_SIZE,
+        content: content.substring(0, 50),
+        metadata: Object.keys(metadata || {})
+      })
+      throw new Error(`Message too large (${Math.floor(payloadSize / 1024)}KB). Maximum is ${Math.floor(MAX_ABLY_SIZE / 1024)}KB`)
+    }
+
+    console.log('📦 [ABLY-CHAT] Message size:', payloadSize, 'bytes')
+    console.log('📡 [ABLY-CHAT] Sending message payload:', {
+      textLength: content.length,
+      metadata: messagePayload.metadata,
+      room: currentRoomNameRef.current
+    })
+
     try {
       // Send message using Chat SDK's optimized send API
-      await room.messages.send({
-        text: content,
-        metadata: {
-          userId,
-          timestamp: Date.now(),
-          ...metadata,
-        },
-      })
-      console.log('✅ [ABLY-CHAT] Message sent')
+      await room.messages.send(messagePayload)
+      console.log('✅ [ABLY-CHAT] Message sent successfully to room:', currentRoomNameRef.current)
       return true
     } catch (error: any) {
       // Handle rate limits
@@ -374,14 +407,7 @@ export function useAblyChatSDK({
         console.warn('⚠️ [ABLY-CHAT] Rate limit, retrying...')
         await new Promise(resolve => setTimeout(resolve, 1000))
         try {
-          await room.messages.send({
-            text: content,
-            metadata: {
-              userId,
-              timestamp: Date.now(),
-              ...metadata,
-            },
-          })
+          await room.messages.send(messagePayload)
           console.log('✅ [ABLY-CHAT] Message sent (retry)')
           return true
         } catch (retryError) {

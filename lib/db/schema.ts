@@ -236,3 +236,14 @@ export const workflowComments = pgTable('workflow_comments', {
   content: text('content').notNull(),
   createdAt: timestamp('created_at').defaultNow(),
 })
+
+// Muted users - Admin moderation
+export const mutedUsers = pgTable('muted_users', {
+  id: serial('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id),
+  mutedBy: text('muted_by').notNull().references(() => users.id),
+  topic: text('topic'), // null = global mute, specific topic = muted in that channel
+  reason: text('reason'),
+  createdAt: timestamp('created_at').defaultNow(),
+  expiresAt: timestamp('expires_at'), // null = permanent
+})

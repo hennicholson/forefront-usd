@@ -25,6 +25,11 @@ interface Post {
   likes: number
   commentsCount: number
   ablySerial?: string // Ably message serial for reactions
+  replyTo?: {
+    id: string
+    userName: string
+    content: string
+  }
 }
 
 interface User {
@@ -32,6 +37,7 @@ interface User {
   name: string
   profileImage?: string | null
   headline?: string | null
+  isAdmin?: boolean
 }
 
 interface Conversation {
@@ -121,6 +127,7 @@ export default function NetworkPage() {
   const [showUserModal, setShowUserModal] = useState(false)
   const [channelCounts, setChannelCounts] = useState<Record<string, number>>({})
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set())
+  const [mutedUserIds, setMutedUserIds] = useState<Set<string>>(new Set())
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
@@ -146,6 +153,10 @@ export default function NetworkPage() {
   const [messageReactions, setMessageReactions] = useState<Record<string, any>>({})
   const [showReactionPicker, setShowReactionPicker] = useState<string | null>(null)
   const [reactionPickerPosition, setReactionPickerPosition] = useState({ x: 0, y: 0 })
+  const [replyingTo, setReplyingTo] = useState<Post | null>(null)
+
+  // Generate a unique session ID for this tab (persists across component re-renders)
+  const sessionIdRef = useRef(`session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`)
 
   // Ably Chat SDK for ultra-fast real-time messaging with optimized room management
   const ablyHookResult = useAblyChatSDK({
@@ -157,24 +168,33 @@ export default function NetworkPage() {
 
       console.log('📨 [ABLY-CHAT] Received message:', message)
 
-      // Skip our own messages (we already have them in UI via optimistic update)
-      if (message.userId === user.id) {
-        console.log('⏭️ [ABLY-CHAT] Skipping own message (already in UI)')
+      // Skip messages from THIS specific tab/session (not just same user)
+      // This allows same user in multiple tabs to see messages
+      const messageSessionId = (message as any).sessionId
+      if (messageSessionId && messageSessionId === sessionIdRef.current) {
+        console.log('⏭️ [ABLY-CHAT] Skipping own message from this tab (already in UI via optimistic update)')
         return
       }
 
+      console.log('✅ [ABLY-CHAT] Message is from different tab/user, adding to UI')
+
       // Add new message from other users
+      // Lookup user profile from local state if not in message (optimization)
+      const senderUser = allUsers.find(u => u.id === message.userId)
+
       const newPost: Post = {
         id: message.id || `ably-${Date.now()}`,
         userId: message.userId,
         userName: message.userName,
-        userProfileImage: message.userProfileImage,
+        // Use local user data if available, fallback to message data
+        userProfileImage: senderUser?.profileImage || message.userProfileImage,
         content: message.content,
         createdAt: new Date(message.timestamp),
         topic: message.topic,
         likes: 0,
         commentsCount: 0,
-        ablySerial: message.ablySerial
+        ablySerial: message.ablySerial,
+        replyTo: (message as any).replyTo // Parse reply metadata from Ably
       }
 
       setPosts(prev => {
@@ -639,6 +659,147 @@ export default function NetworkPage() {
   const handleSendMessage = async () => {
     if (!inputValue.trim() || !user?.id || sending) return
 
+    const content = inputValue.trim()
+
+    // ADMIN SLASH COMMANDS - Check if message is a command
+    if (content.startsWith('/') && user.isAdmin) {
+      const parts = content.split(' ')
+      const command = parts[0].toLowerCase()
+
+      setSending(true)
+      try {
+        if (command === '/mute') {
+          // /mute @username [duration] [reason]
+          const username = parts[1]?.replace('@', '')
+          const duration = parts[2] && !isNaN(Number(parts[2])) ? Number(parts[2]) : null
+          const reason = parts.slice(duration ? 3 : 2).join(' ') || 'No reason provided'
+
+          if (!username) {
+            alert('Usage: /mute @username [duration_in_minutes] [reason]')
+            setSending(false)
+            return
+          }
+
+          const targetUser = allUsers.find(u => u.name.toLowerCase() === username.toLowerCase())
+          if (!targetUser) {
+            alert(`User @${username} not found`)
+            setSending(false)
+            return
+          }
+
+          const res = await fetch('/api/admin/mute', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              adminId: user.id,
+              targetUserId: targetUser.id,
+              topic: viewMode === 'channels' ? CHANNELS.find(c => c.id === activeChannel)?.topic : null,
+              reason,
+              duration
+            })
+          })
+
+          if (res.ok) {
+            const durationText = duration ? ` for ${duration} minutes` : ' permanently'
+            alert(`✅ Muted @${targetUser.name}${durationText}`)
+            setInputValue('')
+            setMutedUserIds(prev => new Set([...prev, targetUser.id]))
+          } else {
+            alert('Failed to mute user')
+          }
+
+        } else if (command === '/unmute') {
+          // /unmute @username
+          const username = parts[1]?.replace('@', '')
+
+          if (!username) {
+            alert('Usage: /unmute @username')
+            setSending(false)
+            return
+          }
+
+          const targetUser = allUsers.find(u => u.name.toLowerCase() === username.toLowerCase())
+          if (!targetUser) {
+            alert(`User @${username} not found`)
+            setSending(false)
+            return
+          }
+
+          const topic = viewMode === 'channels' ? CHANNELS.find(c => c.id === activeChannel)?.topic : null
+          const res = await fetch(`/api/admin/mute?adminId=${user.id}&targetUserId=${targetUser.id}${topic ? `&topic=${topic}` : ''}`, {
+            method: 'DELETE'
+          })
+
+          if (res.ok) {
+            alert(`✅ Unmuted @${targetUser.name}`)
+            setInputValue('')
+            setMutedUserIds(prev => {
+              const newSet = new Set(prev)
+              newSet.delete(targetUser.id)
+              return newSet
+            })
+          } else {
+            alert('Failed to unmute user')
+          }
+
+        } else if (command === '/clear') {
+          // /clear - Clear all messages in current channel
+          if (viewMode !== 'channels') {
+            alert('/clear only works in channels')
+            setSending(false)
+            return
+          }
+
+          if (!confirm('Are you sure you want to clear all messages in this channel? This cannot be undone.')) {
+            setSending(false)
+            return
+          }
+
+          const topic = CHANNELS.find(c => c.id === activeChannel)?.topic
+          const res = await fetch(`/api/admin/clear?adminId=${user.id}${topic ? `&topic=${topic}` : ''}`, {
+            method: 'DELETE'
+          })
+
+          if (res.ok) {
+            setPosts([])
+            alert('✅ Channel cleared')
+            setInputValue('')
+          } else {
+            alert('Failed to clear channel')
+          }
+
+        } else {
+          alert(`Unknown command: ${command}. Available: /mute, /unmute, /clear`)
+        }
+      } catch (error) {
+        console.error('Command error:', error)
+        alert('Command failed')
+      }
+      setSending(false)
+      return
+    }
+
+    // Check if user is muted (channels only)
+    if (viewMode === 'channels') {
+      const topic = CHANNELS.find(c => c.id === activeChannel)?.topic
+      try {
+        const muteCheck = await fetch(`/api/admin/mute?userId=${user.id}${topic ? `&topic=${topic}` : ''}`)
+        if (muteCheck.ok) {
+          const { isMuted, mutes } = await muteCheck.json()
+          if (isMuted && mutes.length > 0) {
+            const mute = mutes[0]
+            const expiresText = mute.expiresAt
+              ? ` until ${new Date(mute.expiresAt).toLocaleString()}`
+              : ' permanently'
+            alert(`🔇 You are muted${expiresText}. Reason: ${mute.reason || 'No reason provided'}`)
+            return
+          }
+        }
+      } catch (error) {
+        console.error('Error checking mute status:', error)
+      }
+    }
+
     // Check message size - Ably has a 65KB limit
     const messageSize = new Blob([inputValue]).size
     const MAX_MESSAGE_SIZE = 65536 // 64KB
@@ -705,7 +866,7 @@ export default function NetworkPage() {
       return
     }
 
-    const content = inputValue.trim()
+    // content already declared at top of function
     setInputValue('')
     setSending(true)
 
@@ -733,8 +894,8 @@ export default function NetworkPage() {
         }
 
         // Add optimistic post to UI immediately (sender only)
-        setPosts([...posts, optimisticPost])
-        setPendingPostIds(new Set([...pendingPostIds, optimisticId]))
+        setPosts(prev => [...prev, optimisticPost])
+        setPendingPostIds(prev => new Set([...prev, optimisticId]))
         setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
 
         // NOTE: We DON'T broadcast optimistic message via Ably
@@ -769,14 +930,30 @@ export default function NetworkPage() {
           })
 
           // INSTANT: Now broadcast to ALL users via Ably with the real database ID
+          // Keep payload minimal - remove userProfileImage and large fields
+          console.log('🔍 [ABLY-STATUS] Channel ready?', channelReady, 'Connected?', ablyConnected)
           if (channelReady) {
-            await sendAblyMessage(content, {
+            console.log('📡 [ABLY-SEND] Broadcasting message to all users...')
+            const sendResult = await sendAblyMessage(content, {
               id: realPost.id,
+              userId: user.id, // Send userId instead of full profile
               userName: user.name,
-              userProfileImage: user.profileImage,
-              topic: CHANNELS.find(c => c.id === activeChannel)?.topic || ''
+              sessionId: sessionIdRef.current, // Include session ID to filter out echoes
+              // userProfileImage removed - receivers will lookup from allUsers state or database
+              topic: CHANNELS.find(c => c.id === activeChannel)?.topic || '',
+              ...(replyingTo && {
+                replyTo: {
+                  id: replyingTo.id,
+                  userName: replyingTo.userName,
+                  // content removed - only essential fields to keep payload small
+                }
+              })
             })
-            console.log('✅ [ABLY] Message broadcast with database ID:', realPost.id)
+            console.log('✅ [ABLY-SEND] Message broadcast result:', sendResult, 'ID:', realPost.id)
+            setReplyingTo(null) // Clear reply after sending
+          } else {
+            console.warn('⚠️ [ABLY-SEND] Channel not ready! Message NOT broadcast via Ably')
+            console.warn('⚠️ [ABLY-SEND] Connection state:', { channelReady, ablyConnected })
           }
 
           // Skip the next poll - we just updated with the real post
@@ -1523,6 +1700,15 @@ export default function NetworkPage() {
                 </button>
               )}
               <div className="flex-1">
+              {/* Ably Connection Status Indicator (for debugging) */}
+              {viewMode === 'channels' && (
+                <div className="flex items-center gap-2 mb-1">
+                  <div className={`w-2 h-2 rounded-full ${channelReady ? 'bg-green-500' : ablyConnected ? 'bg-yellow-500' : 'bg-red-500'}`} />
+                  <span className="text-xs text-gray-500">
+                    {channelReady ? 'Real-time active' : ablyConnected ? 'Connecting...' : 'Offline'}
+                  </span>
+                </div>
+              )}
               {viewMode === 'channels' ? (
                 <div className="flex items-center gap-3">
                   {(() => {
@@ -1695,6 +1881,11 @@ export default function NetworkPage() {
                             >
                               {post.userName}
                             </span>
+                            {mutedUserIds.has(post.userId) && (
+                              <span className="px-1.5 py-0.5 text-[10px] font-medium bg-red-500/20 text-red-400 rounded border border-red-500/30">
+                                MUTED
+                              </span>
+                            )}
                             <span className="text-xs text-gray-500">{formatTimestamp(post.createdAt)}</span>
                             {/* Show status indicator only for user's own messages */}
                             {post.userId === user?.id && (
@@ -1711,6 +1902,14 @@ export default function NetworkPage() {
                               )
                             )}
                           </div>
+
+                          {/* Reply Preview */}
+                          {post.replyTo && (
+                            <div className="mb-2 pl-3 border-l-2 border-zinc-600 text-xs text-gray-400 italic">
+                              Replying to <span className="text-gray-300 font-medium">{post.replyTo.userName}</span>: {post.replyTo.content.substring(0, 80)}{post.replyTo.content.length > 80 ? '...' : ''}
+                            </div>
+                          )}
+
                           <p className="text-gray-200 text-sm mb-3 break-words leading-relaxed">{renderMessageContent(post.content)}</p>
                           <div className="flex gap-2 flex-wrap relative">
                             <button
