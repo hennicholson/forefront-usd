@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
       clientId,
       // Add all required capabilities for Ably Chat SDK including message reactions
       capability: {
-        '*': ['publish', 'subscribe', 'presence', 'annotation-publish', 'annotation-subscribe', 'history']
+        '*': ['*'] as any // Use wildcard for all capabilities including annotations
       }
     })
 
