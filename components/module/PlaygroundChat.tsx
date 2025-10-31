@@ -97,57 +97,37 @@ export const PlaygroundChat: React.FC<PlaygroundChatProps> = ({ sessionId }) => 
   };
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        backgroundColor: '#000',
-      }}
-    >
+    <div className="flex flex-col h-full bg-transparent">
       {/* Messages container */}
-      <div
-        style={{
-          flex: 1,
-          overflowY: 'auto',
-          padding: '20px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '16px',
-        }}
-      >
+      <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-4">
         {messages.map((message) => (
           <div
             key={message.id}
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '8px',
-              alignSelf: message.role === 'user' ? 'flex-end' : 'flex-start',
-              maxWidth: '80%',
-            }}
+            className={`flex flex-col gap-2 max-w-[80%] ${
+              message.role === 'user' ? 'self-end items-end' : 'self-start items-start'
+            }`}
           >
             <div
+              className="text-white text-[10px]"
               style={{
                 fontFamily: "'Core Sans A 65 Bold', sans-serif",
-                fontSize: '10px',
                 fontWeight: 700,
                 textTransform: 'uppercase',
                 letterSpacing: '1.5px',
-                color: '#fff',
               }}
             >
               [{message.role === 'user' ? 'YOU' : 'ASSISTANT'}]
             </div>
             <div
+              className={`rounded-2xl px-4 py-3 text-white whitespace-pre-wrap ${
+                message.role === 'user'
+                  ? 'bg-zinc-800/50 border border-zinc-700/50'
+                  : 'bg-blue-500/20 border border-blue-500/30'
+              }`}
               style={{
-                border: '1px solid #fff',
-                padding: '12px',
                 fontFamily: "'Core Sans A 65 Bold', sans-serif",
                 fontSize: '14px',
                 lineHeight: 1.5,
-                color: '#fff',
-                whiteSpace: 'pre-wrap',
               }}
             >
               {message.content}
@@ -156,34 +136,23 @@ export const PlaygroundChat: React.FC<PlaygroundChatProps> = ({ sessionId }) => 
         ))}
 
         {isLoading && (
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '8px',
-              alignSelf: 'flex-start',
-              maxWidth: '80%',
-            }}
-          >
+          <div className="flex flex-col gap-2 self-start items-start max-w-[80%]">
             <div
+              className="text-white text-[10px]"
               style={{
                 fontFamily: "'Core Sans A 65 Bold', sans-serif",
-                fontSize: '10px',
                 fontWeight: 700,
                 textTransform: 'uppercase',
                 letterSpacing: '1.5px',
-                color: '#fff',
               }}
             >
               [ASSISTANT]
             </div>
             <div
+              className="bg-blue-500/20 border border-blue-500/30 rounded-2xl px-4 py-3 text-white"
               style={{
-                border: '1px solid #fff',
-                padding: '12px',
                 fontFamily: "'Core Sans A 65 Bold', sans-serif",
                 fontSize: '14px',
-                color: '#fff',
               }}
             >
               [THINKING...]
@@ -196,13 +165,7 @@ export const PlaygroundChat: React.FC<PlaygroundChatProps> = ({ sessionId }) => 
 
       {/* Prompt blocks */}
       {promptBlocks.length > 0 && (
-        <div
-          style={{
-            padding: '0 20px 20px',
-            maxHeight: '300px',
-            overflowY: 'auto',
-          }}
-        >
+        <div className="px-5 pb-5 max-h-[300px] overflow-y-auto">
           {promptBlocks.map((blockId) => (
             <PlaygroundPromptBlock
               key={blockId}
@@ -214,36 +177,12 @@ export const PlaygroundChat: React.FC<PlaygroundChatProps> = ({ sessionId }) => 
       )}
 
       {/* Input area */}
-      <div
-        style={{
-          borderTop: '1px solid #fff',
-          padding: '20px',
-          display: 'flex',
-          gap: '12px',
-        }}
-      >
+      <div className="border-t border-zinc-800/50 p-5 flex gap-3 bg-zinc-900/50 backdrop-blur-xl">
         <button
           onClick={addPromptBlock}
+          className="w-12 h-12 rounded-full bg-white text-black text-xl font-bold cursor-pointer transition-all duration-300 hover:shadow-xl hover:scale-105 flex-shrink-0 flex items-center justify-center shadow-lg"
           style={{
-            backgroundColor: '#000',
-            border: '1px solid #fff',
-            color: '#fff',
             fontFamily: "'Core Sans A 65 Bold', sans-serif",
-            fontSize: '18px',
-            fontWeight: 700,
-            width: '40px',
-            height: '40px',
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-            flexShrink: 0,
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = '#fff';
-            e.currentTarget.style.color = '#000';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = '#000';
-            e.currentTarget.style.color = '#fff';
           }}
         >
           +
@@ -256,45 +195,27 @@ export const PlaygroundChat: React.FC<PlaygroundChatProps> = ({ sessionId }) => 
           onKeyPress={handleKeyPress}
           placeholder="Type a message..."
           disabled={isLoading}
+          className="flex-1 bg-zinc-800/50 border border-zinc-700 rounded-xl text-white px-4 py-3 outline-none focus:border-zinc-600 transition-all duration-300"
           style={{
-            flex: 1,
-            backgroundColor: '#000',
-            border: '1px solid #fff',
-            color: '#fff',
             fontFamily: "'Core Sans A 65 Bold', sans-serif",
             fontSize: '14px',
-            padding: '12px',
-            outline: 'none',
           }}
         />
 
         <button
           onClick={handleSend}
           disabled={isLoading || !input.trim()}
+          className={`rounded-lg px-6 transition-all duration-300 flex-shrink-0 ${
+            isLoading || !input.trim()
+              ? 'bg-zinc-800/50 text-gray-500 cursor-not-allowed opacity-50'
+              : 'bg-white text-black cursor-pointer hover:bg-gray-200'
+          }`}
           style={{
-            backgroundColor: '#000',
-            border: '1px solid #fff',
-            color: '#fff',
             fontFamily: "'Core Sans A 65 Bold', sans-serif",
             fontSize: '12px',
             fontWeight: 700,
             textTransform: 'uppercase',
             letterSpacing: '1px',
-            padding: '0 24px',
-            cursor: isLoading || !input.trim() ? 'not-allowed' : 'pointer',
-            transition: 'all 0.2s ease',
-            opacity: isLoading || !input.trim() ? 0.5 : 1,
-            flexShrink: 0,
-          }}
-          onMouseEnter={(e) => {
-            if (!isLoading && input.trim()) {
-              e.currentTarget.style.backgroundColor = '#fff';
-              e.currentTarget.style.color = '#000';
-            }
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = '#000';
-            e.currentTarget.style.color = '#fff';
           }}
         >
           [SEND]

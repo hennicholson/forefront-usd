@@ -68,43 +68,19 @@ export const PlaygroundPromptBlock: React.FC<PlaygroundPromptBlockProps> = ({
   };
 
   return (
-    <div
-      style={{
-        border: '1px solid #fff',
-        padding: '20px',
-        marginBottom: '16px',
-        backgroundColor: '#000',
-        position: 'relative',
-      }}
-    >
+    <div className="bg-zinc-900/50 backdrop-blur-xl border border-zinc-800/50 rounded-2xl p-5 mb-4 relative shadow-2xl">
       {/* Delete button */}
       {onDelete && (
         <button
           onClick={onDelete}
+          className="absolute top-3 right-3 bg-transparent text-gray-400 hover:text-red-500 hover:bg-red-500/20 rounded-lg px-2 py-1 cursor-pointer transition-all duration-300"
           style={{
-            position: 'absolute',
-            top: '10px',
-            right: '10px',
-            background: 'transparent',
-            border: '1px solid #fff',
-            color: '#fff',
             fontFamily: "'Core Sans A 65 Bold', sans-serif",
             fontSize: '12px',
             fontWeight: 700,
-            padding: '4px 8px',
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = '#fff';
-            e.currentTarget.style.color = '#000';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'transparent';
-            e.currentTarget.style.color = '#fff';
           }}
         >
-          [X]
+          ✕
         </button>
       )}
 
@@ -128,45 +104,25 @@ export const PlaygroundPromptBlock: React.FC<PlaygroundPromptBlockProps> = ({
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
         placeholder="Enter your prompt..."
+        className="w-full min-h-[100px] bg-black/50 border border-zinc-800 rounded-xl text-white px-3 py-3 mb-3 resize-vertical outline-none focus:border-zinc-700 transition-all duration-300"
         style={{
-          width: '100%',
-          minHeight: '100px',
-          backgroundColor: '#000',
-          border: '1px solid #fff',
-          color: '#fff',
           fontFamily: "'Core Sans A 65 Bold', sans-serif",
           fontSize: '14px',
-          padding: '12px',
-          marginBottom: '12px',
-          resize: 'vertical',
-          outline: 'none',
         }}
       />
 
       {/* Model selector and Generate button */}
-      <div
-        style={{
-          display: 'flex',
-          gap: '12px',
-          marginBottom: '16px',
-        }}
-      >
+      <div className="flex gap-3 mb-4">
         <select
           value={model}
           onChange={(e) => setModel(e.target.value as Model)}
+          className="flex-1 bg-zinc-800/50 border border-zinc-700 rounded-lg text-white px-3 py-3 cursor-pointer outline-none transition-all duration-300 hover:bg-zinc-800"
           style={{
-            flex: 1,
-            backgroundColor: '#000',
-            border: '1px solid #fff',
-            color: '#fff',
             fontFamily: "'Core Sans A 65 Bold', sans-serif",
             fontSize: '12px',
             fontWeight: 700,
             textTransform: 'uppercase',
             letterSpacing: '1px',
-            padding: '12px',
-            cursor: 'pointer',
-            outline: 'none',
           }}
         >
           <option value="claude">[CLAUDE]</option>
@@ -178,29 +134,15 @@ export const PlaygroundPromptBlock: React.FC<PlaygroundPromptBlockProps> = ({
         <button
           onClick={handleGenerate}
           disabled={isLoading}
+          className={`bg-white text-black rounded-lg px-6 py-3 transition-all duration-300 ${
+            isLoading ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-gray-200'
+          }`}
           style={{
-            backgroundColor: '#000',
-            border: '1px solid #fff',
-            color: '#fff',
             fontFamily: "'Core Sans A 65 Bold', sans-serif",
             fontSize: '12px',
             fontWeight: 700,
             textTransform: 'uppercase',
             letterSpacing: '1px',
-            padding: '12px 24px',
-            cursor: isLoading ? 'not-allowed' : 'pointer',
-            transition: 'all 0.2s ease',
-            opacity: isLoading ? 0.5 : 1,
-          }}
-          onMouseEnter={(e) => {
-            if (!isLoading) {
-              e.currentTarget.style.backgroundColor = '#fff';
-              e.currentTarget.style.color = '#000';
-            }
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = '#000';
-            e.currentTarget.style.color = '#fff';
           }}
         >
           {isLoading ? '[GENERATING...]' : '[GENERATE]'}
@@ -210,11 +152,8 @@ export const PlaygroundPromptBlock: React.FC<PlaygroundPromptBlockProps> = ({
       {/* Error display */}
       {error && (
         <div
+          className="border border-red-500/50 bg-red-500/10 text-red-500 rounded-lg px-3 py-3 mb-4"
           style={{
-            border: '1px solid #ff0000',
-            color: '#ff0000',
-            padding: '12px',
-            marginBottom: '16px',
             fontFamily: "'Core Sans A 65 Bold', sans-serif",
             fontSize: '12px',
             textTransform: 'uppercase',
@@ -227,36 +166,28 @@ export const PlaygroundPromptBlock: React.FC<PlaygroundPromptBlockProps> = ({
 
       {/* Result display */}
       {result && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div className="flex flex-col gap-4">
           {/* Score meter */}
           <div>
             <div
+              className="text-white mb-2"
               style={{
                 fontFamily: "'Core Sans A 65 Bold', sans-serif",
                 fontSize: '10px',
                 fontWeight: 700,
                 textTransform: 'uppercase',
                 letterSpacing: '1.5px',
-                color: '#fff',
-                marginBottom: '8px',
               }}
             >
               [PROMPT SCORE: {result.score}/100]
             </div>
-            <div
-              style={{
-                width: '100%',
-                height: '8px',
-                border: '1px solid #fff',
-                position: 'relative',
-              }}
-            >
+            <div className="w-full h-3 bg-black/50 border border-zinc-800 rounded-lg overflow-hidden relative">
               <div
+                className="h-full transition-all duration-500"
                 style={{
                   width: `${result.score}%`,
-                  height: '100%',
-                  backgroundColor: getScoreColor(result.score),
-                  transition: 'width 0.3s ease, background-color 0.3s ease',
+                  background: `linear-gradient(90deg, ${getScoreColor(result.score)}, ${getScoreColor(result.score)}dd)`,
+                  boxShadow: `0 0 12px ${getScoreColor(result.score)}80`,
                 }}
               />
             </div>
@@ -265,26 +196,23 @@ export const PlaygroundPromptBlock: React.FC<PlaygroundPromptBlockProps> = ({
           {/* Feedback */}
           <div>
             <div
+              className="text-white mb-2"
               style={{
                 fontFamily: "'Core Sans A 65 Bold', sans-serif",
                 fontSize: '10px',
                 fontWeight: 700,
                 textTransform: 'uppercase',
                 letterSpacing: '1.5px',
-                color: '#fff',
-                marginBottom: '8px',
               }}
             >
               [AI FEEDBACK]
             </div>
             <div
+              className="bg-black/50 border border-zinc-800 rounded-xl px-3 py-3 text-white"
               style={{
-                border: '1px solid #fff',
-                padding: '12px',
                 fontFamily: "'Core Sans A 65 Bold', sans-serif",
                 fontSize: '12px',
                 lineHeight: 1.5,
-                color: '#fff',
               }}
             >
               {result.feedback}
@@ -294,27 +222,23 @@ export const PlaygroundPromptBlock: React.FC<PlaygroundPromptBlockProps> = ({
           {/* Result */}
           <div>
             <div
+              className="text-white mb-2"
               style={{
                 fontFamily: "'Core Sans A 65 Bold', sans-serif",
                 fontSize: '10px',
                 fontWeight: 700,
                 textTransform: 'uppercase',
                 letterSpacing: '1.5px',
-                color: '#fff',
-                marginBottom: '8px',
               }}
             >
               [RESULT]
             </div>
             <div
+              className="bg-black/50 border border-zinc-800 rounded-xl px-3 py-3 text-white whitespace-pre-wrap font-mono"
               style={{
-                border: '1px solid #fff',
-                padding: '12px',
-                fontFamily: "'Core Sans A 65 Bold', sans-serif",
+                fontFamily: "'Courier New', monospace",
                 fontSize: '12px',
                 lineHeight: 1.5,
-                color: '#fff',
-                whiteSpace: 'pre-wrap',
               }}
             >
               {result.result}

@@ -55,19 +55,14 @@ export const ModuleContentPanel: React.FC<ModuleContentPanelProps> = ({
     >
       {/* Slide counter */}
       <div
+        className="absolute top-5 right-5 bg-zinc-900/50 backdrop-blur-md border border-zinc-800/50 rounded-2xl px-4 py-2 z-10 shadow-xl"
         style={{
-          position: 'absolute',
-          top: '20px',
-          right: '20px',
           fontFamily: "'Core Sans A 65 Bold', sans-serif",
           fontSize: '12px',
           fontWeight: 700,
           textTransform: 'uppercase',
           letterSpacing: '1.5px',
           color: '#fff',
-          border: '1px solid #fff',
-          padding: '8px 16px',
-          zIndex: 10,
         }}
       >
         [{slideIndex + 1} / {totalSlides}]
@@ -137,6 +132,7 @@ export const ModuleContentPanel: React.FC<ModuleContentPanelProps> = ({
             {/* Type indicator */}
             {currentSlide.type && (
               <div
+                className="bg-zinc-900/50 backdrop-blur-md border border-zinc-800/50 rounded-lg px-3 py-2 self-start"
                 style={{
                   fontFamily: "'Core Sans A 65 Bold', sans-serif",
                   fontSize: '10px',
@@ -144,9 +140,6 @@ export const ModuleContentPanel: React.FC<ModuleContentPanelProps> = ({
                   textTransform: 'uppercase',
                   letterSpacing: '1.5px',
                   color: '#fff',
-                  border: '1px solid #fff',
-                  padding: '6px 12px',
-                  alignSelf: 'flex-start',
                 }}
               >
                 [{currentSlide.type}]

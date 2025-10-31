@@ -49,52 +49,25 @@ export const PlaygroundPanel: React.FC<PlaygroundPanelProps> = ({
     { id: 'quiz', label: 'QUIZ' },
   ];
 
-  const getTabStyle = (isActive: boolean): React.CSSProperties => ({
-    flex: 1,
-    backgroundColor: isActive ? '#fff' : '#000',
-    border: '1px solid #fff',
-    color: isActive ? '#000' : '#fff',
-    fontFamily: "'Core Sans A 65 Bold', sans-serif",
-    fontSize: '12px',
-    fontWeight: 700,
-    textTransform: 'uppercase',
-    letterSpacing: '1.5px',
-    padding: '12px',
-    cursor: 'pointer',
-    transition: 'all 0.2s ease',
-    borderBottom: 'none',
-  });
-
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        backgroundColor: '#000',
-      }}
-    >
+    <div className="flex flex-col h-full bg-zinc-900/30 backdrop-blur-md">
       {/* Tab navigation */}
-      <div
-        style={{
-          display: 'flex',
-          borderBottom: '1px solid #fff',
-        }}
-      >
+      <div className="flex border-b border-zinc-800/50 p-2 gap-2 bg-zinc-900/50 backdrop-blur-xl">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => handleTabChange(tab.id)}
-            style={getTabStyle(activeTab === tab.id)}
-            onMouseEnter={(e) => {
-              if (activeTab !== tab.id) {
-                e.currentTarget.style.backgroundColor = '#333';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (activeTab !== tab.id) {
-                e.currentTarget.style.backgroundColor = '#000';
-              }
+            className={`flex-1 rounded-lg px-3 py-3 cursor-pointer transition-all duration-300 ${
+              activeTab === tab.id
+                ? 'bg-white text-black'
+                : 'bg-zinc-800/50 text-gray-400 hover:text-white hover:bg-zinc-800'
+            }`}
+            style={{
+              fontFamily: "'Core Sans A 65 Bold', sans-serif",
+              fontSize: '12px',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: '1.5px',
             }}
           >
             [{tab.label}]
@@ -104,15 +77,7 @@ export const PlaygroundPanel: React.FC<PlaygroundPanelProps> = ({
 
       {/* Module context display */}
       {moduleContext && (
-        <div
-          style={{
-            borderBottom: '1px solid #fff',
-            padding: '12px 20px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}
-        >
+        <div className="border-b border-zinc-800/50 px-5 py-3 flex justify-between items-center bg-zinc-900/30">
           <div
             style={{
               fontFamily: "'Core Sans A 65 Bold', sans-serif",

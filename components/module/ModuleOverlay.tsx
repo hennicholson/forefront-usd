@@ -174,35 +174,8 @@ export const ModuleOverlay: React.FC<ModuleOverlayProps> = ({ module, moduleInde
         flexDirection: 'column',
       }}
     >
-      {/* Film grain overlay */}
-      <div
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          background: `
-            radial-gradient(circle at 20% 50%, transparent 0%, rgba(255, 255, 255, 0.02) 100%),
-            radial-gradient(circle at 80% 80%, transparent 0%, rgba(255, 255, 255, 0.02) 100%)
-          `,
-          pointerEvents: 'none',
-          zIndex: 1,
-        }}
-      />
-
       {/* Header */}
-      <div
-        style={{
-          borderBottom: '1px solid #fff',
-          padding: '20px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          position: 'relative',
-          zIndex: 2,
-        }}
-      >
+      <div className="bg-zinc-900/50 backdrop-blur-xl border-b border-zinc-800/50 px-5 py-5 flex justify-between items-center relative z-[2]">
         <div
           style={{
             fontFamily: "'Core Sans A 65 Bold', sans-serif",
@@ -217,44 +190,26 @@ export const ModuleOverlay: React.FC<ModuleOverlayProps> = ({ module, moduleInde
         </div>
 
         {/* Progress dots */}
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div className="flex gap-2">
           {module.slides.map((_: any, index: number) => (
             <div
               key={index}
-              style={{
-                width: '8px',
-                height: '8px',
-                borderRadius: '50%',
-                backgroundColor: index === currentSlideIndex ? '#fff' : 'transparent',
-                border: '1px solid #fff',
-                transition: 'background-color 0.3s ease',
-              }}
+              className={`w-2 h-2 rounded-full border border-white transition-all duration-300 ${
+                index === currentSlideIndex ? 'bg-white shadow-[0_0_8px_rgba(255,255,255,0.6)]' : 'bg-transparent'
+              }`}
             />
           ))}
         </div>
 
         <button
           onClick={onExit}
+          className="bg-transparent border border-white text-white rounded-lg px-4 py-2 cursor-pointer transition-all duration-300 hover:bg-white hover:text-black"
           style={{
-            background: 'transparent',
-            border: '1px solid #fff',
-            color: '#fff',
             fontFamily: "'Core Sans A 65 Bold', sans-serif",
             fontSize: '14px',
             fontWeight: 700,
             textTransform: 'uppercase',
             letterSpacing: '1px',
-            padding: '8px 16px',
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = '#fff';
-            e.currentTarget.style.color = '#000';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'transparent';
-            e.currentTarget.style.color = '#fff';
           }}
         >
           [CLOSE]
@@ -313,43 +268,19 @@ export const ModuleOverlay: React.FC<ModuleOverlayProps> = ({ module, moduleInde
       </div>
 
       {/* Footer */}
-      <div
-        style={{
-          borderTop: '1px solid #fff',
-          padding: '20px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          position: 'relative',
-          zIndex: 2,
-        }}
-      >
+      <div className="bg-zinc-900/50 backdrop-blur-xl border-t border-zinc-800/50 px-5 py-5 flex justify-between items-center relative z-[2]">
         <button
           onClick={goToPreviousSlide}
           disabled={currentSlideIndex === 0}
+          className={`bg-transparent border border-white text-white rounded-lg px-4 py-2 transition-all duration-300 ${
+            currentSlideIndex === 0 ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-white hover:text-black'
+          }`}
           style={{
-            background: 'transparent',
-            border: '1px solid #fff',
-            color: '#fff',
             fontFamily: "'Core Sans A 65 Bold', sans-serif",
             fontSize: '14px',
             fontWeight: 700,
             textTransform: 'uppercase',
             letterSpacing: '1px',
-            padding: '8px 16px',
-            cursor: currentSlideIndex === 0 ? 'not-allowed' : 'pointer',
-            transition: 'all 0.2s ease',
-            opacity: currentSlideIndex === 0 ? 0.5 : 1,
-          }}
-          onMouseEnter={(e) => {
-            if (currentSlideIndex !== 0) {
-              e.currentTarget.style.backgroundColor = '#fff';
-              e.currentTarget.style.color = '#000';
-            }
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'transparent';
-            e.currentTarget.style.color = '#fff';
           }}
         >
           [← PREVIOUS]
@@ -357,26 +288,13 @@ export const ModuleOverlay: React.FC<ModuleOverlayProps> = ({ module, moduleInde
 
         <button
           onClick={() => setShowShortcuts(true)}
+          className="bg-transparent border border-white text-white rounded-lg px-4 py-2 cursor-pointer transition-all duration-300 hover:bg-white hover:text-black"
           style={{
-            background: 'transparent',
-            border: '1px solid #fff',
-            color: '#fff',
             fontFamily: "'Core Sans A 65 Bold', sans-serif",
             fontSize: '12px',
             fontWeight: 700,
             textTransform: 'uppercase',
             letterSpacing: '1px',
-            padding: '8px 16px',
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = '#fff';
-            e.currentTarget.style.color = '#000';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'transparent';
-            e.currentTarget.style.color = '#fff';
           }}
         >
           [SHORTCUTS]
@@ -385,29 +303,15 @@ export const ModuleOverlay: React.FC<ModuleOverlayProps> = ({ module, moduleInde
         <button
           onClick={goToNextSlide}
           disabled={currentSlideIndex === module.slides.length - 1}
+          className={`bg-transparent border border-white text-white rounded-lg px-4 py-2 transition-all duration-300 ${
+            currentSlideIndex === module.slides.length - 1 ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-white hover:text-black'
+          }`}
           style={{
-            background: 'transparent',
-            border: '1px solid #fff',
-            color: '#fff',
             fontFamily: "'Core Sans A 65 Bold', sans-serif",
             fontSize: '14px',
             fontWeight: 700,
             textTransform: 'uppercase',
             letterSpacing: '1px',
-            padding: '8px 16px',
-            cursor: currentSlideIndex === module.slides.length - 1 ? 'not-allowed' : 'pointer',
-            transition: 'all 0.2s ease',
-            opacity: currentSlideIndex === module.slides.length - 1 ? 0.5 : 1,
-          }}
-          onMouseEnter={(e) => {
-            if (currentSlideIndex !== module.slides.length - 1) {
-              e.currentTarget.style.backgroundColor = '#fff';
-              e.currentTarget.style.color = '#000';
-            }
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'transparent';
-            e.currentTarget.style.color = '#fff';
           }}
         >
           [NEXT →]

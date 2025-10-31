@@ -64,51 +64,39 @@ export const DraggableDivider: React.FC<DraggableDividerProps> = ({
     setPosition(initialPosition);
   }, [initialPosition]);
 
+  const [isHovered, setIsHovered] = useState(false);
+
   return (
     <div
       ref={dividerRef}
       onMouseDown={handleMouseDown}
       onDoubleClick={handleDoubleClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className={`absolute top-0 bottom-0 cursor-col-resize z-[100] flex items-center justify-center transition-all duration-300 group ${
+        isDragging || isHovered ? 'w-1' : 'w-px'
+      }`}
       style={{
-        position: 'absolute',
         left: `${position}%`,
-        top: 0,
-        bottom: 0,
-        width: '4px',
-        backgroundColor: '#fff',
-        cursor: 'col-resize',
-        zIndex: 100,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        transition: isDragging ? 'none' : 'background-color 0.2s ease',
-      }}
-      onMouseEnter={(e) => {
-        if (!isDragging) {
-          e.currentTarget.style.backgroundColor = '#fff';
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (!isDragging) {
-          e.currentTarget.style.backgroundColor = '#fff';
-        }
+        backgroundColor: isDragging || isHovered ? 'rgba(113, 113, 122, 1)' : 'rgba(161, 161, 170, 0.3)',
+        boxShadow: isDragging || isHovered ? '0 0 12px rgba(113, 113, 122, 0.5)' : 'none',
       }}
     >
+      {/* Drag handle with arrows */}
       <div
+        className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-zinc-700 rounded-lg px-2 py-3 transition-all duration-300 ${
+          isHovered || isDragging ? 'opacity-100 scale-100' : 'opacity-0 scale-0'
+        }`}
         style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          color: '#000',
-          fontSize: '16px',
-          fontWeight: 700,
-          letterSpacing: '-2px',
           pointerEvents: 'none',
           fontFamily: "'Core Sans A 65 Bold', sans-serif",
+          color: '#fff',
+          fontSize: '12px',
+          fontWeight: 700,
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
         }}
       >
-        ⋮⋮
+        ↔
       </div>
     </div>
   );
