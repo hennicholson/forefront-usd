@@ -176,9 +176,19 @@ export default function NetworkPage() {
       if (!user?.id) return // Ignore messages if not authenticated
 
       console.log('📨 [ABLY-CHAT] Received message:', message)
+      console.log('🔍 [DEBUG] message.id type:', typeof message.id, 'value:', message.id)
+      console.log('🔍 [DEBUG] sentMessageIdsRef contents:', Array.from(sentMessageIdsRef.current))
 
       // FIRST: Check if we've already sent this message ID from this client
-      if (message.id && sentMessageIdsRef.current.has(message.id)) {
+      // Need to check BOTH string and number versions due to type coercion
+      const messageIdNum = typeof message.id === 'string' ? parseInt(message.id) : message.id
+      const messageIdStr = String(message.id)
+
+      if (message.id && (
+        sentMessageIdsRef.current.has(message.id) ||
+        sentMessageIdsRef.current.has(messageIdNum) ||
+        sentMessageIdsRef.current.has(messageIdStr)
+      )) {
         console.log('⏭️ [ABLY-CHAT] Skipping own message (ID already sent by this client):', message.id)
         return
       }
@@ -940,8 +950,14 @@ export default function NetworkPage() {
           }
 
           // Mark this message ID as sent by this client to prevent echo when Ably broadcasts it back
+          // Store BOTH string and number versions to handle type coercion
           sentMessageIdsRef.current.add(realPost.id)
-          console.log('✅ [DEDUP] Added real post ID to sent messages:', realPost.id)
+          sentMessageIdsRef.current.add(String(realPost.id))
+          if (typeof realPost.id === 'string') {
+            sentMessageIdsRef.current.add(parseInt(realPost.id))
+          }
+          console.log('✅ [DEDUP] Added real post ID to sent messages:', realPost.id, 'type:', typeof realPost.id)
+          console.log('🔍 [DEBUG] sentMessageIdsRef after adding:', Array.from(sentMessageIdsRef.current))
 
           setPosts(prev => prev.map(p => p.id === optimisticId ? fullRealPost : p))
           setPendingPostIds(prev => {
