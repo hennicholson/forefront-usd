@@ -158,6 +158,15 @@ export default function NetworkPage() {
   // Generate a unique session ID for this tab (persists across component re-renders)
   const sessionIdRef = useRef(`session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`)
 
+  // Track message IDs that this client has already sent to prevent echo
+  const sentMessageIdsRef = useRef<Set<string | number>>(new Set())
+
+  // Clear sent message IDs when switching channels to prevent memory bloat
+  useEffect(() => {
+    sentMessageIdsRef.current.clear()
+    console.log('🧹 [DEDUP] Cleared sent message IDs for channel:', activeChannel)
+  }, [activeChannel])
+
   // Ably Chat SDK for ultra-fast real-time messaging with optimized room management
   const ablyHookResult = useAblyChatSDK({
     userId: user?.id || 'anonymous',
@@ -168,11 +177,17 @@ export default function NetworkPage() {
 
       console.log('📨 [ABLY-CHAT] Received message:', message)
 
-      // Skip messages from THIS specific tab/session (not just same user)
+      // FIRST: Check if we've already sent this message ID from this client
+      if (message.id && sentMessageIdsRef.current.has(message.id)) {
+        console.log('⏭️ [ABLY-CHAT] Skipping own message (ID already sent by this client):', message.id)
+        return
+      }
+
+      // SECOND: Skip messages from THIS specific tab/session (not just same user)
       // This allows same user in multiple tabs to see messages
       const messageSessionId = (message as any).sessionId
       if (messageSessionId && messageSessionId === sessionIdRef.current) {
-        console.log('⏭️ [ABLY-CHAT] Skipping own message from this tab (already in UI via optimistic update)')
+        console.log('⏭️ [ABLY-CHAT] Skipping own message from this tab (session ID match):', messageSessionId)
         return
       }
 
@@ -921,6 +936,10 @@ export default function NetworkPage() {
             userName: user.name,
             userProfileImage: user.profileImage
           }
+
+          // Mark this message ID as sent by this client to prevent echo when Ably broadcasts it back
+          sentMessageIdsRef.current.add(realPost.id)
+          console.log('✅ [DEDUP] Added real post ID to sent messages:', realPost.id)
 
           setPosts(prev => prev.map(p => p.id === optimisticId ? fullRealPost : p))
           setPendingPostIds(prev => {
