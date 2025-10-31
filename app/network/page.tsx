@@ -910,6 +910,8 @@ export default function NetworkPage() {
 
         // Add optimistic post to UI immediately (sender only)
         setPosts(prev => [...prev, optimisticPost])
+        // Mark optimistic ID as "sent" to prevent race condition duplicates
+        sentMessageIdsRef.current.add(optimisticId)
         setPendingPostIds(prev => new Set([...prev, optimisticId]))
         setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
 
