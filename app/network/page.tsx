@@ -181,16 +181,18 @@ export default function NetworkPage() {
 
       // FIRST: Check if we've already sent this message ID from this client
       // Need to check BOTH string and number versions due to type coercion
-      const messageIdNum = typeof message.id === 'string' ? parseInt(message.id) : message.id
-      const messageIdStr = String(message.id)
+      if (message.id) {
+        const messageIdNum = typeof message.id === 'string' ? parseInt(message.id) : message.id
+        const messageIdStr = String(message.id)
 
-      if (message.id && (
-        sentMessageIdsRef.current.has(message.id) ||
-        sentMessageIdsRef.current.has(messageIdNum) ||
-        sentMessageIdsRef.current.has(messageIdStr)
-      )) {
-        console.log('⏭️ [ABLY-CHAT] Skipping own message (ID already sent by this client):', message.id)
-        return
+        if (
+          sentMessageIdsRef.current.has(message.id) ||
+          sentMessageIdsRef.current.has(messageIdNum) ||
+          sentMessageIdsRef.current.has(messageIdStr)
+        ) {
+          console.log('⏭️ [ABLY-CHAT] Skipping own message (ID already sent by this client):', message.id)
+          return
+        }
       }
 
       // SECOND: Skip messages from THIS specific tab/session (not just same user)
