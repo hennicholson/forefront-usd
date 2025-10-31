@@ -247,3 +247,28 @@ export const mutedUsers = pgTable('muted_users', {
   createdAt: timestamp('created_at').defaultNow(),
   expiresAt: timestamp('expires_at'), // null = permanent
 })
+
+// Playground sessions - Track user playground activity
+export const playgroundSessions = pgTable('playground_sessions', {
+  id: serial('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id),
+  moduleId: text('module_id').notNull(),
+  slideIndex: integer('slide_index').notNull(),
+  startedAt: timestamp('started_at').defaultNow(),
+  endedAt: timestamp('ended_at'),
+  totalPromptsCreated: integer('total_prompts_created').default(0),
+  avgPromptScore: integer('avg_prompt_score'), // Average prompt quality score
+})
+
+// Playground prompts - Track individual prompts and results
+export const playgroundPrompts = pgTable('playground_prompts', {
+  id: serial('id').primaryKey(),
+  sessionId: integer('session_id').notNull().references(() => playgroundSessions.id),
+  userId: text('user_id').notNull().references(() => users.id),
+  promptText: text('prompt_text').notNull(),
+  selectedModel: text('selected_model').notNull(), // 'claude', 'chatgpt', 'gemini', 'deepseek'
+  result: text('result'),
+  promptScore: integer('prompt_score'), // 0-100 quality score
+  aiFeedback: text('ai_feedback'), // Feedback on how to improve prompt
+  createdAt: timestamp('created_at').defaultNow(),
+})
