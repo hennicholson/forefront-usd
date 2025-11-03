@@ -1,5 +1,4 @@
 import './globals.css'
-import { Header } from '@/components/ui/Header'
 import { Providers } from '@/components/providers/Providers'
 
 export const metadata = {
@@ -16,10 +15,7 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <Providers>
-          <Header />
-          <div style={{ paddingTop: '70px' }}>
-            {children}
-          </div>
+          {children}
         </Providers>
       </body>
     </html>

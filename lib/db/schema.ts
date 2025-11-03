@@ -272,3 +272,15 @@ export const playgroundPrompts = pgTable('playground_prompts', {
   aiFeedback: text('ai_feedback'), // Feedback on how to improve prompt
   createdAt: timestamp('created_at').defaultNow(),
 })
+
+// Waitlist - Users who signed up for early access
+export const waitlist = pgTable('waitlist', {
+  id: serial('id').primaryKey(),
+  firstName: text('first_name').notNull(),
+  lastName: text('last_name').notNull(),
+  email: text('email').notNull().unique(),
+  phone: text('phone').notNull(),
+  aiProficiency: integer('ai_proficiency').notNull(), // 0-100 slider value
+  avatarUrl: text('avatar_url'), // For the AI-generated character photo
+  createdAt: timestamp('created_at').defaultNow(),
+})

@@ -1,0 +1,1420 @@
+'use client'
+import { useEffect, useState, useRef } from 'react'
+import { useAuth } from '@/contexts/AuthContext'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Send, Search, Users, MessageSquare, Check, CheckCheck, Hash, Video, Code, TrendingUp, Zap, HelpCircle, Heart, MessageCircle, ThumbsUp, Bell, ArrowLeft, Menu, X, ArrowUp, Plus } from 'lucide-react'
+import { formatDistanceToNow } from 'date-fns'
+import { LoginModal } from '@/components/auth/LoginModal'
+import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow'
+import { UserProfileModal } from '@/components/profile/UserProfileModal'
+import { MarbleBackground } from '@/components/ui/MarbleBackground'
+
+interface Post {
+  id: string
+  userId: string
+  userName: string
+  userProfileImage?: string | null
+  content: string
+  createdAt: Date
+  topic?: string
+  likes: number
+  commentsCount: number
+}
+
+interface User {
+  id: string
+  name: string
+  profileImage?: string | null
+  headline?: string | null
+}
+
+interface Conversation {
+  userId: string
+  userName: string
+  userProfileImage?: string | null
+  userHeadline?: string | null
+  lastMessage: string
+  lastMessageTime: Date
+  unreadCount: number
+  status?: 'online' | 'offline' | 'dnd'
+}
+
+interface DirectMessage {
+  id: string
+  senderId: string
+  receiverId: string
+  content: string
+  type: string
+  createdAt: Date
+  senderName?: string
+  senderProfileImage?: string | null
+  read?: boolean
+}
+
+interface Channel {
+  id: string
+  name: string
+  icon: string
+  topic: string
+  description: string
+}
+
+interface Notification {
+  id: number
+  type: string
+  content: string
+  metadata: any
+  read: boolean
+  createdAt: Date
+}
+
+const CHANNEL_ICONS: Record<string, any> = {
+  general: Hash,
+  'ai-video': Video,
+  'vibe-coding': Code,
+  marketing: TrendingUp,
+  automation: Zap,
+  help: HelpCircle
+}
+
+const CHANNELS: Channel[] = [
+  { id: 'general', name: 'general', icon: 'general', topic: '', description: 'General discussions' },
+  { id: 'ai-video', name: 'ai video', icon: 'ai-video', topic: 'AI Video', description: 'AI video creation' },
+  { id: 'vibe-coding', name: 'vibe coding', icon: 'vibe-coding', topic: 'Vibe Coding', description: 'Coding discussions' },
+  { id: 'marketing', name: 'marketing', icon: 'marketing', topic: 'Marketing', description: 'Marketing strategies' },
+  { id: 'automation', name: 'automation', icon: 'automation', topic: 'Automation', description: 'Workflow automation' },
+  { id: 'help', name: 'help', icon: 'help', topic: 'Help', description: 'Get help' }
+]
+
+export default function NetworkPage() {
+  const { isAuthenticated, user, signup } = useAuth()
+  const [viewMode, setViewMode] = useState<'channels' | 'dm' | 'notifications'>('channels')
+  const [activeChannel, setActiveChannel] = useState('general')
+  const [activeConversation, setActiveConversation] = useState<string | null>(null)
+  const [posts, setPosts] = useState<Post[]>([])
+  const [directMessages, setDirectMessages] = useState<DirectMessage[]>([])
+  const [conversations, setConversations] = useState<Conversation[]>([])
+  const [allUsers, setAllUsers] = useState<User[]>([])
+  const [inputValue, setInputValue] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [showLoginModal, setShowLoginModal] = useState(false)
+  const [showOnboarding, setShowOnboarding] = useState(false)
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
+  const [showUserModal, setShowUserModal] = useState(false)
+  const [channelCounts, setChannelCounts] = useState<Record<string, number>>({})
+  const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set())
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
+  const [shouldAutoScroll, setShouldAutoScroll] = useState(true)
+  const [mentionQuery, setMentionQuery] = useState('')
+  const [showMentionDropdown, setShowMentionDropdown] = useState(false)
+  const [mentionCursorPosition, setMentionCursorPosition] = useState(0)
+  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [isMobile, setIsMobile] = useState(false)
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false)
+  const [showMobileChat, setShowMobileChat] = useState(false)
+  const [pendingPostIds, setPendingPostIds] = useState<Set<string>>(new Set())
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id) return
+
+    if (viewMode === 'channels') {
+      loadPosts()
+      loadChannelCounts()
+
+      // Set up polling for silent updates every 5 seconds
+      const pollInterval = setInterval(() => {
+        loadPosts(true) // Silent reload
+      }, 5000)
+
+      return () => clearInterval(pollInterval)
+    } else if (viewMode === 'dm') {
+      loadConversations()
+      if (activeConversation) {
+        loadDirectMessages(activeConversation)
+      }
+    } else if (viewMode === 'notifications') {
+      loadNotifications()
+    }
+    loadUsers()
+  }, [isAuthenticated, user, viewMode, activeChannel, activeConversation])
+
+  // Poll notifications every 10 seconds
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id) return
+
+    loadNotifications()
+    const interval = setInterval(loadNotifications, 10000)
+    return () => clearInterval(interval)
+  }, [isAuthenticated, user])
+
+  // Mobile detection
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
+  const loadUsers = async () => {
+    try {
+      const res = await fetch('/api/users/all')
+      if (res.ok) setAllUsers(await res.json())
+    } catch (error) {
+      console.error('Error loading users:', error)
+    }
+  }
+
+  const loadConversations = async () => {
+    if (!user?.id) return
+    try {
+      const res = await fetch(`/api/messages?userId=${user.id}`)
+      if (res.ok) setConversations(await res.json())
+    } catch (error) {
+      console.error('Error loading conversations:', error)
+    }
+  }
+
+  const loadDirectMessages = async (otherUserId: string) => {
+    if (!user?.id) return
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/messages?userId=${user.id}&otherUserId=${otherUserId}&limit=50`)
+      if (res.ok) {
+        setDirectMessages(await res.json())
+        // Scroll instantly while skeleton still showing, then reveal
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            const container = messagesContainerRef.current
+            if (container) {
+              // Instant scroll to bottom - no animation
+              container.scrollTop = container.scrollHeight
+            }
+            // Small delay to ensure scroll is applied, then hide skeleton and show messages
+            setTimeout(() => {
+              setLoading(false)
+            }, 100)
+          })
+        })
+      }
+    } catch (error) {
+      console.error('Error loading direct messages:', error)
+      setLoading(false)
+    }
+  }
+
+  const loadNotifications = async () => {
+    if (!user?.id) return
+    try {
+      const res = await fetch(`/api/notifications?userId=${user.id}&limit=50`)
+      if (res.ok) {
+        const data = await res.json()
+        setNotifications(data)
+        setUnreadCount(data.filter((n: Notification) => !n.read).length)
+      }
+    } catch (error) {
+      console.error('Error loading notifications:', error)
+    }
+  }
+
+  const markAsRead = async (notificationId: number) => {
+    try {
+      await fetch('/api/notifications/read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notificationId })
+      })
+      setNotifications(notifications.map(n =>
+        n.id === notificationId ? { ...n, read: true } : n
+      ))
+      setUnreadCount(Math.max(0, unreadCount - 1))
+    } catch (error) {
+      console.error('Error marking notification as read:', error)
+    }
+  }
+
+  const markAllAsRead = async () => {
+    try {
+      await fetch('/api/notifications/read-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user?.id })
+      })
+      setNotifications(notifications.map(n => ({ ...n, read: true })))
+      setUnreadCount(0)
+    } catch (error) {
+      console.error('Error marking all as read:', error)
+    }
+  }
+
+  const loadChannelCounts = async () => {
+    try {
+      const counts: Record<string, number> = {}
+      for (const channel of CHANNELS) {
+        const url = channel.topic
+          ? `/api/posts?limit=1000&topic=${encodeURIComponent(channel.topic)}`
+          : '/api/posts?limit=1000'
+        const res = await fetch(url)
+        if (res.ok) {
+          const data = await res.json()
+          counts[channel.id] = Array.isArray(data) ? data.length : 0
+        }
+      }
+      setChannelCounts(counts)
+    } catch (error) {
+      console.error('Error loading channel counts:', error)
+    }
+  }
+
+  const loadPosts = async (silent = false) => {
+    if (!silent) {
+      setLoading(true)
+    }
+    try {
+      const channel = CHANNELS.find(c => c.id === activeChannel)
+      const url = channel?.topic
+        ? `/api/posts?limit=50&topic=${encodeURIComponent(channel.topic)}`
+        : '/api/posts?limit=50'
+      const res = await fetch(url)
+      if (res.ok) {
+        const data = await res.json()
+        const postsArray = Array.isArray(data) ? data : []
+        // Sort by createdAt ascending (oldest first, newest at bottom)
+        postsArray.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+
+        // Save scroll position before update
+        const container = messagesContainerRef.current
+        const wasAtBottom = container ?
+          Math.abs(container.scrollHeight - container.scrollTop - container.clientHeight) < 10 : true
+
+        setPosts(postsArray)
+
+        // Scroll to bottom after state update
+        if (!silent) {
+          // Initial load - scroll instantly while skeleton still showing, then reveal
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              const container = messagesContainerRef.current
+              if (container) {
+                // Instant scroll to bottom - no animation
+                container.scrollTop = container.scrollHeight
+              }
+              // Small delay to ensure scroll is applied, then hide skeleton and show messages
+              setTimeout(() => {
+                setLoading(false)
+              }, 100)
+            })
+          })
+        } else if (wasAtBottom && shouldAutoScroll) {
+          // Silent reload and was at bottom - smooth scroll
+          setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
+        }
+      }
+    } catch (err) {
+      console.error('Error loading posts:', err)
+      if (!silent) setLoading(false)
+    }
+  }
+
+  const handleSendMessage = async () => {
+    if (!inputValue.trim() || !user?.id || sending) return
+
+    if (viewMode === 'dm' && !activeConversation) {
+      const mentionMatch = inputValue.trim().match(/^@(\w+)\s*(.*)/)
+      if (mentionMatch) {
+        const mentionedUser = allUsers.find(u =>
+          u.name.toLowerCase() === mentionMatch[1].toLowerCase()
+        )
+        if (mentionedUser && mentionMatch[2]) {
+          setSending(true)
+          try {
+            const res = await fetch('/api/messages', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                senderId: user.id,
+                receiverId: mentionedUser.id,
+                content: mentionMatch[2].trim()
+              })
+            })
+            if (res.ok) {
+              setInputValue('')
+              setActiveConversation(mentionedUser.id)
+              await loadDirectMessages(mentionedUser.id)
+              await loadConversations()
+            }
+          } catch (err) {
+            console.error('Error sending DM:', err)
+          } finally {
+            setSending(false)
+          }
+          return
+        }
+      }
+      return
+    }
+
+    const content = inputValue.trim()
+    setInputValue('')
+    setSending(true)
+
+    // Extract mentions from content
+    const mentionMatches = content.match(/@(\w+)/g) || []
+    const mentionedUserNames = mentionMatches.map(m => m.slice(1))
+    const mentionedUsers = allUsers.filter(u => mentionedUserNames.includes(u.name))
+
+    try {
+      if (viewMode === 'channels') {
+        // Optimistic update for channel messages
+        const tempId = `temp-${Date.now()}`
+        const optimisticPost: Post = {
+          id: tempId,
+          userId: user.id,
+          userName: user.name,
+          userProfileImage: user.profileImage,
+          content,
+          createdAt: new Date(),
+          topic: CHANNELS.find(c => c.id === activeChannel)?.topic || '',
+          likes: 0,
+          commentsCount: 0
+        }
+        setPosts([...posts, optimisticPost])
+        setPendingPostIds(new Set([...pendingPostIds, tempId]))
+        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+
+        const res = await fetch('/api/posts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: user.id,
+            content,
+            topic: CHANNELS.find(c => c.id === activeChannel)?.topic || null
+          })
+        })
+
+        if (res.ok) {
+          // Create notifications for mentioned users
+          for (const mentionedUser of mentionedUsers) {
+            await fetch('/api/notifications', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userId: mentionedUser.id,
+                type: 'mention',
+                content: `${user.name} mentioned you in #${activeChannel}`,
+                metadata: {
+                  channelId: activeChannel,
+                  messageContent: content,
+                  senderId: user.id,
+                  senderName: user.name
+                }
+              })
+            })
+          }
+          // Remove from pending
+          setPendingPostIds(prev => {
+            const newSet = new Set(prev)
+            newSet.delete(tempId)
+            return newSet
+          })
+          loadPosts(true)
+        } else {
+          setPosts(posts)
+          setPendingPostIds(prev => {
+            const newSet = new Set(prev)
+            newSet.delete(tempId)
+            return newSet
+          })
+          setInputValue(content)
+        }
+      } else if (activeConversation) {
+        // Optimistic update for DMs
+        const optimisticMessage: DirectMessage = {
+          id: `temp-${Date.now()}`,
+          senderId: user.id,
+          receiverId: activeConversation,
+          content,
+          type: 'text',
+          createdAt: new Date(),
+          senderName: user.name,
+          senderProfileImage: user.profileImage,
+          read: false
+        }
+        setDirectMessages([...directMessages, optimisticMessage])
+        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+
+        const res = await fetch('/api/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            senderId: user.id,
+            receiverId: activeConversation,
+            content
+          })
+        })
+
+        if (res.ok) {
+          // Silent reload to get real message
+          loadDirectMessages(activeConversation)
+          loadConversations()
+        } else {
+          // Revert on error
+          setDirectMessages(directMessages)
+          setInputValue(content)
+        }
+      }
+    } catch (err) {
+      console.error('Error sending message:', err)
+      setInputValue(content)
+      if (viewMode === 'channels') {
+        setPosts(posts)
+      } else {
+        setDirectMessages(directMessages)
+      }
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const formatTimestamp = (date: Date) => {
+    try {
+      return formatDistanceToNow(new Date(date), { addSuffix: true })
+    } catch {
+      return 'just now'
+    }
+  }
+
+  const renderMessageContent = (content: string) => {
+    const parts = content.split(/(@\w+)/g)
+    return parts.map((part, i) => {
+      if (part.startsWith('@')) {
+        const username = part.slice(1)
+        const isCurrentUser = username.toLowerCase() === user?.name.toLowerCase()
+        return (
+          <span
+            key={i}
+            className={`font-semibold ${
+              isCurrentUser
+                ? 'bg-blue-500/20 text-blue-400 px-1 rounded'
+                : 'text-blue-400 hover:underline cursor-pointer'
+            }`}
+          >
+            {part}
+          </span>
+        )
+      }
+      return <span key={i}>{part}</span>
+    })
+  }
+
+  const handleLike = async (postId: string) => {
+    if (!user?.id) return
+
+    // Optimistic update
+    const isLiked = likedPosts.has(postId)
+    const newLikedPosts = new Set(likedPosts)
+    if (isLiked) {
+      newLikedPosts.delete(postId)
+    } else {
+      newLikedPosts.add(postId)
+    }
+    setLikedPosts(newLikedPosts)
+
+    // Update post likes count optimistically
+    setPosts(posts.map(p =>
+      p.id === postId
+        ? { ...p, likes: p.likes + (isLiked ? -1 : 1) }
+        : p
+    ))
+
+    try {
+      const res = await fetch('/api/reactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, postId, type: 'like' })
+      })
+      if (!res.ok) {
+        // Revert on error
+        setLikedPosts(likedPosts)
+        loadPosts(true)
+      }
+    } catch (error) {
+      console.error('Error toggling like:', error)
+      // Revert on error
+      setLikedPosts(likedPosts)
+      loadPosts(true)
+    }
+  }
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const value = e.target.value
+    setInputValue(value)
+
+    // Detect @ mentions
+    const cursorPos = e.target.selectionStart || 0
+    const textBeforeCursor = value.slice(0, cursorPos)
+    const mentionMatch = textBeforeCursor.match(/@(\w*)$/)
+
+    if (mentionMatch) {
+      setMentionQuery(mentionMatch[1].toLowerCase())
+      setMentionCursorPosition(cursorPos)
+      setShowMentionDropdown(true)
+    } else {
+      setShowMentionDropdown(false)
+      setMentionQuery('')
+    }
+  }
+
+  const insertMention = (userName: string, userId: string) => {
+    // If in DM mode with no active conversation, start a conversation with the mentioned user
+    if (viewMode === 'dm' && !activeConversation) {
+      setActiveConversation(userId)
+      setInputValue('')
+      setShowMentionDropdown(false)
+      setMentionQuery('')
+      loadDirectMessages(userId)
+
+      // On mobile, show chat and hide sidebar
+      if (isMobile) {
+        setShowMobileSidebar(false)
+        setShowMobileChat(true)
+      }
+      return
+    }
+
+    // Otherwise, just insert the mention into the text
+    const textBeforeMention = inputValue.slice(0, mentionCursorPosition).replace(/@\w*$/, '')
+    const textAfterCursor = inputValue.slice(mentionCursorPosition)
+    const newValue = `${textBeforeMention}@${userName} ${textAfterCursor}`
+    setInputValue(newValue)
+    setShowMentionDropdown(false)
+    setMentionQuery('')
+    inputRef.current?.focus()
+  }
+
+  const filteredMentionUsers = allUsers
+    .filter(u => u.id !== user?.id && u.name.toLowerCase().includes(mentionQuery))
+    .slice(0, 5)
+
+  const filteredConversations = conversations.filter(c =>
+    c.userName.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
+  if (!isAuthenticated) {
+    return (
+      <>
+        <div className="min-h-screen bg-black flex items-center justify-center px-4">
+          <div className="max-w-md w-full bg-zinc-900/50 backdrop-blur-xl border border-zinc-800 rounded-2xl p-8 text-center">
+            <Users className="w-16 h-16 mx-auto mb-4 text-white opacity-50" />
+            <h1 className="text-2xl font-bold text-white mb-3">Join the Network</h1>
+            <p className="text-gray-400 mb-6">Connect with other learners and share your journey</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowLoginModal(true)}
+                className="flex-1 px-6 py-3 bg-white text-black rounded-lg font-medium hover:bg-gray-200 transition-all"
+              >
+                Sign In
+              </button>
+              <button
+                onClick={() => setShowOnboarding(true)}
+                className="flex-1 px-6 py-3 bg-zinc-800 text-white rounded-lg font-medium hover:bg-zinc-700 transition-all"
+              >
+                Sign Up
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <LoginModal
+          isOpen={showLoginModal}
+          onClose={() => setShowLoginModal(false)}
+          onSignupClick={() => {
+            setShowLoginModal(false)
+            setTimeout(() => setShowOnboarding(true), 100)
+          }}
+        />
+
+        <OnboardingFlow
+          isOpen={showOnboarding}
+          onClose={() => setShowOnboarding(false)}
+          onComplete={async (userData) => {
+            try {
+              const success = await signup(userData.email, userData.password, userData.name)
+              if (success) {
+                const userRes = await fetch(`/api/users?email=${encodeURIComponent(userData.email)}`)
+                if (userRes.ok) {
+                  const { user } = await userRes.json()
+                  await fetch(`/api/users/${user.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      bio: userData.bio,
+                      headline: userData.headline,
+                      interests: userData.interests,
+                      onboardingComplete: true
+                    })
+                  })
+                }
+                setShowOnboarding(false)
+              }
+            } catch (err) {
+              console.error('Error completing onboarding:', err)
+            }
+          }}
+        />
+      </>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-black md:pt-24 pt-16 pb-20 md:pb-8 relative">
+      <MarbleBackground />
+      <div className="max-w-[1800px] mx-auto md:px-4 px-2 relative z-10">
+        <div className="md:grid md:grid-cols-12 gap-4 h-[calc(100vh-120px)] md:h-[calc(100vh-120px)] flex flex-col">
+
+          {/* Sidebar - Hidden on mobile unless in sidebar view */}
+          <div className={`${
+            isMobile ? (showMobileSidebar || !showMobileChat ? 'flex' : 'hidden') : 'block'
+          } md:col-span-3 bg-zinc-900/30 backdrop-blur-md border border-zinc-800/50 md:rounded-2xl rounded-xl md:p-4 p-3 flex-col overflow-hidden ${
+            isMobile ? 'h-[calc(100vh-140px)]' : ''
+          }`}>
+            {/* Tab Switcher - Desktop Only */}
+            <div className="hidden md:grid grid-cols-3 gap-2 mb-6">
+              <button
+                onClick={() => setViewMode('channels')}
+                className={`px-3 py-2.5 rounded-lg font-medium text-xs transition-all ${
+                  viewMode === 'channels'
+                    ? 'bg-white text-black'
+                    : 'bg-zinc-800/50 text-gray-400 hover:text-white hover:bg-zinc-800'
+                }`}
+                style={{ minHeight: '44px' }}
+              >
+                <Users className="inline-block w-4 h-4 mr-1" />
+                Channels
+              </button>
+              <button
+                onClick={() => setViewMode('dm')}
+                className={`px-3 py-2.5 rounded-lg font-medium text-xs transition-all ${
+                  viewMode === 'dm'
+                    ? 'bg-white text-black'
+                    : 'bg-zinc-800/50 text-gray-400 hover:text-white hover:bg-zinc-800'
+                }`}
+                style={{ minHeight: '44px' }}
+              >
+                <MessageSquare className="inline-block w-4 h-4 mr-1" />
+                Messages
+              </button>
+              <button
+                onClick={() => setViewMode('notifications')}
+                className={`relative px-3 py-2.5 rounded-lg font-medium text-xs transition-all ${
+                  viewMode === 'notifications'
+                    ? 'bg-white text-black'
+                    : 'bg-zinc-800/50 text-gray-400 hover:text-white hover:bg-zinc-800'
+                }`}
+                style={{ minHeight: '44px' }}
+              >
+                <Bell className="inline-block w-4 h-4 mr-1" />
+                Alerts
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* Search (DM mode only) */}
+            {viewMode === 'dm' && (
+              <div className="flex items-center gap-2 mb-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+                  <Input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search conversations..."
+                    className="pl-10 bg-zinc-800/50 border-zinc-700 text-white placeholder:text-gray-500"
+                    style={{ minHeight: '44px' }}
+                  />
+                </div>
+                <button
+                  onClick={() => {
+                    setActiveConversation(null)
+                    setInputValue('@')
+                    setShowMentionDropdown(true)
+                    if (isMobile) {
+                      setShowMobileChat(true)
+                      setShowMobileSidebar(false)
+                    }
+                    setTimeout(() => inputRef.current?.focus(), 100)
+                  }}
+                  className="shrink-0 rounded-full p-2.5 bg-white text-black hover:bg-gray-100 transition-all shadow-md"
+                  style={{ minHeight: '44px', minWidth: '44px' }}
+                  title="Start new chat"
+                >
+                  <Plus className="w-5 h-5" />
+                </button>
+              </div>
+            )}
+
+            {/* Channels List */}
+            {viewMode === 'channels' && (
+              <div className="flex-1 overflow-y-auto space-y-1">
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">
+                  Channels
+                </div>
+                {CHANNELS.map((channel) => {
+                  const IconComponent = CHANNEL_ICONS[channel.id]
+                  return (
+                    <button
+                      key={channel.id}
+                      onClick={() => {
+                        setActiveChannel(channel.id)
+                        if (isMobile) {
+                          setShowMobileChat(true)
+                          setShowMobileSidebar(false)
+                        }
+                      }}
+                      className={`group w-full text-left px-3 py-2.5 rounded-lg transition-all ${
+                        activeChannel === channel.id
+                          ? 'bg-zinc-800 text-white'
+                          : 'text-gray-400 hover:bg-zinc-800/50 hover:text-white'
+                      }`}
+                      style={{ minHeight: '44px' }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <IconComponent className={`w-5 h-5 flex-shrink-0 transition-all ${
+                          activeChannel === channel.id ? 'text-white' : 'text-gray-500 group-hover:text-gray-300'
+                        }`} />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm">{channel.name}</div>
+                          <div className="text-xs text-gray-500 truncate">{channel.description}</div>
+                        </div>
+                        {channelCounts[channel.id] > 0 && (
+                          <Badge variant="secondary" className="text-xs bg-zinc-700 text-white">
+                            {channelCounts[channel.id]}
+                          </Badge>
+                        )}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* DM List */}
+            {viewMode === 'dm' && (
+              <div className="flex-1 overflow-y-auto space-y-1">
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">
+                  Direct Messages
+                </div>
+                {filteredConversations.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500 text-sm">
+                    No conversations yet
+                  </div>
+                ) : (
+                  filteredConversations.map((conv) => (
+                    <button
+                      key={conv.userId}
+                      onClick={() => {
+                        setActiveConversation(conv.userId)
+                        if (isMobile) {
+                          setShowMobileChat(true)
+                          setShowMobileSidebar(false)
+                        }
+                      }}
+                      className={`w-full text-left px-3 py-2.5 rounded-lg transition-all ${
+                        activeConversation === conv.userId
+                          ? 'bg-zinc-800 text-white'
+                          : 'text-gray-400 hover:bg-zinc-800/50 hover:text-white'
+                      }`}
+                      style={{ minHeight: '44px' }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="relative cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setSelectedUserId(conv.userId)
+                            setShowUserModal(true)
+                          }}
+                        >
+                          <Avatar className="w-10 h-10">
+                            <AvatarImage src={conv.userProfileImage || undefined} />
+                            <AvatarFallback>{conv.userName[0]}</AvatarFallback>
+                          </Avatar>
+                          <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-zinc-900 ${
+                            conv.status === 'online' ? 'bg-green-500' : conv.status === 'dnd' ? 'bg-red-500' : 'bg-gray-500'
+                          }`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <span
+                              className="font-medium text-sm truncate cursor-pointer hover:underline"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setSelectedUserId(conv.userId)
+                                setShowUserModal(true)
+                              }}
+                            >
+                              {conv.userName}
+                            </span>
+                            <span className="text-xs text-gray-500">{formatTimestamp(conv.lastMessageTime)}</span>
+                          </div>
+                          <p className="text-xs text-gray-500 truncate">{conv.lastMessage}</p>
+                        </div>
+                        {conv.unreadCount > 0 && (
+                          <Badge variant="secondary" className="text-xs">
+                            {conv.unreadCount}
+                          </Badge>
+                        )}
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* Notifications List */}
+            {viewMode === 'notifications' && (
+              <div className="flex-1 overflow-y-auto">
+                <div className="flex items-center justify-between mb-3 px-2">
+                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Notifications
+                  </div>
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={markAllAsRead}
+                      className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                    >
+                      Mark all read
+                    </button>
+                  )}
+                </div>
+                {notifications.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500 text-sm">
+                    <Bell className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                    <p>No notifications yet</p>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {notifications.map((notification) => (
+                      <div
+                        key={notification.id}
+                        onClick={async () => {
+                          await markAsRead(notification.id)
+
+                          // Handle channel mentions
+                          if (notification.metadata?.channelId) {
+                            setActiveChannel(notification.metadata.channelId)
+                            setViewMode('channels')
+
+                            // On mobile, show chat and hide sidebar
+                            if (isMobile) {
+                              setShowMobileSidebar(false)
+                              setShowMobileChat(true)
+                            }
+
+                            // Scroll to specific message if messageId is provided
+                            if (notification.metadata?.messageId) {
+                              // Wait for messages to load and position
+                              setTimeout(() => {
+                                const messageElement = document.querySelector(`[data-message-id="${notification.metadata.messageId}"]`)
+                                if (messageElement) {
+                                  messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                                  // Highlight with state for smooth CSS transition
+                                  setHighlightedMessageId(notification.metadata.messageId)
+                                  setTimeout(() => {
+                                    setHighlightedMessageId(null)
+                                  }, 2500)
+                                }
+                              }, 800)
+                            }
+                          }
+
+                          // Handle DM mentions
+                          if (notification.metadata?.userId) {
+                            setActiveConversation(notification.metadata.userId)
+                            setViewMode('dm')
+
+                            // On mobile, show chat and hide sidebar
+                            if (isMobile) {
+                              setShowMobileSidebar(false)
+                              setShowMobileChat(true)
+                            }
+
+                            // Scroll to specific message if messageId is provided
+                            if (notification.metadata?.messageId) {
+                              // Wait for messages to load and position
+                              setTimeout(() => {
+                                const messageElement = document.querySelector(`[data-message-id="${notification.metadata.messageId}"]`)
+                                if (messageElement) {
+                                  messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                                  // Highlight with state for smooth CSS transition
+                                  setHighlightedMessageId(notification.metadata.messageId)
+                                  setTimeout(() => {
+                                    setHighlightedMessageId(null)
+                                  }, 2500)
+                                }
+                              }, 800)
+                            }
+                          }
+                        }}
+                        className={`px-3 py-3 rounded-lg cursor-pointer transition-all ${
+                          notification.read
+                            ? 'bg-transparent hover:bg-zinc-800/50'
+                            : 'bg-blue-500/10 hover:bg-blue-500/20'
+                        }`}
+                      >
+                        <div className="flex items-start gap-2">
+                          {!notification.read && (
+                            <div className="w-2 h-2 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm leading-relaxed ${
+                              notification.read ? 'text-gray-400' : 'text-white'
+                            }`}>
+                              {notification.content}
+                            </p>
+                            <span className="text-xs text-gray-500 mt-1 block">
+                              {formatTimestamp(notification.createdAt)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Main Chat Area */}
+          <div className={`${
+            isMobile ? (showMobileChat ? 'flex' : 'hidden') : 'block'
+          } md:col-span-9 bg-zinc-900/30 backdrop-blur-md border border-zinc-800/50 md:rounded-2xl rounded-xl flex-col overflow-hidden ${
+            isMobile ? 'h-[calc(100vh-96px)] mt-0' : ''
+          }`}>
+            {/* Chat Header */}
+            <div className="border-b border-zinc-800 md:px-6 px-4 md:py-4 py-3 flex items-center gap-3">
+              {/* Mobile back button */}
+              {isMobile && (viewMode === 'channels' || activeConversation) && (
+                <button
+                  onClick={() => {
+                    setShowMobileChat(false)
+                    setShowMobileSidebar(true)
+                  }}
+                  className="md:hidden p-2 -ml-2 hover:bg-zinc-800 rounded-lg transition-colors"
+                >
+                  <ArrowLeft className="w-5 h-5 text-gray-400" />
+                </button>
+              )}
+              <div className="flex-1">
+              {viewMode === 'channels' ? (
+                <div className="flex items-center gap-3">
+                  {(() => {
+                    const channel = CHANNELS.find(c => c.id === activeChannel)
+                    const IconComponent = channel ? CHANNEL_ICONS[channel.id] : Hash
+                    return <IconComponent className="w-6 h-6 text-gray-400" />
+                  })()}
+                  <div>
+                    <h2 className="text-lg font-semibold text-white">
+                      {CHANNELS.find(c => c.id === activeChannel)?.name}
+                    </h2>
+                    <p className="text-sm text-gray-400">
+                      {CHANNELS.find(c => c.id === activeChannel)?.description}
+                    </p>
+                  </div>
+                </div>
+              ) : activeConversation ? (
+                <div className="flex items-center gap-3 cursor-pointer" onClick={() => {
+                  setSelectedUserId(activeConversation)
+                  setShowUserModal(true)
+                }}>
+                  <Avatar className="w-10 h-10">
+                    <AvatarImage src={conversations.find(c => c.userId === activeConversation)?.userProfileImage || undefined} />
+                    <AvatarFallback>
+                      {conversations.find(c => c.userId === activeConversation)?.userName[0]}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <h2 className="text-lg font-semibold text-white hover:underline">
+                      {conversations.find(c => c.userId === activeConversation)?.userName}
+                    </h2>
+                    <p className="text-sm text-gray-400">
+                      {conversations.find(c => c.userId === activeConversation)?.userHeadline || 'Online'}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-gray-400">Select a conversation</div>
+              )}
+              </div>
+            </div>
+
+            {/* Messages Area */}
+            <div
+              ref={messagesContainerRef}
+              className="flex-1 overflow-y-auto md:px-4 px-3 md:py-4 py-3 scrollbar-hide"
+              style={{
+                scrollbarWidth: 'none',
+                msOverflowStyle: 'none'
+              }}
+            >
+              <div className="max-w-3xl mx-auto">
+                {loading ? (
+                  <div className="bg-zinc-900/50 backdrop-blur-md border border-zinc-800/50 rounded-2xl md:p-6 p-4 space-y-4">
+                  <div className="space-y-4">
+                    {viewMode === 'channels' ? (
+                      // Channel skeleton loaders
+                      [1, 2, 3, 4, 5].map((i) => (
+                        <div key={i} className="flex gap-3 items-start md:p-4 p-3 animate-pulse">
+                          {/* Avatar skeleton */}
+                          <div className="w-10 h-10 rounded-full bg-zinc-800/50 flex-shrink-0" />
+                          <div className="flex-1 space-y-2">
+                            {/* Name and timestamp skeleton */}
+                            <div className="flex items-center gap-2">
+                              <div className="h-4 bg-zinc-800/50 rounded w-24" />
+                              <div className="h-3 bg-zinc-800/50 rounded w-16" />
+                            </div>
+                            {/* Message content skeleton */}
+                            <div className="space-y-1.5">
+                              <div className="h-3 bg-zinc-800/50 rounded w-full" />
+                              <div className="h-3 bg-zinc-800/50 rounded w-5/6" />
+                            </div>
+                            {/* Action buttons skeleton */}
+                            <div className="flex gap-2 mt-3">
+                              <div className="h-8 bg-zinc-800/50 rounded-lg w-16" />
+                              <div className="h-8 bg-zinc-800/50 rounded-lg w-16" />
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      // DM skeleton loaders
+                      [1, 2, 3, 4, 5].map((i) => {
+                        const isOwn = i % 2 === 0
+                        return (
+                          <div key={i} className={`flex gap-3 animate-pulse ${isOwn ? 'flex-row-reverse' : ''}`}>
+                            {!isOwn && (
+                              <div className="w-8 h-8 rounded-full bg-zinc-800/50 flex-shrink-0" />
+                            )}
+                            <div className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'} max-w-[70%]`}>
+                              {!isOwn && (
+                                <div className="h-3 bg-zinc-800/50 rounded w-20 mb-1" />
+                              )}
+                              <div
+                                className={`px-4 py-2.5 rounded-2xl ${
+                                  isOwn
+                                    ? 'bg-zinc-800/50 rounded-br-sm'
+                                    : 'bg-zinc-800/50 rounded-bl-sm'
+                                }`}
+                              >
+                                <div className="h-3 bg-zinc-700/50 rounded w-32 md:w-48" />
+                              </div>
+                              <div className="h-2 bg-zinc-800/50 rounded w-16 mt-1" />
+                            </div>
+                          </div>
+                        )
+                      })
+                    )}
+                  </div>
+                  </div>
+                ) : (
+                  <div className="bg-zinc-900/50 backdrop-blur-md border border-zinc-800/50 rounded-2xl md:p-6 p-4 space-y-4">
+                {viewMode === 'channels' && posts.length === 0 ? (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center text-gray-400">
+                      <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                      <p>No messages yet. Start the conversation!</p>
+                    </div>
+                  </div>
+                ) : viewMode === 'dm' && directMessages.length === 0 && activeConversation ? (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center text-gray-400">
+                      <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                      <p>Start a conversation</p>
+                    </div>
+                  </div>
+                ) : viewMode === 'channels' ? (
+                  posts.map((post) => {
+                    const isLiked = likedPosts.has(post.id)
+                    const isPending = pendingPostIds.has(post.id)
+                    return (
+                      <div
+                        key={post.id}
+                        data-message-id={post.id}
+                        className={`group flex gap-3 items-start md:p-4 p-3 rounded-xl hover:bg-zinc-800/30 transition-all duration-300 cursor-pointer ${
+                          highlightedMessageId === post.id ? 'bg-blue-500/20 ring-2 ring-blue-500/50' : ''
+                        }`}
+                      >
+                        <Avatar
+                          className="w-10 h-10 flex-shrink-0 cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setSelectedUserId(post.userId)
+                            setShowUserModal(true)
+                          }}
+                        >
+                          <AvatarImage src={post.userProfileImage || undefined} />
+                          <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-500 text-white">
+                            {post.userName[0]}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span
+                              className="font-semibold text-white text-sm hover:underline cursor-pointer"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setSelectedUserId(post.userId)
+                                setShowUserModal(true)
+                              }}
+                            >
+                              {post.userName}
+                            </span>
+                            <span className="text-xs text-gray-500">{formatTimestamp(post.createdAt)}</span>
+                            {isPending ? (
+                              <div className="flex items-center gap-1">
+                                <div className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                              </div>
+                            ) : !String(post.id).startsWith('temp-') && (
+                              <Check className="w-3 h-3 text-green-500" />
+                            )}
+                          </div>
+                          <p className="text-gray-200 text-sm mb-3 break-words leading-relaxed">{renderMessageContent(post.content)}</p>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleLike(post.id)
+                              }}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
+                                isLiked
+                                  ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+                                  : 'bg-zinc-800/50 text-gray-400 hover:bg-zinc-800 hover:text-red-400'
+                              }`}
+                            >
+                              <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
+                              <span className="text-xs font-medium">{post.likes}</span>
+                            </button>
+                            <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800/50 text-gray-400 hover:bg-zinc-800 hover:text-blue-400 transition-all">
+                              <MessageCircle className="w-4 h-4" />
+                              <span className="text-xs font-medium">{post.commentsCount}</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })
+                ) : (
+                  directMessages.map((message) => {
+                    const isOwn = message.senderId === user?.id
+                    return (
+                      <div
+                        key={message.id}
+                        data-message-id={message.id}
+                        className={`flex gap-3 p-2 rounded-xl transition-all duration-300 ${isOwn ? 'flex-row-reverse' : ''} ${
+                          highlightedMessageId === message.id ? 'bg-blue-500/20 ring-2 ring-blue-500/50' : ''
+                        }`}
+                      >
+                        {!isOwn && (
+                          <Avatar
+                            className="w-8 h-8 flex-shrink-0 cursor-pointer"
+                            onClick={() => {
+                              setSelectedUserId(message.senderId)
+                              setShowUserModal(true)
+                            }}
+                          >
+                            <AvatarImage src={message.senderProfileImage || undefined} />
+                            <AvatarFallback>{message.senderName?.[0] || 'U'}</AvatarFallback>
+                          </Avatar>
+                        )}
+                        <div className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'} max-w-[70%]`}>
+                          {!isOwn && (
+                            <span
+                              className="text-xs text-gray-400 mb-1 cursor-pointer hover:underline"
+                              onClick={() => {
+                                setSelectedUserId(message.senderId)
+                                setShowUserModal(true)
+                              }}
+                            >
+                              {message.senderName}
+                            </span>
+                          )}
+                          <div
+                            className={`px-4 py-2.5 rounded-2xl ${
+                              isOwn
+                                ? 'bg-white text-black rounded-br-sm'
+                                : 'bg-zinc-800 text-white rounded-bl-sm'
+                            }`}
+                          >
+                            <p className="text-sm break-words">{message.content}</p>
+                          </div>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-xs text-gray-500">
+                              {formatTimestamp(message.createdAt)}
+                            </span>
+                            {isOwn && message.read && <CheckCheck className="w-3 h-3 text-blue-500" />}
+                            {isOwn && !message.read && <Check className="w-3 h-3 text-gray-500" />}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+                <div ref={messagesEndRef} />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Input Area */}
+            <div className="md:px-4 px-3 md:pb-4 pb-3 pt-2">
+              <div className="max-w-3xl mx-auto relative">
+                {/* Mention Autocomplete Dropdown */}
+                {showMentionDropdown && filteredMentionUsers.length > 0 && (
+                  <div className="absolute bottom-full left-0 mb-2 w-full max-w-xs bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl overflow-hidden z-50">
+                    {filteredMentionUsers.map((mentionUser) => (
+                      <button
+                        key={mentionUser.id}
+                        onClick={() => insertMention(mentionUser.name, mentionUser.id)}
+                        className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-zinc-700 transition-all text-left"
+                        style={{ minHeight: '44px' }}
+                      >
+                        <Avatar className="w-8 h-8">
+                          <AvatarImage src={mentionUser.profileImage || undefined} />
+                          <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-500 text-white text-xs">
+                            {mentionUser.name[0]}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-white text-sm">{mentionUser.name}</div>
+                          {mentionUser.headline && (
+                            <div className="text-xs text-gray-400 truncate">{mentionUser.headline}</div>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex items-end gap-2 p-3 rounded-2xl bg-zinc-900/50 backdrop-blur-md border border-zinc-700/50 focus-within:border-zinc-600 focus-within:bg-zinc-900/70 transition-all shadow-lg">
+                  <textarea
+                    ref={inputRef as any}
+                    value={inputValue}
+                    onChange={handleInputChange as any}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey && !showMentionDropdown) {
+                        e.preventDefault()
+                        handleSendMessage()
+                      }
+                    }}
+                    placeholder={
+                      viewMode === 'dm' && activeConversation
+                        ? `Message ${conversations.find(c => c.userId === activeConversation)?.userName}...`
+                        : viewMode === 'dm'
+                        ? '@mention someone to start...'
+                        : `Message #${activeChannel}...`
+                    }
+                    className="flex-1 bg-transparent border-none text-white placeholder:text-gray-500 focus:outline-none focus:ring-0 resize-none text-sm leading-6 py-2 px-1 max-h-32 scrollbar-hide"
+                    style={{
+                      minHeight: '28px',
+                      scrollbarWidth: 'none',
+                      msOverflowStyle: 'none'
+                    }}
+                    rows={1}
+                    disabled={sending}
+                  />
+                  <button
+                    onClick={handleSendMessage}
+                    disabled={!inputValue.trim() || sending}
+                    className="shrink-0 rounded-full p-2 bg-white text-black hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-gray-500 transition-all shadow-md"
+                    style={{ minHeight: '36px', minWidth: '36px' }}
+                  >
+                    <ArrowUp className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile Bottom Tab Bar */}
+      {isMobile && (
+        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur-xl border-t border-zinc-800 z-30">
+          <div className="grid grid-cols-3 h-20">
+            <button
+              onClick={() => {
+                setViewMode('channels')
+                setShowMobileSidebar(true)
+                setShowMobileChat(false)
+              }}
+              className={`flex flex-col items-center justify-center gap-1 transition-all ${
+                viewMode === 'channels' ? 'text-white' : 'text-gray-400'
+              }`}
+              style={{ minHeight: '44px', minWidth: '44px' }}
+            >
+              <Users className="w-6 h-6" />
+              <span className="text-xs font-medium">Channels</span>
+            </button>
+            <button
+              onClick={() => {
+                setViewMode('dm')
+                setShowMobileSidebar(true)
+                setShowMobileChat(false)
+              }}
+              className={`flex flex-col items-center justify-center gap-1 transition-all ${
+                viewMode === 'dm' ? 'text-white' : 'text-gray-400'
+              }`}
+              style={{ minHeight: '44px', minWidth: '44px' }}
+            >
+              <MessageSquare className="w-6 h-6" />
+              <span className="text-xs font-medium">Messages</span>
+            </button>
+            <button
+              onClick={() => {
+                setViewMode('notifications')
+                setShowMobileSidebar(true)
+                setShowMobileChat(false)
+              }}
+              className={`relative flex flex-col items-center justify-center gap-1 transition-all ${
+                viewMode === 'notifications' ? 'text-white' : 'text-gray-400'
+              }`}
+              style={{ minHeight: '44px', minWidth: '44px' }}
+            >
+              <Bell className="w-6 h-6" />
+              <span className="text-xs font-medium">Alerts</span>
+              {unreadCount > 0 && (
+                <span className="absolute top-2 right-1/4 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {selectedUserId && (
+        <UserProfileModal
+          userId={selectedUserId}
+          isOpen={showUserModal}
+          onClose={() => {
+            setShowUserModal(false)
+            setSelectedUserId(null)
+          }}
+        />
+      )}
+    </div>
+  )
+}
