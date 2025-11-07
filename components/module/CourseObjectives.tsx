@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { CheckCircle2 } from 'lucide-react'
-import { Button } from '@/components/ui/Button'
+import { Button } from '@/components/ui/button'
 import { modules } from '@/lib/data/modules'
 
 interface CourseObjectivesProps {

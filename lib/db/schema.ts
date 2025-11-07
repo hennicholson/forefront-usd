@@ -280,6 +280,8 @@ export const waitlist = pgTable('waitlist', {
   lastName: text('last_name').notNull(),
   email: text('email').notNull().unique(),
   phone: text('phone').notNull(),
+  university: text('university'), // Added university field
+  year: text('year'), // Added year field (Freshman, Sophomore, etc.)
   aiProficiency: integer('ai_proficiency').notNull(), // 0-100 slider value
   avatarUrl: text('avatar_url'), // For the AI-generated character photo
   createdAt: timestamp('created_at').defaultNow(),

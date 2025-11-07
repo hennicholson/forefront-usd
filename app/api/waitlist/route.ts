@@ -5,7 +5,7 @@ import { waitlist } from '@/lib/db/schema'
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { firstName, lastName, email, phone, aiProficiency, avatarUrl } = body
+    const { firstName, lastName, email, phone, university, year, aiProficiency, avatarUrl } = body
 
     // Validate required fields
     if (!firstName || !lastName || !email || !phone || aiProficiency === undefined) {
@@ -47,6 +47,8 @@ export async function POST(req: NextRequest) {
       lastName,
       email,
       phone,
+      university: university || null,
+      year: year || null,
       aiProficiency,
       avatarUrl: avatarUrl || null,
     }).returning()

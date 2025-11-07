@@ -3,8 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { GridBackground } from '@/components/ui/grid-background'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { NetworkMindmap } from '@/components/ui/network-mindmap'
-import { DownloadButton } from '@/components/ui/download-button'
+import { NetworkOrbital } from '@/components/ui/network-orbital'
 
 type Step = 'name' | 'email' | 'phone' | 'school' | 'proficiency' | 'upload' | 'generating' | 'complete'
 
@@ -29,7 +28,6 @@ export default function WaitlistPage() {
   const [waitlistCount, setWaitlistCount] = useState(0)
   const [allMembers, setAllMembers] = useState<any[]>([])
   const [showSlamAnimation, setShowSlamAnimation] = useState(true)
-  const [isDownloadingPDF, setIsDownloadingPDF] = useState(false)
   const [showRattle, setShowRattle] = useState(false)
   const [universitySearch, setUniversitySearch] = useState('')
   const [universityMatches, setUniversityMatches] = useState<string[]>([])
@@ -339,45 +337,6 @@ export default function WaitlistPage() {
     }
   }
 
-  const handleDownloadPDF = async () => {
-    setIsDownloadingPDF(true)
-
-    try {
-      const response = await fetch('/api/generate-pdf', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          email: formData.email,
-          university: formData.university,
-          year: formData.year
-        })
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to generate PDF')
-      }
-
-      const blob = await response.blob()
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `Student_Stack_Guide_${formData.firstName}_${formData.lastName}.pdf`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(url)
-    } catch (error) {
-      console.error('Error downloading PDF:', error)
-      alert('Failed to generate PDF. Please try again.')
-    } finally {
-      setIsDownloadingPDF(false)
-    }
-  }
-
   const getProficiencyLabel = (value: number) => {
     if (value < 25) return 'Beginner'
     if (value < 50) return 'Learning'
@@ -673,7 +632,7 @@ export default function WaitlistPage() {
 
                 <div className="flex gap-3">
                   <button
-                    onClick={() => handleNext('email')}
+                    onClick={() => handleNext('video')}
                     className="px-6 py-4 bg-gray-100 hover:bg-gray-200 text-black font-semibold rounded-xl transition-all"
                   >
                     ← Back
@@ -892,20 +851,203 @@ export default function WaitlistPage() {
                 </div>
 
                 {/* Network Visualization */}
-                <NetworkMindmap
-                  members={allMembers || []}
-                  imagePreview={imagePreview}
-                  onUploadClick={() => fileInputRef.current?.click()}
-                />
+                <div className="relative w-full min-h-[350px] sm:min-h-[400px] md:min-h-[500px] flex items-center justify-center overflow-hidden">
+                  {(() => {
+                    const displayMembers = allMembers && allMembers.length > 0
+                      ? allMembers.slice(0, 8)
+                      : Array.from({ length: 6 }, (_, i) => ({
+                          id: `placeholder-${i}`,
+                          firstName: ['Alice', 'Bob', 'Carol', 'David', 'Emma', 'Frank'][i],
+                          lastName: ['A', 'B', 'C', 'D', 'E', 'F'][i],
+                          avatarUrl: null,
+                          isPlaceholder: true
+                        }))
 
-                {/* Hidden file input */}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                />
+                    return (
+                      <>
+                        {/* SVG Connection Lines Layer */}
+                        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }}>
+                          <defs>
+                            <linearGradient id="connectionGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                              <stop offset="0%" stopColor="rgba(0,0,0,0.4)" />
+                              <stop offset="100%" stopColor="rgba(209,213,219,0.3)" />
+                            </linearGradient>
+                          </defs>
+                          {displayMembers.map((member, index) => {
+                            const angle = (index * (360 / displayMembers.length)) * (Math.PI / 180)
+                            const x = Math.cos(angle) * networkRadius
+                            const y = Math.sin(angle) * networkRadius
+
+                            return (
+                              <motion.line
+                                key={`line-${member.id}`}
+                                x1="50%"
+                                y1="50%"
+                                x2={`calc(50% + ${x}px)`}
+                                y2={`calc(50% + ${y}px)`}
+                                stroke="url(#connectionGradient)"
+                                strokeWidth="2"
+                                strokeDasharray="4 4"
+                                initial={{ pathLength: 0, opacity: 0 }}
+                                animate={{
+                                  pathLength: 1,
+                                  opacity: member.isPlaceholder ? 0.3 : 0.6,
+                                  strokeDashoffset: [0, -8]
+                                }}
+                                transition={{
+                                  pathLength: { duration: 0.8, delay: index * 0.1 },
+                                  opacity: { duration: 0.8, delay: index * 0.1 },
+                                  strokeDashoffset: { duration: 20, repeat: Infinity, ease: "linear" }
+                                }}
+                              />
+                            )
+                          })}
+                        </svg>
+
+                        {/* User Avatar Nodes */}
+                        {displayMembers.map((member, index) => {
+                          const angle = (index * (360 / displayMembers.length)) * (Math.PI / 180)
+                          const x = Math.cos(angle) * networkRadius
+                          const y = Math.sin(angle) * networkRadius
+
+                          return (
+                            <motion.div
+                              key={member.id}
+                              className="absolute z-10"
+                              style={{
+                                left: '50%',
+                                top: '50%',
+                                transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`,
+                              }}
+                              initial={{ scale: 0, opacity: 0 }}
+                              animate={{
+                                scale: 1,
+                                opacity: member.isPlaceholder ? 0.5 : 1,
+                                y: [0, -8, 0]
+                              }}
+                              transition={{
+                                scale: { duration: 0.5, delay: index * 0.1, type: "spring" },
+                                opacity: { duration: 0.5, delay: index * 0.1 },
+                                y: { duration: 4, repeat: Infinity, delay: index * 0.3, ease: "easeInOut" }
+                              }}
+                            >
+                              <div className="relative">
+                                {/* Outer pulse ring */}
+                                <motion.div
+                                  className="absolute inset-0 rounded-full bg-black -inset-2"
+                                  animate={{
+                                    scale: [1, 1.4, 1],
+                                    opacity: [0.15, 0, 0.15]
+                                  }}
+                                  transition={{
+                                    duration: 2.5,
+                                    repeat: Infinity,
+                                    delay: index * 0.3
+                                  }}
+                                />
+                                {/* Avatar container */}
+                                <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-full overflow-hidden border-3 border-white bg-white shadow-xl relative ring-2 ring-gray-200">
+                                  {member.avatarUrl ? (
+                                    <img
+                                      src={member.avatarUrl}
+                                      alt={member.firstName}
+                                      className="w-full h-full object-cover"
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = 'none'
+                                        if (e.currentTarget.parentElement) {
+                                          e.currentTarget.parentElement.innerHTML = `<div class="w-full h-full bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center"><span class="text-sm md:text-base font-bold text-gray-700">${member.firstName?.[0] || ''}${member.lastName?.[0] || ''}</span></div>`
+                                        }
+                                      }}
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center">
+                                      <span className="text-sm md:text-base font-bold text-gray-700">
+                                        {member.firstName?.[0]}{member.lastName?.[0]}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </motion.div>
+                          )
+                        })}
+                      </>
+                    )
+                  })()}
+
+                  {/* Central Upload Node */}
+                  <motion.div
+                    className="relative z-10"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.3 }}
+                  >
+                    {imagePreview ? (
+                      <div className="text-center">
+                        <div className="w-28 h-28 sm:w-32 sm:h-32 md:w-40 md:h-40 mx-auto rounded-full overflow-hidden border-4 border-black shadow-2xl bg-white relative">
+                          <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                          <button
+                            onClick={() => {
+                              setImageFile(null)
+                              setImagePreview('')
+                            }}
+                            className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-60 active:bg-opacity-60 transition-all flex items-center justify-center group"
+                          >
+                            <svg className="w-6 h-6 sm:w-8 sm:h-8 text-white opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                          </button>
+                        </div>
+                        <p className="mt-3 text-xs sm:text-sm text-gray-600 font-medium">Your photo</p>
+                      </div>
+                    ) : (
+                      <label className="cursor-pointer block">
+                        <div className="relative">
+                          {/* Outer glow ring */}
+                          <motion.div
+                            className="absolute inset-0 rounded-full bg-black opacity-10"
+                            animate={{
+                              scale: [1, 1.2, 1],
+                              opacity: [0.1, 0, 0.1]
+                            }}
+                            transition={{
+                              duration: 3,
+                              repeat: Infinity,
+                              ease: "easeInOut"
+                            }}
+                          />
+                          <motion.div
+                            className="w-28 h-28 sm:w-32 sm:h-32 md:w-40 md:h-40 mx-auto rounded-full bg-black hover:bg-gray-800 active:bg-gray-800 transition-colors flex flex-col items-center justify-center shadow-2xl border-4 border-white relative"
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            animate={{
+                              boxShadow: [
+                                '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                                '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                                '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+                              ]
+                            }}
+                            transition={{
+                              boxShadow: { duration: 3, repeat: Infinity, ease: "easeInOut" }
+                            }}
+                          >
+                            <svg className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 text-white mb-1 sm:mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            </svg>
+                            <p className="text-white font-bold text-xs sm:text-sm md:text-base">Upload</p>
+                          </motion.div>
+                        </div>
+                        <p className="mt-3 text-xs sm:text-sm text-gray-600 font-medium text-center">Join the network</p>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
+                  </motion.div>
+                </div>
 
                 {error && (
                   <motion.div
@@ -1040,7 +1182,6 @@ export default function WaitlistPage() {
                   </div>
                 </motion.div>
 
-                {/* Student Stack Guide Download Section */}
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
@@ -1048,89 +1189,34 @@ export default function WaitlistPage() {
                   className="relative bg-gradient-to-br from-black via-gray-900 to-black text-white rounded-2xl p-8 sm:p-10 overflow-hidden shadow-2xl"
                 >
                   {/* Animated background gradient */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-purple-500/10 to-transparent animate-pulse" />
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-500/20 to-transparent rounded-full blur-3xl" />
-                  <div className="absolute bottom-0 left-0 w-32 h-32 bg-gradient-to-tr from-purple-500/20 to-transparent rounded-full blur-3xl" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-pulse" />
 
-                  <div className="relative space-y-6">
-                    {/* Header with value badge */}
-                    <div className="text-center space-y-3">
+                  <div className="relative space-y-4">
+                    <div className="flex items-center justify-center gap-2">
                       <motion.div
-                        initial={{ y: -20, opacity: 0 }}
-                        animate={{ y: 0, opacity: 1 }}
-                        transition={{ delay: 0.7 }}
-                        className="inline-flex items-center gap-2 bg-green-500 text-black px-5 py-1.5 rounded-full font-semibold text-sm"
+                        animate={{ rotate: [0, 10, -10, 0] }}
+                        transition={{ duration: 0.5, delay: 0.7 }}
+                        className="text-3xl"
                       >
-                        <span>$500+ FREE VALUE</span>
+                        🎉
                       </motion.div>
-
-                      <h2 className="text-2xl sm:text-3xl font-bold text-white">
-                        Get Your Free Student Stack Guide
-                      </h2>
-
-                      <p className="text-gray-400 text-base max-w-md mx-auto">
-                        The ultimate collection of AI tools curated specifically for students.
-                        Save hours on assignments and boost your academic performance.
+                      <p className="text-xl sm:text-2xl font-bold">
+                        You're officially on the list!
                       </p>
                     </div>
-
-                    {/* Tools list - simple text version */}
-                    <motion.div
-                      initial={{ y: 20, opacity: 0 }}
-                      animate={{ y: 0, opacity: 1 }}
-                      transition={{ delay: 0.8 }}
-                      className="text-center"
-                    >
-                      <p className="text-gray-500 text-sm mb-3">Your complete student AI toolkit includes:</p>
-                      <div className="flex flex-wrap justify-center gap-2 max-w-2xl mx-auto">
-                        {[
-                          'AI Writing Assistants', 'Research Tools', 'Code Companions',
-                          'Study Aids', 'Note-Taking Apps', 'Citation Generators',
-                          'Productivity Boosters', 'Learning Platforms'
-                        ].map(tool => (
-                          <span key={tool} className="text-gray-400 text-sm">
-                            {tool}
-                            {tool !== 'Learning Platforms' && <span className="mx-1">•</span>}
-                          </span>
+                    <p className="text-gray-300 text-base">
+                      We'll notify you the moment we launch
+                    </p>
+                    <div className="flex items-center justify-center gap-3 pt-4">
+                      <div className="flex -space-x-2">
+                        {[...Array(Math.min(5, waitlistCount))].map((_, i) => (
+                          <div key={i} className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-600 to-gray-800 border-2 border-black" />
                         ))}
                       </div>
-                    </motion.div>
-
-                    {/* Download button */}
-                    <motion.div
-                      initial={{ scale: 0.9, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      transition={{ delay: 1.1, type: "spring" }}
-                      className="flex flex-col items-center"
-                    >
-                      <DownloadButton
-                        onClick={handleDownloadPDF}
-                        isDownloading={isDownloadingPDF}
-                      />
-                    </motion.div>
-
-                    {/* Bottom text */}
-                    <div className="text-center space-y-2 pt-2">
-                      <p className="text-xs text-gray-500">
-                        Instant download • No spam • Setup in 5 minutes
-                      </p>
-                      <p className="text-xs text-gray-400">
-                        {waitlistCount} students already downloaded today
+                      <p className="text-sm font-semibold text-gray-300">
+                        {waitlistCount}+ people waiting
                       </p>
                     </div>
-
-                    {/* Personalized message */}
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: 1.2 }}
-                      className="text-center"
-                    >
-                      <p className="text-gray-500 text-sm">
-                        Hey {formData.firstName}, as a {formData.year} at {formData.university},
-                        this guide is specifically curated for your academic journey.
-                      </p>
-                    </motion.div>
                   </div>
                 </motion.div>
 

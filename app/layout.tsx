@@ -6,6 +6,12 @@ export const metadata = {
   description: 'Student-led AI education network. Pilot at University of San Diego. No gatekeeping—spread the sauce.',
 }
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+}
+
 export default function RootLayout({
   children,
 }: {
