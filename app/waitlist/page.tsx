@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { GridBackground } from '@/components/ui/grid-background'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { NetworkMindmap } from '@/components/ui/network-mindmap'
+import { WaitlistSphere } from '@/components/ui/waitlist-sphere'
 import { DownloadButton } from '@/components/ui/download-button'
 
 type Step = 'name' | 'email' | 'phone' | 'school' | 'proficiency' | 'upload' | 'generating' | 'complete'
@@ -552,24 +552,13 @@ export default function WaitlistPage() {
 
                       {/* Video Player */}
                       <div className="relative w-full aspect-video rounded-2xl overflow-hidden shadow-2xl border-2 border-gray-200 mb-6 bg-gradient-to-br from-gray-100 to-gray-50">
-                        <video
-                          className="w-full h-full object-cover"
-                          autoPlay
-                          muted
-                          loop
-                          playsInline
-                          onError={(e) => {
-                            // Hide video and show placeholder on error
-                            e.currentTarget.style.display = 'none'
-                            const placeholder = document.createElement('div')
-                            placeholder.className = 'flex items-center justify-center h-full w-full bg-gradient-to-br from-gray-900 to-black text-white'
-                            placeholder.innerHTML = '<div class="text-center p-8"><svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><h3 class="text-xl font-bold mb-2">[FOREFRONT]</h3><p class="text-sm opacity-75">Welcome to the future of AI learning</p></div>'
-                            e.currentTarget.parentElement?.appendChild(placeholder)
-                          }}
-                        >
-                          <source src="/videos/waitlist-intro.mp4" type="video/mp4" />
-                          Your browser does not support the video tag.
-                        </video>
+                        <iframe
+                          className="w-full h-full"
+                          src="https://www.youtube.com/embed/xxy8FzT73Is?autoplay=1&mute=0"
+                          title="Forefront Introduction"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                        />
                       </div>
 
                       <div className="flex gap-3">
@@ -891,12 +880,41 @@ export default function WaitlistPage() {
                   <p className="text-gray-600">{stepConfig.upload.subtitle}</p>
                 </div>
 
-                {/* Network Visualization */}
-                <NetworkMindmap
-                  members={allMembers || []}
-                  imagePreview={imagePreview}
-                  onUploadClick={() => fileInputRef.current?.click()}
-                />
+                {/* Upload Button */}
+                <div className="flex flex-col items-center space-y-4">
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="relative group cursor-pointer"
+                  >
+                    <div className="w-32 h-32 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center border-4 border-gray-300 group-hover:border-black transition-all">
+                      {imagePreview ? (
+                        <img
+                          src={imagePreview}
+                          alt="Preview"
+                          className="w-full h-full rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="text-center">
+                          <svg className="w-12 h-12 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                          </svg>
+                          <span className="text-sm text-gray-500">Upload</span>
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                  {imagePreview && (
+                    <button
+                      onClick={() => {
+                        setImagePreview('')
+                        setImageFile(null)
+                      }}
+                      className="text-sm text-gray-500 hover:text-black"
+                    >
+                      Change photo
+                    </button>
+                  )}
+                </div>
 
                 {/* Hidden file input */}
                 <input
@@ -1134,57 +1152,22 @@ export default function WaitlistPage() {
                   </div>
                 </motion.div>
 
-                {/* Network Grid of All Members */}
-                {allMembers.length > 0 && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3 }}
-                    className="space-y-6"
-                  >
-                    <div className="text-center">
-                      <h3 className="text-2xl font-bold text-black mb-2">The Forefront Community</h3>
-                      <p className="text-gray-600">Join {waitlistCount} pioneers shaping the future</p>
-                    </div>
-
-                    <div className="bg-white rounded-2xl p-8 border-2 border-gray-200">
-                      <div className="grid grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-3">
-                        {allMembers.map((member, index) => (
-                          <motion.div
-                            key={member.id}
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ delay: index * 0.02, duration: 0.3 }}
-                            className="group relative"
-                          >
-                            <div className="aspect-square rounded-full overflow-hidden border-2 border-gray-200 hover:border-black transition-all hover:scale-110 cursor-pointer">
-                              {member.avatarUrl ? (
-                                <img
-                                  src={member.avatarUrl}
-                                  alt={`${member.firstName} ${member.lastName}`}
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
-                                  <span className="text-xs font-bold text-gray-600">
-                                    {member.firstName[0]}{member.lastName[0]}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Tooltip on hover */}
-                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                              <div className="bg-black text-white px-3 py-2 rounded-lg text-xs whitespace-nowrap">
-                                {member.firstName} {member.lastName}
-                              </div>
-                            </div>
-                          </motion.div>
-                        ))}
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
+                {/* 3D Sphere Network Visualization */}
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.3, duration: 0.6 }}
+                  className="mt-8"
+                >
+                  <WaitlistSphere
+                    currentUser={{
+                      firstName: formData.firstName,
+                      avatarUrl: generatedAvatar
+                    }}
+                    className="w-full"
+                    containerSize={600}
+                  />
+                </motion.div>
               </motion.div>
             )}
           </AnimatePresence>
