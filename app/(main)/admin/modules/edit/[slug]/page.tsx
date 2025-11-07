@@ -659,7 +659,7 @@ function renderBlockEditor(block: ContentBlock, onUpdate: (value: any) => void, 
       const htmlContent = block.data?.html || ''
       // Extract just the text content from HTML tags
       const textMatch = htmlContent.match(/>([^<]*)</g)
-      const displayText = textMatch ? textMatch.map(m => m.slice(1, -1)).join(' ') : htmlContent
+      const displayText = textMatch ? textMatch.map((m: string) => m.slice(1, -1)).join(' ') : htmlContent
 
       return (
         <textarea
