@@ -286,12 +286,13 @@ export default function ModuleViewerPage({ params }: { params: Promise<{ slug: s
     switch (block.type) {
       case 'text':
         const TextTag = block.data.variant || 'p'
-        const textClass = {
+        const textClassMap: Record<string, string> = {
           h1: 'text-5xl font-bold mb-8',
           h2: 'text-3xl font-bold mt-8 mb-4',
           h3: 'text-2xl font-semibold mt-6 mb-3',
           p: 'text-lg leading-relaxed mb-4'
-        }[TextTag] || 'mb-4'
+        }
+        const textClass = textClassMap[TextTag] || 'mb-4'
 
         // Handle HTML content from Henry's modules
         const htmlContent = block.data.html || block.data.text || ''
