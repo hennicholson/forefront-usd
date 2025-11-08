@@ -84,6 +84,7 @@ export async function GET() {
       lastName: waitlist.lastName,
       avatarUrl: waitlist.avatarUrl,
       aiProficiency: waitlist.aiProficiency,
+      university: waitlist.university,
     }).from(waitlist).orderBy(waitlist.createdAt)
 
     return NextResponse.json({ entries }, { status: 200 })

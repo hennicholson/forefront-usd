@@ -56,7 +56,8 @@ import {
   Undo,
   Redo,
   Grid3x3,
-  Maximize2
+  Maximize2,
+  CheckCircle2
 } from 'lucide-react'
 
 // Dynamically import Monaco Editor to avoid SSR issues
@@ -64,7 +65,7 @@ const MonacoEditor = dynamic(() => import('@monaco-editor/react'), { ssr: false 
 
 interface ContentBlock {
   id: string
-  type: 'text' | 'markdown' | 'code' | 'codePreview' | 'image' | 'video' | 'note' | 'quiz'
+  type: 'text' | 'markdown' | 'code' | 'codePreview' | 'image' | 'video' | 'note' | 'quiz' | 'knowledgeCheck'
   data: any
 }
 
@@ -106,8 +107,239 @@ const BLOCK_TYPES = [
   { type: 'image', label: 'Image', icon: Image, description: 'Pictures & diagrams', color: '#00BCD4' },
   { type: 'video', label: 'Video', icon: Video, description: 'Embedded video', color: '#F44336' },
   { type: 'note', label: 'Note', icon: MessageSquare, description: 'Callout box', color: '#FFC107' },
-  { type: 'quiz', label: 'Quiz', icon: HelpCircle, description: 'Test knowledge', color: '#795548' }
+  { type: 'quiz', label: 'Quiz', icon: HelpCircle, description: 'Test knowledge', color: '#795548' },
+  { type: 'knowledgeCheck', label: 'Knowledge Check', icon: CheckCircle2, description: 'Required quiz to proceed', color: '#E91E63' }
 ]
+
+const SLIDE_TYPES = [
+  { type: 'lesson', label: 'Regular Slide', icon: BookOpen, description: 'Standard content slide', color: '#2196F3' },
+  { type: 'quiz', label: 'Knowledge Check', icon: CheckCircle2, description: 'Required quiz to proceed', color: '#E91E63' }
+]
+
+// Sortable Slide Item Component
+function SortableSlideItem({
+  slide,
+  index,
+  isActive,
+  totalSlides,
+  onSelect,
+  onDelete
+}: {
+  slide: Slide
+  index: number
+  isActive: boolean
+  totalSlides: number
+  onSelect: () => void
+  onDelete: () => void
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: slide.id })
+
+  const style = {
+    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`slide-item ${isActive ? 'active' : ''}`}
+      onClick={onSelect}
+    >
+      <div className="slide-drag-handle" {...attributes} {...listeners}>
+        <Move size={14} />
+      </div>
+      <div className="slide-number">{index + 1}</div>
+      <div className="slide-info">
+        <div className="slide-title">{slide.title}</div>
+        <div className="slide-meta">
+          {slide.blocks.length} blocks
+        </div>
+      </div>
+      {totalSlides > 1 && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onDelete()
+          }}
+          className="delete-slide"
+        >
+          <X size={12} />
+        </button>
+      )}
+    </div>
+  )
+}
+
+// Knowledge Check Editor with AI Generation
+function KnowledgeCheckEditor({ block, onUpdate, userId, currentSlideIndex, slides }: {
+  block: ContentBlock
+  onUpdate: (data: any) => void
+  userId?: string
+  currentSlideIndex: number
+  slides: Slide[]
+}) {
+  const [isGeneratingQuestion, setIsGeneratingQuestion] = useState(false)
+
+  const generateKnowledgeCheck = async () => {
+    if (!userId) return
+
+    setIsGeneratingQuestion(true)
+    try {
+      // Get previous slides content
+      const previousSlides = slides.slice(0, currentSlideIndex).map(slide => ({
+        title: slide.title,
+        description: slide.description,
+        blocks: slide.blocks.map(b => ({
+          type: b.type,
+          data: b.data
+        }))
+      }))
+
+      const response = await fetch('/api/generate-knowledge-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          previousSlides
+        })
+      })
+
+      const data = await response.json()
+
+      if (response.ok && data.knowledgeCheck) {
+        onUpdate({
+          ...block.data,
+          question: data.knowledgeCheck.question,
+          options: data.knowledgeCheck.options,
+          correctIndex: data.knowledgeCheck.correctIndex,
+          explanation: data.knowledgeCheck.explanation
+        })
+      }
+    } catch (error) {
+      console.error('Error generating knowledge check:', error)
+    } finally {
+      setIsGeneratingQuestion(false)
+    }
+  }
+
+  const commonInputStyle = {
+    width: '100%',
+    padding: '12px 16px',
+    fontSize: '14px',
+    border: '1px solid #e0e0e0',
+    borderRadius: '8px',
+    fontFamily: 'inherit',
+    outline: 'none',
+  }
+
+  return (
+    <div>
+      <div style={{
+        padding: '12px',
+        background: '#FFF3E0',
+        borderRadius: '8px',
+        marginBottom: '12px',
+        fontSize: '13px',
+        color: '#E65100',
+        fontWeight: 600
+      }}>
+        ⚠️ Students must answer correctly to proceed to next slide
+      </div>
+
+      {/* AI Generate Button */}
+      <div style={{
+        padding: '12px',
+        background: '#f8f8f8',
+        borderRadius: '8px',
+        marginBottom: '12px'
+      }}>
+        <div style={{ fontSize: '11px', color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+          ✨ AI Knowledge Check Generator
+        </div>
+        <button
+          onClick={generateKnowledgeCheck}
+          disabled={isGeneratingQuestion || currentSlideIndex === 0}
+          style={{
+            padding: '10px 20px',
+            background: isGeneratingQuestion || currentSlideIndex === 0 ? '#ccc' : '#9C27B0',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: isGeneratingQuestion || currentSlideIndex === 0 ? 'not-allowed' : 'pointer',
+            fontSize: '13px',
+            fontWeight: 600,
+            width: '100%'
+          }}
+        >
+          {isGeneratingQuestion ? 'Generating...' : currentSlideIndex === 0 ? 'No Previous Slides' : 'Generate from Previous Slides'}
+        </button>
+      </div>
+
+      <input
+        type="text"
+        value={block.data?.question || ''}
+        onChange={(e) => onUpdate({ ...block.data, question: e.target.value })}
+        placeholder="Enter your knowledge check question..."
+        style={{
+          ...commonInputStyle,
+          fontWeight: 600,
+          fontSize: '15px'
+        }}
+      />
+      <div style={{ marginTop: '12px' }}>
+        <label style={{ fontSize: '11px', color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          Options (one per line)
+        </label>
+        <textarea
+          value={block.data?.options?.join('\n') || ''}
+          onChange={(e) => onUpdate({ ...block.data, options: e.target.value.split('\n').filter(o => o.trim()) })}
+          placeholder="Option 1\nOption 2\nOption 3\nOption 4"
+          style={{
+            ...commonInputStyle,
+            minHeight: '100px',
+            resize: 'vertical',
+            marginTop: '6px'
+          }}
+        />
+      </div>
+      <div style={{ marginTop: '12px' }}>
+        <label style={{ fontSize: '11px', color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          Correct Answer (index starts at 0)
+        </label>
+        <input
+          type="number"
+          min="0"
+          value={block.data?.correctIndex ?? ''}
+          onChange={(e) => onUpdate({ ...block.data, correctIndex: parseInt(e.target.value) || 0 })}
+          placeholder="0"
+          style={{
+            ...commonInputStyle,
+            width: '80px',
+            marginTop: '6px'
+          }}
+        />
+      </div>
+      <div style={{ marginTop: '12px' }}>
+        <label style={{ fontSize: '11px', color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          Explanation (optional)
+        </label>
+        <textarea
+          value={block.data?.explanation || ''}
+          onChange={(e) => onUpdate({ ...block.data, explanation: e.target.value })}
+          placeholder="Explain why this is the correct answer..."
+          style={{
+            ...commonInputStyle,
+            minHeight: '60px',
+            resize: 'vertical',
+            marginTop: '6px'
+          }}
+        />
+      </div>
+    </div>
+  )
+}
 
 // CodePreview Editor Component with AI Generation
 function CodePreviewEditor({ block, onUpdate, userId }: { block: ContentBlock; onUpdate: (data: any) => void; userId?: string }) {
@@ -389,7 +621,8 @@ function SortableBlock({
   onMoveUp,
   onMoveDown,
   isHighlighted,
-  userId
+  userId,
+  slides
 }: {
   block: ContentBlock
   slideIndex: number
@@ -402,6 +635,7 @@ function SortableBlock({
   onMoveDown: () => void
   isHighlighted?: boolean
   userId?: string
+  slides?: Slide[]
 }) {
   const {
     attributes,
@@ -468,7 +702,7 @@ function SortableBlock({
 
         {/* Block Editor */}
         <div className="block-editor">
-          {renderBlockEditor(block, onUpdate, userId)}
+          {renderBlockEditor(block, onUpdate, userId, slideIndex, slides)}
         </div>
       </div>
 
@@ -627,7 +861,13 @@ function SortableBlock({
 }
 
 // Block Editor Renderer
-function renderBlockEditor(block: ContentBlock, onUpdate: (value: any) => void, userId?: string) {
+function renderBlockEditor(
+  block: ContentBlock,
+  onUpdate: (value: any) => void,
+  userId?: string,
+  currentSlideIndex?: number,
+  slides?: Slide[]
+) {
   const commonInputStyle = {
     width: '100%',
     padding: '10px 12px',
@@ -870,6 +1110,17 @@ function renderBlockEditor(block: ContentBlock, onUpdate: (value: any) => void, 
         />
       )
 
+    case 'knowledgeCheck':
+      return (
+        <KnowledgeCheckEditor
+          block={block}
+          onUpdate={onUpdate}
+          userId={userId}
+          currentSlideIndex={currentSlideIndex || 0}
+          slides={slides || []}
+        />
+      )
+
     case 'quiz':
       return (
         <div>
@@ -937,6 +1188,7 @@ export default function EditModulePage({ params }: { params: Promise<{ slug: str
   const [showBlockPicker, setShowBlockPicker] = useState(false)
   const [showSlidesList, setShowSlidesList] = useState(false)
   const [editingModuleInfo, setEditingModuleInfo] = useState(false)
+  const [showSlideTypePicker, setShowSlideTypePicker] = useState(false)
 
   // Undo/Redo state
   const [history, setHistory] = useState<Module[]>([])
@@ -944,6 +1196,9 @@ export default function EditModulePage({ params }: { params: Promise<{ slug: str
 
   // Track last moved block for highlighting
   const [lastMovedBlockId, setLastMovedBlockId] = useState<string | null>(null)
+
+  // Track active dragged slide
+  const [activeSlideId, setActiveSlideId] = useState<string | null>(null)
 
   // Unwrap params with React.use()
   const unwrappedParams = React.use(params)
@@ -1091,6 +1346,29 @@ export default function EditModulePage({ params }: { params: Promise<{ slug: str
     setActiveBlockId(event.active.id as string)
   }
 
+  const handleSlideDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+
+    if (active.id !== over?.id && module) {
+      const oldIndex = module.slides.findIndex(s => s.id === active.id)
+      const newIndex = module.slides.findIndex(s => s.id === over?.id)
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const newSlides = arrayMove(module.slides, oldIndex, newIndex)
+        const newModule = { ...module, slides: newSlides }
+        setModule(newModule)
+        addToHistory(newModule)
+        setCurrentSlideIndex(newIndex)
+      }
+    }
+
+    setActiveSlideId(null)
+  }
+
+  const handleSlideDragStart = (event: DragStartEvent) => {
+    setActiveSlideId(event.active.id as string)
+  }
+
   // Move block up/down with simple numeric ordering
   const moveBlock = (blockIndex: number, direction: 'up' | 'down') => {
     if (!module) return
@@ -1170,19 +1448,29 @@ export default function EditModulePage({ params }: { params: Promise<{ slug: str
     setModule({ ...module, slides: updatedSlides })
   }
 
-  const addSlide = () => {
+  const addSlide = (slideType: 'lesson' | 'quiz' = 'lesson') => {
     if (!module) return
 
     const newSlide: Slide = {
       id: Date.now().toString(),
-      title: `New Slide ${module.slides.length + 1}`,
-      type: 'lesson',
+      title: slideType === 'quiz' ? `Knowledge Check ${module.slides.filter(s => s.type === 'quiz').length + 1}` : `New Slide ${module.slides.length + 1}`,
+      type: slideType,
       duration: '5 min',
-      blocks: []
+      blocks: slideType === 'quiz' ? [{
+        id: `block-${Date.now()}`,
+        type: 'knowledgeCheck',
+        data: {
+          question: '',
+          options: [],
+          correctIndex: 0,
+          explanation: ''
+        }
+      }] : []
     }
 
     setModule({ ...module, slides: [...module.slides, newSlide] })
     setCurrentSlideIndex(module.slides.length)
+    setShowSlideTypePicker(false)
   }
 
   const deleteSlide = (index: number) => {
@@ -1338,38 +1626,72 @@ export default function EditModulePage({ params }: { params: Promise<{ slug: str
             <div className="section-header">
               <Layers size={14} />
               Slides ({module.slides.length})
-              <button onClick={addSlide} className="add-slide-btn">
+              <button onClick={() => setShowSlideTypePicker(!showSlideTypePicker)} className="add-slide-btn">
                 <Plus size={14} />
               </button>
             </div>
-            <div className="slides-list">
-              {module.slides.map((slide, index) => (
-                <div
-                  key={slide.id}
-                  className={`slide-item ${index === currentSlideIndex ? 'active' : ''}`}
-                  onClick={() => setCurrentSlideIndex(index)}
-                >
-                  <div className="slide-number">{index + 1}</div>
-                  <div className="slide-info">
-                    <div className="slide-title">{slide.title}</div>
-                    <div className="slide-meta">
-                      {slide.blocks.length} blocks
-                    </div>
-                  </div>
-                  {module.slides.length > 1 && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        deleteSlide(index)
-                      }}
-                      className="delete-slide"
-                    >
-                      <X size={12} />
-                    </button>
-                  )}
+
+            {/* Slide Type Picker */}
+            {showSlideTypePicker && (
+              <div className="block-picker" style={{ marginBottom: '12px' }}>
+                <div className="picker-header">
+                  <span>Choose slide type</span>
+                  <button onClick={() => setShowSlideTypePicker(false)} className="close-picker">
+                    <X size={16} />
+                  </button>
                 </div>
-              ))}
-            </div>
+                <div className="picker-grid">
+                  {SLIDE_TYPES.map(slideType => {
+                    const Icon = slideType.icon
+                    return (
+                      <button
+                        key={slideType.type}
+                        onClick={() => addSlide(slideType.type as 'lesson' | 'quiz')}
+                        className="block-option"
+                        style={{ '--block-color': slideType.color } as any}
+                      >
+                        <Icon size={20} />
+                        <span className="block-label">{slideType.label}</span>
+                        <span className="block-description">{slideType.description}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragStart={handleSlideDragStart}
+              onDragEnd={handleSlideDragEnd}
+            >
+              <SortableContext
+                items={module.slides.map(s => s.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="slides-list">
+                  {module.slides.map((slide, index) => (
+                    <SortableSlideItem
+                      key={slide.id}
+                      slide={slide}
+                      index={index}
+                      isActive={index === currentSlideIndex}
+                      totalSlides={module.slides.length}
+                      onSelect={() => setCurrentSlideIndex(index)}
+                      onDelete={() => deleteSlide(index)}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+              <DragOverlay>
+                {activeSlideId ? (
+                  <div className="slide-item active" style={{ cursor: 'grabbing' }}>
+                    Reordering slide...
+                  </div>
+                ) : null}
+              </DragOverlay>
+            </DndContext>
           </div>
         </div>
 
@@ -1444,6 +1766,7 @@ export default function EditModulePage({ params }: { params: Promise<{ slug: str
                       onMoveDown={() => moveBlock(blockIndex, 'down')}
                       isHighlighted={block.id === lastMovedBlockId}
                       userId={user?.id}
+                      slides={module?.slides}
                     />
                   ))
                 )}
@@ -1801,6 +2124,24 @@ export default function EditModulePage({ params }: { params: Promise<{ slug: str
         .slide-item.active {
           background: #333;
           color: #fff;
+        }
+
+        .slide-drag-handle {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 20px;
+          opacity: 0.3;
+          cursor: grab;
+          transition: opacity 0.2s;
+        }
+
+        .slide-drag-handle:hover {
+          opacity: 0.7;
+        }
+
+        .slide-drag-handle:active {
+          cursor: grabbing;
         }
 
         .slide-number {
@@ -2390,6 +2731,66 @@ function renderBlockPreview(block: ContentBlock) {
             <div dangerouslySetInnerHTML={{ __html: noteContent }} />
           ) : (
             noteContent
+          )}
+        </div>
+      )
+
+    case 'knowledgeCheck':
+      return (
+        <div style={{
+          padding: '20px',
+          background: 'rgba(233, 30, 99, 0.1)',
+          borderRadius: '12px',
+          border: '2px solid rgba(233, 30, 99, 0.3)'
+        }}>
+          <div style={{
+            display: 'inline-block',
+            padding: '6px 12px',
+            background: 'rgba(233, 30, 99, 0.2)',
+            borderRadius: '6px',
+            fontSize: '12px',
+            fontWeight: 700,
+            color: '#E91E63',
+            marginBottom: '12px'
+          }}>
+            KNOWLEDGE CHECK
+          </div>
+          <div style={{ fontSize: '18px', fontWeight: 600, marginBottom: '16px' }}>
+            {block.data?.question || ''}
+          </div>
+          <div style={{ display: 'grid', gap: '8px' }}>
+            {(block.data?.options || []).map((option: string, i: number) => (
+              <div
+                key={i}
+                style={{
+                  padding: '12px 16px',
+                  background: i === block.data?.correctIndex
+                    ? 'rgba(76, 175, 80, 0.2)'
+                    : 'rgba(255,255,255,0.05)',
+                  border: `2px solid ${i === block.data?.correctIndex
+                    ? 'rgba(76, 175, 80, 0.5)'
+                    : 'rgba(255,255,255,0.1)'}`,
+                  borderRadius: '8px'
+                }}
+              >
+                {option}
+                {i === block.data?.correctIndex && (
+                  <span style={{ marginLeft: '8px', color: '#4CAF50' }}>✓</span>
+                )}
+              </div>
+            ))}
+          </div>
+          {block.data?.explanation && (
+            <div style={{
+              marginTop: '12px',
+              padding: '12px',
+              background: 'rgba(76, 175, 80, 0.1)',
+              borderRadius: '8px',
+              fontSize: '14px',
+              color: '#A5D6A7'
+            }}>
+              <strong>Explanation:</strong> {block.data.explanation}
+            </div>
           )}
         </div>
       )

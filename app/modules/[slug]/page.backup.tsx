@@ -32,17 +32,15 @@ import {
   Moon,
   Image,
   BarChart,
-  HelpCircle,
-  Home
+  HelpCircle
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
 import { AIPlayground } from './components/AIPlayground'
-import { KnowledgeCheck } from './components/KnowledgeCheck'
 
 interface ContentBlock {
   id: string
-  type: 'text' | 'code' | 'image' | 'video' | 'note' | 'codePreview' | 'chart' | 'quiz' | 'knowledgeCheck' | 'markdown'
+  type: 'text' | 'code' | 'image' | 'video' | 'note' | 'codePreview' | 'chart' | 'quiz' | 'markdown'
   data: any
 }
 
@@ -89,7 +87,6 @@ export default function ModuleViewerPage({ params }: { params: Promise<{ slug: s
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isDarkMode, setIsDarkMode] = useState(true)
   const [completedSlides, setCompletedSlides] = useState<Set<string>>(new Set())
-  const [quizResults, setQuizResults] = useState<{ [key: string]: boolean }>({})
   const contentRef = React.useRef<HTMLDivElement>(null)
   const [playgroundOpen, setPlaygroundOpen] = useState(false)
   const [playgroundWidth, setPlaygroundWidth] = useState(50) // percentage
@@ -133,8 +130,7 @@ export default function ModuleViewerPage({ params }: { params: Promise<{ slug: s
     if (index === totalSlides - 1) return 'summary'
     if (slide.blocks?.some((b: ContentBlock) => b.type === 'code')) return 'code'
     if (slide.blocks?.some((b: ContentBlock) => b.type === 'video')) return 'video'
-    if (slide.blocks?.some((b: ContentBlock) => b.type === 'quiz' || b.type === 'knowledgeCheck')) return 'quiz'
-    if (slide.type === 'quiz') return 'quiz' // Also check slide-level type
+    if (slide.blocks?.some((b: ContentBlock) => b.type === 'quiz')) return 'quiz'
     return 'lesson'
   }
 
@@ -171,12 +167,10 @@ export default function ModuleViewerPage({ params }: { params: Promise<{ slug: s
     return blocks
   }
 
-  // Load saved notes, progress, and knowledge check responses
+  // Load saved notes
   useEffect(() => {
     if (module && user) {
       fetchNotes()
-      fetchProgress()
-      fetchKnowledgeChecks()
     }
   }, [module, user])
 
@@ -195,48 +189,6 @@ export default function ModuleViewerPage({ params }: { params: Promise<{ slug: s
       }
     } catch (err) {
       console.error('Error loading notes:', err)
-    }
-  }
-
-  const fetchProgress = async () => {
-    if (!user || !module) return
-    try {
-      const moduleId = module.moduleId || module.id
-      const res = await fetch(`/api/progress?userId=${user.id}&moduleId=${moduleId}`)
-      if (res.ok) {
-        const progressData = await res.json()
-        if (progressData) {
-          // Load completed slides from database
-          const completed = progressData.completedSlides || []
-          setCompletedSlides(new Set(completed.map((id: any) => id.toString())))
-
-          // Resume from last viewed slide
-          if (progressData.lastViewed !== undefined) {
-            setCurrentSlideIndex(progressData.lastViewed)
-          }
-        }
-      }
-    } catch (err) {
-      console.error('Error loading progress:', err)
-    }
-  }
-
-  const fetchKnowledgeChecks = async () => {
-    if (!user || !module) return
-    try {
-      const moduleId = module.moduleId || module.id
-      const res = await fetch(`/api/knowledge-checks?userId=${user.id}&moduleId=${moduleId}`)
-      if (res.ok) {
-        const { responses } = await res.json()
-        // Build quiz results map from responses
-        const resultsMap: { [key: string]: boolean } = {}
-        responses.forEach((response: any) => {
-          resultsMap[response.slideId] = response.isCorrect
-        })
-        setQuizResults(resultsMap)
-      }
-    } catch (err) {
-      console.error('Error loading knowledge checks:', err)
     }
   }
 
@@ -323,7 +275,6 @@ export default function ModuleViewerPage({ params }: { params: Promise<{ slug: s
           userId: user.id,
           moduleId,
           slideIndex: currentSlideIndex,
-          completedSlides: Array.from(completedSlides),
           completed: currentSlideIndex === module.slides.length - 1
         })
       })
@@ -334,10 +285,10 @@ export default function ModuleViewerPage({ params }: { params: Promise<{ slug: s
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center">
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-          <p className="text-zinc-500">Loading module...</p>
+          <p>Loading module...</p>
         </div>
       </div>
     )
@@ -345,33 +296,14 @@ export default function ModuleViewerPage({ params }: { params: Promise<{ slug: s
 
   if (!module) {
     return (
-      <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center">
-        <p className="text-zinc-500">Module not found</p>
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <p>Module not found</p>
       </div>
     )
   }
 
   const currentSlide = module.slides[currentSlideIndex]
   const progress = (completedSlides.size / module.slides.length) * 100
-
-  // Check if a slide is accessible based on previous quiz completion
-  const isSlideAccessible = (slideIndex: number) => {
-    if (slideIndex === 0) return true // First slide always accessible
-
-    // Check all previous slides for quizzes or knowledge checks
-    for (let i = 0; i < slideIndex; i++) {
-      const slide = module.slides[i]
-      const hasQuiz = slide.blocks?.some(block =>
-        block.type === 'quiz' || block.type === 'knowledgeCheck'
-      )
-
-      if (hasQuiz && !quizResults[slide.id.toString()]) {
-        return false // Previous quiz not completed
-      }
-    }
-
-    return true
-  }
 
   const getSlideIcon = (type?: string) => {
     switch (type) {
@@ -410,16 +342,16 @@ export default function ModuleViewerPage({ params }: { params: Promise<{ slug: s
 
       case 'markdown':
         return (
-          <div key={block.id} className="prose prose-neutral dark:prose-invert max-w-none">
+          <div key={block.id} className={`prose ${isDarkMode ? 'prose-invert' : 'prose-gray'} max-w-none`}>
             <div dangerouslySetInnerHTML={{
               __html: (block.data.content || '')
                 .replace(/^# (.*$)/gim, '<h1 class="text-5xl font-bold mb-8">$1</h1>')
                 .replace(/^## (.*$)/gim, '<h2 class="text-3xl font-bold mt-8 mb-4">$1</h2>')
                 .replace(/^### (.*$)/gim, '<h3 class="text-2xl font-semibold mt-6 mb-3">$1</h3>')
-                .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold">$1</strong>')
+                .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-blue-500">$1</strong>')
                 .replace(/^• (.*$)/gim, '<li class="ml-6 list-disc my-2">$1</li>')
-                .replace(/^> (.*$)/gim, '<blockquote class="border-l-4 border-border pl-4 italic my-4 text-muted-foreground">$1</blockquote>')
-                .replace(/✅/g, '<span class="text-xl">✅</span>')
+                .replace(/^> (.*$)/gim, '<blockquote class="border-l-4 border-blue-500 pl-4 italic my-4">$1</blockquote>')
+                .replace(/✅/g, '<span class="text-green-500 text-xl">✅</span>')
                 .replace(/🎯/g, '<span class="text-2xl">🎯</span>')
                 .replace(/💡/g, '<span class="text-2xl">💡</span>')
                 .replace(/🚀/g, '<span class="text-2xl">🚀</span>')
@@ -431,22 +363,22 @@ export default function ModuleViewerPage({ params }: { params: Promise<{ slug: s
       case 'code':
         return (
           <div key={block.id} className="relative group mb-6">
-            <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-              <button className={`px-3 py-1 rounded-lg text-sm transition-colors shadow-sm ${isDarkMode ? 'bg-zinc-700 text-white hover:bg-zinc-600' : 'bg-zinc-200 text-black hover:bg-zinc-300'}`}>
+            <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors">
                 Run Code
               </button>
               <button
                 onClick={() => navigator.clipboard.writeText(block.data.code)}
-                className={`px-3 py-1 rounded-lg text-sm transition-colors shadow-sm ${isDarkMode ? 'bg-zinc-700 text-white hover:bg-zinc-600' : 'bg-zinc-200 text-black hover:bg-zinc-300'}`}
+                className="px-3 py-1 bg-gray-700 text-white rounded text-sm hover:bg-gray-600 transition-colors"
               >
                 Copy
               </button>
             </div>
-            <div className={`absolute top-4 left-4 px-2 py-1 backdrop-blur rounded text-xs border ${isDarkMode ? 'bg-zinc-800/50 text-zinc-400 border-zinc-700' : 'bg-zinc-100/50 text-zinc-600 border-zinc-300'}`}>
+            <div className="absolute top-4 left-4 px-2 py-1 bg-gray-800 rounded text-xs text-gray-400">
               {block.data.language || 'code'}
             </div>
-            <pre className={`border p-6 pt-12 rounded-lg overflow-x-auto ${isDarkMode ? 'bg-zinc-900/30 border-zinc-700' : 'bg-zinc-50 border-zinc-200'}`}>
-              <code className="text-sm font-mono">
+            <pre className={`${isDarkMode ? 'bg-gray-900' : 'bg-gray-100'} p-6 pt-12 rounded-lg overflow-x-auto`}>
+              <code className={`text-sm font-mono ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                 {block.data.code}
               </code>
             </pre>
@@ -488,61 +420,31 @@ export default function ModuleViewerPage({ params }: { params: Promise<{ slug: s
         )
 
       case 'quiz':
-      case 'knowledgeCheck':
         return (
-          <KnowledgeCheck
-            key={block.id}
-            question={block.data.question}
-            options={block.data.options || []}
-            correctIndex={block.data.correctIndex || 0}
-            explanation={block.data.explanation}
-            isDarkMode={isDarkMode}
-            onComplete={async (correct, selectedIndex) => {
-              setQuizResults(prev => ({
-                ...prev,
-                [currentSlide.id.toString()]: correct
-              }))
-              if (correct) {
-                setCompletedSlides(prev => new Set([...prev, currentSlide.id.toString()]))
-              }
-
-              // Save knowledge check response to database
-              if (user && module) {
-                try {
-                  const moduleId = module.moduleId || module.id
-                  await fetch('/api/knowledge-checks', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      userId: user.id,
-                      moduleId: moduleId.toString(),
-                      slideId: currentSlide.id.toString(),
-                      blockId: block.id,
-                      question: block.data.question,
-                      selectedIndex,
-                      correctIndex: block.data.correctIndex || 0,
-                      isCorrect: correct
-                    })
-                  })
-                } catch (err) {
-                  console.error('Error saving knowledge check response:', err)
-                }
-              }
-            }}
-            onContinue={() => {
-              if (currentSlideIndex < module.slides.length - 1) {
-                setCurrentSlideIndex(currentSlideIndex + 1)
-              }
-            }}
-          />
+          <div key={block.id} className="mb-6 p-6 bg-gray-800 rounded-lg">
+            <h3 className="text-xl font-bold mb-4">
+              <HelpCircle className="inline mr-2" size={24} />
+              {block.data.question}
+            </h3>
+            <div className="space-y-2">
+              {block.data.options?.map((option: string, i: number) => (
+                <button
+                  key={i}
+                  className="w-full text-left p-3 bg-gray-700 hover:bg-gray-600 rounded transition-colors"
+                >
+                  {String.fromCharCode(65 + i)}. {option}
+                </button>
+              ))}
+            </div>
+          </div>
         )
 
       case 'note':
         const noteContent = block.data.text || block.data.content || ''
         return (
-          <div key={block.id} className={`mb-6 p-4 border-l-4 rounded-lg ${isDarkMode ? 'bg-zinc-800/50 border-zinc-600' : 'bg-zinc-100 border-zinc-400'}`}>
+          <div key={block.id} className="mb-6 p-4 bg-blue-500/10 border-l-4 border-blue-500 rounded">
             <div
-              className={`prose max-w-none ${isDarkMode ? 'prose-invert' : 'prose-zinc'}`}
+              className={`prose ${isDarkMode ? 'prose-invert' : 'prose-gray'} max-w-none`}
               dangerouslySetInnerHTML={{ __html: noteContent }}
             />
           </div>
@@ -589,10 +491,10 @@ export default function ModuleViewerPage({ params }: { params: Promise<{ slug: s
 
         return (
           <div key={block.id} className="mb-6">
-            <div className="rounded-lg overflow-hidden border border-zinc-700 bg-white shadow-sm">
+            <div className={`rounded-lg overflow-hidden border ${isDarkMode ? 'border-gray-700' : 'border-gray-300'} bg-white`}>
               <iframe
                 srcDoc={iframeContent}
-                className="w-full bg-white"
+                className="w-full"
                 style={{ minHeight: '400px', border: 'none', display: 'block' }}
                 sandbox="allow-scripts allow-same-origin"
                 title="Code Preview"
@@ -617,28 +519,20 @@ export default function ModuleViewerPage({ params }: { params: Promise<{ slug: s
   }
 
   return (
-    <div className={`min-h-screen ${isDarkMode ? 'bg-zinc-950 text-white' : 'bg-white text-black'} transition-colors duration-300`}>
+    <div className={`min-h-screen ${isDarkMode ? 'bg-black text-white' : 'bg-white text-gray-900'}`}>
       {/* Header */}
-      <div className={`fixed top-0 left-0 right-0 h-16 ${isDarkMode ? 'bg-zinc-900/50 border-zinc-800' : 'bg-white/50 border-zinc-200'} backdrop-blur-sm border-b flex items-center justify-between px-4 z-40`}>
+      <div className={`fixed top-0 left-0 right-0 h-16 ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-gray-50 border-gray-200'} border-b flex items-center justify-between px-4 z-40`}>
         <div className="flex items-center gap-4">
           <button
-            onClick={() => router.push('/dashboard')}
-            className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-zinc-800' : 'hover:bg-zinc-100'}`}
-            title="Back to Dashboard"
-          >
-            <Home size={20} />
-          </button>
-
-          <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-zinc-800' : 'hover:bg-zinc-100'}`}
+            className={`p-2 rounded-lg ${isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-200'} transition-colors`}
           >
             {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
 
           <div>
             <h1 className="font-bold text-lg">{module.title}</h1>
-            <p className={`text-xs ${isDarkMode ? 'text-zinc-500' : 'text-zinc-600'}`}>
+            <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
               {module.instructor.name} • {module.duration}
             </p>
           </div>
@@ -646,23 +540,18 @@ export default function ModuleViewerPage({ params }: { params: Promise<{ slug: s
 
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <div className={`w-32 h-2 rounded-full overflow-hidden ${isDarkMode ? 'bg-zinc-800' : 'bg-zinc-200'}`}>
+            <div className="w-32 h-2 bg-gray-700 rounded-full overflow-hidden">
               <div
-                className={`h-full transition-all duration-300 ${isDarkMode ? 'bg-white' : 'bg-black'}`}
+                className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300"
                 style={{ width: `${progress}%` }}
               />
             </div>
-            <span className={`text-sm ${isDarkMode ? 'text-zinc-500' : 'text-zinc-600'}`}>{Math.round(progress)}%</span>
+            <span className="text-sm">{Math.round(progress)}%</span>
           </div>
 
           <button
-            onClick={() => {
-              setPlaygroundOpen(!playgroundOpen)
-              if (!playgroundOpen) {
-                setSidebarOpen(false)
-              }
-            }}
-            className={`p-2 rounded-lg transition-colors ${playgroundOpen ? (isDarkMode ? 'bg-zinc-800' : 'bg-zinc-100') : (isDarkMode ? 'hover:bg-zinc-800' : 'hover:bg-zinc-100')}`}
+            onClick={() => setPlaygroundOpen(!playgroundOpen)}
+            className={`p-2 rounded-lg ${playgroundOpen ? 'bg-blue-600' : isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-200'} transition-colors`}
             title="AI Playground"
           >
             <Sparkles size={18} />
@@ -670,21 +559,21 @@ export default function ModuleViewerPage({ params }: { params: Promise<{ slug: s
 
           <button
             onClick={() => setNotesOpen(!notesOpen)}
-            className={`p-2 rounded-lg transition-colors ${notesOpen ? (isDarkMode ? 'bg-zinc-800' : 'bg-zinc-100') : (isDarkMode ? 'hover:bg-zinc-800' : 'hover:bg-zinc-100')}`}
+            className={`p-2 rounded-lg ${notesOpen ? 'bg-blue-600' : isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-200'} transition-colors`}
           >
             <MessageSquare size={18} />
           </button>
 
           <button
             onClick={() => setIsDarkMode(!isDarkMode)}
-            className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-zinc-800' : 'hover:bg-zinc-100'}`}
+            className={`p-2 rounded-lg ${isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-200'} transition-colors`}
           >
             {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
           </button>
 
           <button
             onClick={toggleFullscreen}
-            className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-zinc-800' : 'hover:bg-zinc-100'}`}
+            className={`p-2 rounded-lg ${isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-200'} transition-colors`}
           >
             {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
           </button>
@@ -700,54 +589,56 @@ export default function ModuleViewerPage({ params }: { params: Promise<{ slug: s
               animate={{ x: 0 }}
               exit={{ x: -300 }}
               transition={{ type: 'spring', damping: 25 }}
-              className={`fixed left-0 top-16 bottom-0 w-80 border-r overflow-y-auto z-30 ${isDarkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-zinc-50 border-zinc-200'}`}
+              className={`fixed left-0 top-16 bottom-0 w-80 ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-gray-50 border-gray-200'} border-r overflow-y-auto z-30`}
             >
               <div className="p-4">
-                <h2 className={`font-semibold text-sm mb-4 ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>Course Progress</h2>
-                <div className="text-4xl font-bold mb-2">{completedSlides.size}</div>
-                <p className={`text-sm mb-6 ${isDarkMode ? 'text-zinc-500' : 'text-zinc-600'}`}>/ {module.slides.length} completed</p>
+                <h2 className="font-bold text-lg mb-4">Module Content</h2>
 
                 <div className="space-y-2">
-                  {module.slides.map((slide, index) => {
-                    const isAccessible = isSlideAccessible(index)
-                    const isLocked = !isAccessible
-
-                    return (
-                      <button
-                        key={slide.id}
-                        onClick={() => isAccessible && setCurrentSlideIndex(index)}
-                        disabled={isLocked}
-                        className={`w-full text-left p-3 rounded-lg transition-all ${
-                          index === currentSlideIndex
-                            ? (isDarkMode ? 'bg-zinc-800' : 'bg-zinc-200')
-                            : isLocked
-                              ? 'opacity-50 cursor-not-allowed'
-                              : (isDarkMode ? 'hover:bg-zinc-800/50' : 'hover:bg-zinc-100')
-                        }`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className={`mt-0.5 ${completedSlides.has(slide.id.toString()) ? 'text-green-500' : (isDarkMode ? 'text-zinc-600' : 'text-zinc-400')}`}>
-                            {completedSlides.has(slide.id.toString()) ? <CheckCircle size={18} /> : <Circle size={18} />}
-                          </div>
-
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className={`text-xs ${isDarkMode ? 'text-zinc-500' : 'text-zinc-600'}`}>{getSlideIcon(slide.type)}</span>
-                              <span className={`text-xs ${isDarkMode ? 'text-zinc-500' : 'text-zinc-600'}`}>
-                                {slide.duration}
-                              </span>
-                            </div>
-                            <h3 className={`font-normal text-sm leading-snug ${isLocked ? (isDarkMode ? 'text-zinc-700' : 'text-zinc-400') : ''}`}>
-                              {slide.title}
-                            </h3>
-                            <p className={`text-xs mt-1 ${isDarkMode ? 'text-zinc-600' : 'text-zinc-500'}`}>
-                              Section {index + 1} of {module.slides.length}
-                            </p>
-                          </div>
+                  {module.slides.map((slide, index) => (
+                    <button
+                      key={slide.id}
+                      onClick={() => setCurrentSlideIndex(index)}
+                      className={`w-full text-left p-4 rounded-lg transition-all ${
+                        index === currentSlideIndex
+                          ? isDarkMode ? 'bg-blue-600/20 border-blue-500' : 'bg-blue-100 border-blue-500'
+                          : isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-100'
+                      } border ${index === currentSlideIndex ? '' : 'border-transparent'}`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={`mt-1 ${completedSlides.has(slide.id.toString()) ? 'text-green-500' : isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                          {completedSlides.has(slide.id.toString()) ? <CheckCircle size={20} /> : <Circle size={20} />}
                         </div>
-                      </button>
-                    )
-                  })}
+
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            {getSlideIcon(slide.type)}
+                            <span className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                              {slide.duration}
+                            </span>
+                          </div>
+                          <h3 className="font-medium">{slide.title}</h3>
+                          <p className={`text-xs mt-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-600'}`}>
+                            Section {index + 1} of {module.slides.length}
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                <div className={`mt-6 p-4 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
+                  <h3 className="font-semibold mb-3">Your Progress</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span>Completed</span>
+                      <span className="font-bold">{completedSlides.size}/{module.slides.length}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Notes Taken</span>
+                      <span className="font-bold">{Object.keys(notes).length}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </motion.div>
@@ -767,14 +658,14 @@ export default function ModuleViewerPage({ params }: { params: Promise<{ slug: s
             <div ref={contentRef} className="max-w-5xl mx-auto px-8 py-12">
             <div className="mb-8">
               <div className="flex items-center gap-3 mb-4">
-                <span className="text-zinc-500">{getSlideIcon(currentSlide.type)}</span>
-                <span className="text-sm text-zinc-500">
+                {getSlideIcon(currentSlide.type)}
+                <span className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                   Section {currentSlideIndex + 1} • {currentSlide.duration}
                 </span>
               </div>
               <h1 className="text-4xl font-bold mb-2">{currentSlide.title}</h1>
               {currentSlide.description && (
-                <p className="text-lg text-zinc-400">
+                <p className={`text-lg ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                   {currentSlide.description}
                 </p>
               )}
@@ -794,59 +685,44 @@ export default function ModuleViewerPage({ params }: { params: Promise<{ slug: s
             </AnimatePresence>
 
             {/* Navigation */}
-            <div className={`flex justify-between items-center mt-12 pt-8 border-t ${isDarkMode ? 'border-zinc-800' : 'border-zinc-200'}`}>
+            <div className="flex justify-between items-center mt-12 pt-8 border-t border-gray-800">
               <button
                 onClick={() => setCurrentSlideIndex(Math.max(0, currentSlideIndex - 1))}
                 disabled={currentSlideIndex === 0}
-                className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-colors ${
+                className={`flex items-center gap-2 px-6 py-3 rounded-lg ${
                   currentSlideIndex === 0
-                    ? `opacity-50 cursor-not-allowed ${isDarkMode ? 'bg-zinc-800 text-zinc-600' : 'bg-zinc-200 text-zinc-400'}`
-                    : (isDarkMode ? 'bg-zinc-800 hover:bg-zinc-700 text-white' : 'bg-zinc-100 hover:bg-zinc-200 text-black')
-                }`}
+                    ? 'opacity-50 cursor-not-allowed'
+                    : isDarkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-gray-200 hover:bg-gray-300'
+                } transition-colors`}
               >
                 <ChevronLeft size={20} />
                 Previous
               </button>
 
               <div className="flex gap-2">
-                {module.slides.map((_, index) => {
-                  const isAccessible = isSlideAccessible(index)
-                  return (
-                    <button
-                      key={index}
-                      onClick={() => isAccessible && setCurrentSlideIndex(index)}
-                      disabled={!isAccessible}
-                      className={`h-2 rounded-full transition-all ${
-                        index === currentSlideIndex
-                          ? `w-8 ${isDarkMode ? 'bg-white' : 'bg-black'}`
-                          : completedSlides.has(module.slides[index].id.toString())
-                            ? `w-2 ${isDarkMode ? 'bg-white/50' : 'bg-black/50'}`
-                            : !isAccessible
-                              ? `w-2 cursor-not-allowed ${isDarkMode ? 'bg-zinc-800' : 'bg-zinc-200'}`
-                              : `w-2 ${isDarkMode ? 'bg-zinc-700' : 'bg-zinc-300'}`
-                      }`}
-                    />
-                  )
-                })}
+                {module.slides.map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setCurrentSlideIndex(index)}
+                    className={`w-2 h-2 rounded-full transition-all ${
+                      index === currentSlideIndex
+                        ? 'w-8 bg-blue-500'
+                        : completedSlides.has(module.slides[index].id.toString())
+                          ? 'bg-green-500'
+                          : isDarkMode ? 'bg-gray-600' : 'bg-gray-400'
+                    }`}
+                  />
+                ))}
               </div>
 
               <button
-                onClick={() => {
-                  const nextSlideIndex = currentSlideIndex + 1
-                  if (isSlideAccessible(nextSlideIndex)) {
-                    setCurrentSlideIndex(nextSlideIndex)
-                  }
-                }}
-                disabled={
-                  currentSlideIndex === module.slides.length - 1 ||
-                  !isSlideAccessible(currentSlideIndex + 1)
-                }
-                className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-colors ${
-                  currentSlideIndex === module.slides.length - 1 ||
-                  !isSlideAccessible(currentSlideIndex + 1)
-                    ? `opacity-50 cursor-not-allowed ${isDarkMode ? 'bg-zinc-800 text-zinc-600' : 'bg-zinc-200 text-zinc-400'}`
-                    : (isDarkMode ? 'bg-white text-black hover:bg-zinc-200' : 'bg-black text-white hover:bg-zinc-800')
-                }`}
+                onClick={() => setCurrentSlideIndex(Math.min(module.slides.length - 1, currentSlideIndex + 1))}
+                disabled={currentSlideIndex === module.slides.length - 1}
+                className={`flex items-center gap-2 px-6 py-3 rounded-lg ${
+                  currentSlideIndex === module.slides.length - 1
+                    ? 'opacity-50 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-700'
+                } transition-colors text-white`}
               >
                 Next
                 <ChevronRight size={20} />
@@ -859,7 +735,9 @@ export default function ModuleViewerPage({ params }: { params: Promise<{ slug: s
         {playgroundOpen && (
           <div
             onMouseDown={() => setIsResizing(true)}
-            className={`absolute top-0 bottom-0 w-1 cursor-col-resize z-50 hover:bg-zinc-700 transition-colors ${isResizing ? 'bg-zinc-700' : 'bg-transparent'}`}
+            className={`absolute top-0 bottom-0 w-1 cursor-col-resize z-50 ${
+              isDarkMode ? 'hover:bg-blue-500' : 'hover:bg-blue-400'
+            } transition-colors ${isResizing ? 'bg-blue-500' : 'bg-transparent'}`}
             style={{ left: `${playgroundWidth}%` }}
           />
         )}
@@ -880,9 +758,6 @@ export default function ModuleViewerPage({ params }: { params: Promise<{ slug: s
             >
               <AIPlayground
                 moduleTitle={module.title}
-                moduleId={module.moduleId || String(module.id)}
-                slideId={String(currentSlide.id)}
-                userId={user?.id}
                 currentSlide={{
                   title: currentSlide.title,
                   content: currentSlide.description || '',
@@ -904,7 +779,7 @@ export default function ModuleViewerPage({ params }: { params: Promise<{ slug: s
               animate={{ x: 0 }}
               exit={{ x: 300 }}
               transition={{ type: 'spring', damping: 25 }}
-              className={`fixed right-0 top-16 bottom-0 w-96 border-l overflow-y-auto z-30 ${isDarkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-zinc-50 border-zinc-200'}`}
+              className={`fixed right-0 top-16 bottom-0 w-96 ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-gray-50 border-gray-200'} border-l overflow-y-auto z-30`}
             >
               <div className="p-6">
                 <h2 className="font-bold text-lg mb-4">Your Notes</h2>
@@ -921,7 +796,9 @@ export default function ModuleViewerPage({ params }: { params: Promise<{ slug: s
                     }
                   }}
                   placeholder="Take notes for this section..."
-                  className={`w-full h-64 p-4 rounded-lg border resize-none focus:outline-none focus:ring-2 ${isDarkMode ? 'bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-600 focus:ring-zinc-600' : 'bg-white border-zinc-300 text-black placeholder:text-zinc-400 focus:ring-zinc-400'}`}
+                  className={`w-full h-64 p-4 rounded-lg ${
+                    isDarkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
+                  } resize-none focus:outline-none focus:ring-2 focus:ring-blue-500`}
                 />
 
                 <div className="mt-8">
@@ -935,10 +812,10 @@ export default function ModuleViewerPage({ params }: { params: Promise<{ slug: s
                         <button
                           key={slideId}
                           onClick={() => setCurrentSlideIndex(slideIndex)}
-                          className={`w-full text-left p-3 rounded-lg border transition-colors ${isDarkMode ? 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700' : 'bg-white hover:bg-zinc-50 border-zinc-200'}`}
+                          className={`w-full text-left p-3 rounded-lg ${isDarkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-gray-100 hover:bg-gray-200'} transition-colors`}
                         >
                           <h4 className="font-medium text-sm mb-1">{slide.title}</h4>
-                          <p className={`text-sm line-clamp-2 ${isDarkMode ? 'text-zinc-500' : 'text-zinc-600'}`}>{note}</p>
+                          <p className="text-sm opacity-75 line-clamp-2">{note}</p>
                         </button>
                       )
                     })}

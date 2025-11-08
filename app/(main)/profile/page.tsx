@@ -223,16 +223,50 @@ export default function ProfilePage() {
     event.target.value = ''
   }
 
-  const handleCropComplete = (croppedImage: string) => {
-    if (!cropperData) return
+  const handleCropComplete = async (croppedImage: string) => {
+    if (!cropperData || !user || !profile) return
 
-    if (cropperData.type === 'profile') {
-      setFormData({ ...formData, profileImage: croppedImage })
-    } else {
-      setFormData({ ...formData, bannerImage: croppedImage })
+    const field = cropperData.type === 'profile' ? 'profileImage' : 'bannerImage'
+
+    // Update local state
+    setFormData({ ...formData, [field]: croppedImage })
+
+    // Immediately save to database
+    setSaving(true)
+    try {
+      const updatedProfile = {
+        ...profile,
+        ...formData,
+        [field]: croppedImage
+      }
+
+      const res = await fetch(`/api/users/${user.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedProfile)
+      })
+
+      if (res.ok) {
+        const updated = await res.json()
+        setProfile(updated)
+
+        // Update localStorage to sync across app
+        localStorage.setItem('user', JSON.stringify(updated))
+
+        // Force re-render by updating window
+        window.dispatchEvent(new Event('storage'))
+
+        alert(`${cropperData.type === 'profile' ? 'Profile picture' : 'Banner'} saved successfully!`)
+      } else {
+        throw new Error('Failed to save image')
+      }
+    } catch (err) {
+      console.error('Error saving image:', err)
+      alert('Failed to save image. Please try again.')
+    } finally {
+      setSaving(false)
+      setCropperData(null)
     }
-
-    setCropperData(null)
   }
 
   const handleCropCancel = () => {

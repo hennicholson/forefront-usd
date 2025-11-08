@@ -36,6 +36,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
+import { AIPlayground } from './components/AIPlayground'
 
 interface ContentBlock {
   id: string
@@ -85,8 +86,11 @@ export default function ModuleViewerPage({ params }: { params: Promise<{ slug: s
   const [notes, setNotes] = useState<{ [key: string]: string }>({})
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isDarkMode, setIsDarkMode] = useState(true)
-  const [autoPlay, setAutoPlay] = useState(false)
   const [completedSlides, setCompletedSlides] = useState<Set<string>>(new Set())
+  const contentRef = React.useRef<HTMLDivElement>(null)
+  const [playgroundOpen, setPlaygroundOpen] = useState(false)
+  const [playgroundWidth, setPlaygroundWidth] = useState(50) // percentage
+  const [isResizing, setIsResizing] = useState(false)
 
   // Fetch module data
   useEffect(() => {
@@ -214,6 +218,13 @@ export default function ModuleViewerPage({ params }: { params: Promise<{ slug: s
     }
   }
 
+  // Scroll to top when slide changes
+  useEffect(() => {
+    if (contentRef.current) {
+      contentRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [currentSlideIndex])
+
   // Mark slide as completed
   useEffect(() => {
     if (module && currentSlide && !completedSlides.has(currentSlide.id.toString())) {
@@ -226,6 +237,30 @@ export default function ModuleViewerPage({ params }: { params: Promise<{ slug: s
       return () => clearTimeout(timer)
     }
   }, [currentSlideIndex, module])
+
+  // Handle resizing
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing) return
+      const containerWidth = window.innerWidth
+      const newWidth = (e.clientX / containerWidth) * 100
+      setPlaygroundWidth(Math.max(30, Math.min(70, newWidth)))
+    }
+
+    const handleMouseUp = () => {
+      setIsResizing(false)
+    }
+
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove)
+      document.addEventListener('mouseup', handleMouseUp)
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isResizing])
 
   const updateProgress = async () => {
     if (!user || !module) return
@@ -421,28 +456,48 @@ export default function ModuleViewerPage({ params }: { params: Promise<{ slug: s
         const previewCss = block.data.css || ''
         const previewJs = block.data.js || ''
 
-        // Combine HTML, CSS, and JS into a single iframe
+        // Combine HTML, CSS, and JS into a single iframe with proper structure
         const iframeContent = `
           <!DOCTYPE html>
-          <html>
+          <html lang="en">
             <head>
-              <style>${previewCss}</style>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <style>
+                * {
+                  margin: 0;
+                  padding: 0;
+                  box-sizing: border-box;
+                }
+                body {
+                  font-family: system-ui, -apple-system, sans-serif;
+                  line-height: 1.5;
+                }
+                ${previewCss}
+              </style>
             </head>
             <body>
               ${previewHtml}
-              <script>${previewJs}</script>
+              <script>
+                try {
+                  ${previewJs}
+                } catch (error) {
+                  console.error('JavaScript Error:', error);
+                }
+              </script>
             </body>
           </html>
         `
 
         return (
           <div key={block.id} className="mb-6">
-            <div className={`rounded-lg overflow-hidden border ${isDarkMode ? 'border-gray-700' : 'border-gray-300'}`}>
+            <div className={`rounded-lg overflow-hidden border ${isDarkMode ? 'border-gray-700' : 'border-gray-300'} bg-white`}>
               <iframe
                 srcDoc={iframeContent}
-                className="w-full bg-white"
-                style={{ minHeight: '400px', border: 'none' }}
-                sandbox="allow-scripts"
+                className="w-full"
+                style={{ minHeight: '400px', border: 'none', display: 'block' }}
+                sandbox="allow-scripts allow-same-origin"
+                title="Code Preview"
               />
             </div>
           </div>
@@ -495,10 +550,11 @@ export default function ModuleViewerPage({ params }: { params: Promise<{ slug: s
           </div>
 
           <button
-            onClick={() => setAutoPlay(!autoPlay)}
-            className={`p-2 rounded-lg ${autoPlay ? 'bg-blue-600' : isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-200'} transition-colors`}
+            onClick={() => setPlaygroundOpen(!playgroundOpen)}
+            className={`p-2 rounded-lg ${playgroundOpen ? 'bg-blue-600' : isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-200'} transition-colors`}
+            title="AI Playground"
           >
-            {autoPlay ? <Pause size={18} /> : <Play size={18} />}
+            <Sparkles size={18} />
           </button>
 
           <button
@@ -589,9 +645,17 @@ export default function ModuleViewerPage({ params }: { params: Promise<{ slug: s
           )}
         </AnimatePresence>
 
-        {/* Main Content */}
-        <div className={`flex-1 ${sidebarOpen ? 'ml-80' : ''} transition-all duration-300`}>
-          <div className="max-w-5xl mx-auto px-8 py-12">
+        {/* Main Content & Playground Split View */}
+        <div className="flex flex-1 relative">
+          {/* Main Content */}
+          <div
+            className={`${sidebarOpen ? 'ml-80' : ''} transition-all duration-300`}
+            style={{
+              width: playgroundOpen ? `${playgroundWidth}%` : '100%',
+              transition: 'width 0.3s ease'
+            }}
+          >
+            <div ref={contentRef} className="max-w-5xl mx-auto px-8 py-12">
             <div className="mb-8">
               <div className="flex items-center gap-3 mb-4">
                 {getSlideIcon(currentSlide.type)}
@@ -667,6 +731,46 @@ export default function ModuleViewerPage({ params }: { params: Promise<{ slug: s
           </div>
         </div>
 
+        {/* Resize Handle */}
+        {playgroundOpen && (
+          <div
+            onMouseDown={() => setIsResizing(true)}
+            className={`absolute top-0 bottom-0 w-1 cursor-col-resize z-50 ${
+              isDarkMode ? 'hover:bg-blue-500' : 'hover:bg-blue-400'
+            } transition-colors ${isResizing ? 'bg-blue-500' : 'bg-transparent'}`}
+            style={{ left: `${playgroundWidth}%` }}
+          />
+        )}
+
+        {/* AI Playground Panel */}
+        <AnimatePresence>
+          {playgroundOpen && (
+            <motion.div
+              initial={{ x: 300, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: 300, opacity: 0 }}
+              transition={{ type: 'spring', damping: 25 }}
+              className="fixed right-0 top-16 bottom-0 z-30"
+              style={{
+                width: `${100 - playgroundWidth}%`,
+                minWidth: '400px'
+              }}
+            >
+              <AIPlayground
+                moduleTitle={module.title}
+                currentSlide={{
+                  title: currentSlide.title,
+                  content: currentSlide.description || '',
+                  type: currentSlide.type
+                }}
+                isDarkMode={isDarkMode}
+                onClose={() => setPlaygroundOpen(false)}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
         {/* Notes Panel */}
         <AnimatePresence>
           {notesOpen && (
@@ -702,12 +806,17 @@ export default function ModuleViewerPage({ params }: { params: Promise<{ slug: s
                   <div className="space-y-3">
                     {Object.entries(notes).map(([slideId, note]) => {
                       const slide = module.slides.find(s => s.id.toString() === slideId)
+                      const slideIndex = module.slides.findIndex(s => s.id.toString() === slideId)
                       if (!slide || !note) return null
                       return (
-                        <div key={slideId} className={`p-3 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
+                        <button
+                          key={slideId}
+                          onClick={() => setCurrentSlideIndex(slideIndex)}
+                          className={`w-full text-left p-3 rounded-lg ${isDarkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-gray-100 hover:bg-gray-200'} transition-colors`}
+                        >
                           <h4 className="font-medium text-sm mb-1">{slide.title}</h4>
-                          <p className="text-sm opacity-75">{note}</p>
-                        </div>
+                          <p className="text-sm opacity-75 line-clamp-2">{note}</p>
+                        </button>
                       )
                     })}
                   </div>

@@ -286,3 +286,46 @@ export const waitlist = pgTable('waitlist', {
   avatarUrl: text('avatar_url'), // For the AI-generated character photo
   createdAt: timestamp('created_at').defaultNow(),
 })
+
+// Knowledge Check Responses - Track user responses to knowledge checks
+export const knowledgeCheckResponses = pgTable('knowledge_check_responses', {
+  id: serial('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id),
+  moduleId: text('module_id').notNull(),
+  slideId: text('slide_id').notNull(),
+  blockId: text('block_id').notNull(),
+  question: text('question').notNull(),
+  selectedIndex: integer('selected_index').notNull(),
+  correctIndex: integer('correct_index').notNull(),
+  isCorrect: boolean('is_correct').notNull(),
+  attemptNumber: integer('attempt_number').notNull().default(1), // Track multiple attempts
+  timeToAnswer: integer('time_to_answer'), // milliseconds
+  createdAt: timestamp('created_at').defaultNow(),
+})
+
+// AI Generation History - Track all AI generations (text, image, video) in playground
+export const generationHistory = pgTable('generation_history', {
+  id: serial('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id),
+  moduleId: text('module_id'), // Optional - if generated within a module
+  slideId: text('slide_id'), // Optional - if generated within a specific slide
+  type: text('type').notNull(), // 'text', 'image', 'video'
+  model: text('model').notNull(), // 'gemini-2.0-flash', 'seedream-4', 'dall-e-3', etc.
+  prompt: text('prompt').notNull(),
+  response: text('response'), // Text response or URL to generated media
+  metadata: jsonb('metadata').default('{}'), // Additional data like aspect_ratio, quality, etc.
+  rating: integer('rating'), // 1-5 star rating
+  saved: boolean('saved').notNull().default(false), // User saved to portfolio
+  tags: jsonb('tags').default('[]'), // User-defined tags for organization
+  notes: text('notes'), // User notes about this generation
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+})
+
+// Folders - User-created folders for organizing generations
+export const folders = pgTable('folders', {
+  id: serial('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id),
+  name: text('name').notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+})

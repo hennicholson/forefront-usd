@@ -218,6 +218,29 @@ export default function AdminModulesPage() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: '8px' }}>
+                    <Link
+                      href={`/admin/modules/edit/${module.slug}`}
+                      style={{
+                        padding: '8px 16px',
+                        borderRadius: '6px',
+                        border: '1px solid #0066cc',
+                        backgroundColor: '#0066cc',
+                        color: '#fff',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        textDecoration: 'none',
+                        display: 'inline-block',
+                        transition: 'all 0.2s ease'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#0052a3'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = '#0066cc'
+                      }}
+                    >
+                      Edit
+                    </Link>
                     <button
                       onClick={() => handleDeleteModule(module.id)}
                       style={{
@@ -249,7 +272,7 @@ export default function AdminModulesPage() {
                 </div>
                 <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
                   <Link
-                    href={`/admin/modules/edit/${module.id}`}
+                    href={`/admin/modules/edit/${module.slug}`}
                     style={{
                       fontSize: '13px',
                       textTransform: 'uppercase',

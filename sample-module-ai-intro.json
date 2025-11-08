@@ -1,0 +1,270 @@
+{
+  "moduleId": "intro-ai-ml",
+  "slug": "intro-to-ai",
+  "title": "Introduction to AI & Machine Learning",
+  "description": "Master the fundamentals of artificial intelligence and machine learning with hands-on examples",
+  "instructor": {
+    "name": "Dr. Sarah Chen",
+    "photo": "",
+    "year": "PhD",
+    "major": "Computer Science"
+  },
+  "duration": "2 hours 30 min",
+  "skillLevel": "Beginner",
+  "introVideo": "https://www.youtube.com/embed/example",
+  "displayOrder": 1,
+  "learningObjectives": [
+    "Understand the core concepts of AI and ML",
+    "Learn the difference between various types of machine learning",
+    "Build your first predictive model",
+    "Apply AI concepts to real-world problems"
+  ],
+  "keyTakeaways": [
+    "AI is about creating intelligent systems that can learn and adapt",
+    "Machine learning is a subset of AI that learns from data",
+    "Neural networks are inspired by the human brain",
+    "AI has applications in every industry"
+  ],
+  "slides": [
+    {
+      "id": "1",
+      "title": "Welcome to the Future of AI",
+      "type": "intro",
+      "duration": "5 min",
+      "description": "Begin your journey into artificial intelligence",
+      "blocks": [
+        {
+          "id": "block-1",
+          "type": "markdown",
+          "data": {
+            "content": "# Welcome to the Future of AI 🚀\n\n## What You'll Master Today\n\nIn this comprehensive module, you'll discover:\n\n• **Core Concepts** - Understanding intelligence, both artificial and human\n• **ML Fundamentals** - How machines learn from data\n• **Neural Networks** - The building blocks of deep learning\n• **Real Applications** - From ChatGPT to self-driving cars\n• **Hands-on Practice** - Build your first AI model\n\n> \"The best way to predict the future is to invent it.\" - Alan Kay\n\n## Your Journey Starts Here\n\nGet ready to transform your understanding of technology and unlock new possibilities in your career."
+          }
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "title": "What is Artificial Intelligence?",
+      "type": "lesson",
+      "duration": "10 min",
+      "description": "Understanding the fundamentals of AI",
+      "blocks": [
+        {
+          "id": "block-2-1",
+          "type": "text",
+          "data": {
+            "text": "Understanding Artificial Intelligence",
+            "variant": "h1"
+          }
+        },
+        {
+          "id": "block-2-2",
+          "type": "markdown",
+          "data": {
+            "content": "**Artificial Intelligence (AI)** is the simulation of human intelligence processes by machines, especially computer systems.\n\n### Key Components:\n\n#### 1. Machine Learning\nThe ability for computers to learn without being explicitly programmed.\n\n#### 2. Neural Networks\nSystems inspired by the human brain that can recognize patterns.\n\n#### 3. Natural Language Processing\nHelping computers understand and generate human language.\n\n#### 4. Computer Vision\nEnabling machines to interpret and understand visual information."
+          }
+        },
+        {
+          "id": "block-2-3",
+          "type": "note",
+          "data": {
+            "content": "AI isn't about replacing humans—it's about augmenting human capabilities and solving problems at scale."
+          }
+        }
+      ]
+    },
+    {
+      "id": "3",
+      "title": "Types of Machine Learning",
+      "type": "lesson",
+      "duration": "15 min",
+      "description": "Explore different ML approaches",
+      "blocks": [
+        {
+          "id": "block-3-1",
+          "type": "markdown",
+          "data": {
+            "content": "## Three Main Types of Machine Learning\n\n### 1. Supervised Learning 📊\n- **What it is**: Learning from labeled examples\n- **Example**: Email spam detection\n- **Use case**: When you have historical data with known outcomes\n\n### 2. Unsupervised Learning 🔍\n- **What it is**: Finding patterns in unlabeled data\n- **Example**: Customer segmentation\n- **Use case**: When you want to discover hidden patterns\n\n### 3. Reinforcement Learning 🎮\n- **What it is**: Learning through trial and error\n- **Example**: Game-playing AI, robotics\n- **Use case**: When you need to optimize sequential decisions"
+          }
+        },
+        {
+          "id": "block-3-2",
+          "type": "image",
+          "data": {
+            "url": "https://example.com/ml-types-diagram.png",
+            "alt": "Types of Machine Learning Diagram",
+            "caption": "The three main paradigms of machine learning"
+          }
+        }
+      ]
+    },
+    {
+      "id": "4",
+      "title": "Your First Python AI Code",
+      "type": "code",
+      "duration": "20 min",
+      "description": "Build a simple predictive model",
+      "blocks": [
+        {
+          "id": "block-4-1",
+          "type": "text",
+          "data": {
+            "text": "Build Your First AI Model",
+            "variant": "h2"
+          }
+        },
+        {
+          "id": "block-4-2",
+          "type": "markdown",
+          "data": {
+            "content": "Let's create a simple machine learning model that can predict house prices based on size. This is a real-world application of AI that's used in real estate platforms.\n\n### What This Code Does:\n1. **Imports Libraries** - We use scikit-learn, a powerful ML library\n2. **Creates Training Data** - Real house sizes and prices\n3. **Trains the Model** - The AI learns the relationship\n4. **Makes Predictions** - Estimates price for a new house\n5. **Visualizes Results** - Shows how well our model performs"
+          }
+        },
+        {
+          "id": "block-4-3",
+          "type": "code",
+          "data": {
+            "language": "python",
+            "code": "# Your First AI: Linear Regression Model\nimport numpy as np\nfrom sklearn.linear_model import LinearRegression\nimport matplotlib.pyplot as plt\n\n# Step 1: Create sample data\n# Imagine we're predicting house prices based on size\nhouse_sizes = np.array([[500], [750], [1000], [1250], [1500], [1750], [2000]])\nhouse_prices = np.array([150000, 200000, 250000, 300000, 350000, 400000, 450000])\n\n# Step 2: Create and train the model\nmodel = LinearRegression()\nmodel.fit(house_sizes, house_prices)\n\n# Step 3: Make predictions\nnew_house = [[1600]]\npredicted_price = model.predict(new_house)\n\nprint(\"🏠 House size:\", new_house[0][0], \"sq ft\")\nprint(\"💰 Predicted price: $\", round(predicted_price[0], 2))\n\n# Step 4: Visualize the results\nplt.scatter(house_sizes, house_prices, color='blue', label='Actual data')\nplt.plot(house_sizes, model.predict(house_sizes), color='red', label='Model prediction')\nplt.xlabel('House Size (sq ft)')\nplt.ylabel('Price ($)')\nplt.title('AI House Price Predictor')\nplt.legend()\nplt.show()\n\n# Congratulations! You've just built your first AI model! 🎉"
+          }
+        },
+        {
+          "id": "block-4-4",
+          "type": "note",
+          "data": {
+            "content": "Try It Yourself: Click 'Run Code' to see the AI in action. Then try changing the house sizes or prices to see how it affects predictions!"
+          }
+        }
+      ]
+    },
+    {
+      "id": "5",
+      "title": "Real-World AI Applications",
+      "type": "lesson",
+      "duration": "10 min",
+      "description": "See AI in action across industries",
+      "blocks": [
+        {
+          "id": "block-5-1",
+          "type": "markdown",
+          "data": {
+            "content": "## AI is Transforming Every Industry\n\n### 🏥 Healthcare\n- **Disease Diagnosis**: AI detecting cancer in medical images\n- **Drug Discovery**: Accelerating new medicine development\n- **Personalized Treatment**: Tailoring care to individual patients\n\n### 🚗 Transportation\n- **Self-Driving Cars**: Autonomous vehicles navigating roads\n- **Traffic Optimization**: Reducing congestion in cities\n- **Predictive Maintenance**: Preventing breakdowns before they happen\n\n### 💰 Finance\n- **Fraud Detection**: Identifying suspicious transactions\n- **Algorithmic Trading**: Making split-second market decisions\n- **Credit Scoring**: Assessing loan risk more accurately\n\n### 🎮 Entertainment\n- **Content Recommendations**: Netflix, Spotify suggestions\n- **Game AI**: Creating intelligent NPCs\n- **Content Generation**: AI art, music, and writing"
+          }
+        },
+        {
+          "id": "block-5-2",
+          "type": "video",
+          "data": {
+            "url": "https://www.youtube.com/embed/example-ai-applications",
+            "caption": "Watch: AI Applications That Are Changing the World"
+          }
+        }
+      ]
+    },
+    {
+      "id": "6",
+      "title": "Neural Networks Explained",
+      "type": "lesson",
+      "duration": "15 min",
+      "description": "Understanding deep learning fundamentals",
+      "blocks": [
+        {
+          "id": "block-6-1",
+          "type": "markdown",
+          "data": {
+            "content": "## Neural Networks: The Brain of AI\n\n### How Neural Networks Work\n\nNeural networks are inspired by the human brain, consisting of layers of interconnected \"neurons\" that process information.\n\n### Basic Components:\n\n1. **Input Layer** 📥\n   - Receives raw data (images, text, numbers)\n   \n2. **Hidden Layers** 🧠\n   - Process and transform the data\n   - Extract features and patterns\n   \n3. **Output Layer** 📤\n   - Produces the final prediction or classification\n\n### The Learning Process:\n\n1. **Forward Propagation**: Data flows through the network\n2. **Calculate Error**: Compare output to expected result\n3. **Backpropagation**: Adjust weights to reduce error\n4. **Repeat**: Continue until accuracy is satisfactory"
+          }
+        },
+        {
+          "id": "block-6-2",
+          "type": "code",
+          "data": {
+            "language": "python",
+            "code": "# Simple Neural Network Visualization\nimport numpy as np\n\n# A single neuron\nclass Neuron:\n    def __init__(self):\n        # Random weights and bias\n        self.weights = np.random.randn(2)\n        self.bias = np.random.randn()\n    \n    def forward(self, inputs):\n        # Weighted sum + bias\n        total = np.dot(self.weights, inputs) + self.bias\n        # Activation function (sigmoid)\n        return 1 / (1 + np.exp(-total))\n\n# Create and use a neuron\nneuron = Neuron()\ninputs = [1.5, 2.0]  # Example input\noutput = neuron.forward(inputs)\n\nprint(f\"Input: {inputs}\")\nprint(f\"Output: {output:.4f}\")\nprint(\"\\nThis single neuron takes 2 inputs and produces 1 output!\")\nprint(\"Stack millions of these together = Deep Learning! 🚀\")"
+          }
+        }
+      ]
+    },
+    {
+      "id": "7",
+      "title": "Test Your Knowledge",
+      "type": "quiz",
+      "duration": "5 min",
+      "description": "Check your understanding",
+      "blocks": [
+        {
+          "id": "block-7-1",
+          "type": "quiz",
+          "data": {
+            "question": "What is Machine Learning?",
+            "options": [
+              "Programming computers explicitly for every task",
+              "Computers learning from data without explicit programming",
+              "Installing new software on machines",
+              "Upgrading computer hardware"
+            ],
+            "correctAnswer": 1
+          }
+        },
+        {
+          "id": "block-7-2",
+          "type": "quiz",
+          "data": {
+            "question": "Which type of learning uses labeled data?",
+            "options": [
+              "Unsupervised Learning",
+              "Reinforcement Learning",
+              "Supervised Learning",
+              "Transfer Learning"
+            ],
+            "correctAnswer": 2
+          }
+        },
+        {
+          "id": "block-7-3",
+          "type": "quiz",
+          "data": {
+            "question": "Neural Networks are inspired by?",
+            "options": [
+              "The internet",
+              "Social networks",
+              "Computer networks",
+              "The human brain"
+            ],
+            "correctAnswer": 3
+          }
+        }
+      ]
+    },
+    {
+      "id": "8",
+      "title": "Congratulations! Module Complete",
+      "type": "summary",
+      "duration": "5 min",
+      "description": "Review and next steps",
+      "blocks": [
+        {
+          "id": "block-8-1",
+          "type": "markdown",
+          "data": {
+            "content": "# 🎉 Congratulations! You've Completed the Module\n\n## What You've Learned:\n\n✅ **Core Concepts of AI** - Understanding artificial vs human intelligence\n✅ **Machine Learning Types** - Supervised, Unsupervised, Reinforcement\n✅ **Built Your First Model** - A working house price predictor\n✅ **Neural Networks** - How deep learning mimics the brain\n✅ **Real Applications** - AI across industries\n\n## Your Achievement:\n\n### 🏆 AI Fundamentals Badge Earned!\n\nYou're now equipped with foundational knowledge to explore advanced AI topics."
+          }
+        },
+        {
+          "id": "block-8-2",
+          "type": "note",
+          "data": {
+            "content": "Next Steps: Continue with 'Deep Learning with TensorFlow' or 'Natural Language Processing Basics'"
+          }
+        },
+        {
+          "id": "block-8-3",
+          "type": "markdown",
+          "data": {
+            "content": "## Resources for Continued Learning:\n\n### 📚 Recommended Reading\n- \"Pattern Recognition and Machine Learning\" by Christopher Bishop\n- \"The Hundred-Page Machine Learning Book\" by Andriy Burkov\n\n### 💻 Practice Projects\n1. Build a sentiment analyzer for movie reviews\n2. Create an image classifier for pets\n3. Develop a chatbot using NLP\n\n### 🌐 Join the Community\n- ForeFront AI Study Group - Thursdays 6PM\n- Weekly AI Hackathons\n- Office Hours with Instructors\n\n---\n\n**Remember**: The journey to mastering AI is continuous. Keep experimenting, keep learning, and keep building! 🚀"
+          }
+        }
+      ]
+    }
+  ]
+}
