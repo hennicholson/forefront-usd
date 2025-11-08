@@ -333,7 +333,6 @@ export function AIPlayground({ moduleTitle, moduleId, slideId, userId, currentSl
     setSavingMessageIndex(messageIndex)
     setNewFolderName('') // Reset folder name
     setShowFolderModal(true)
-    setContextMenu(null)
   }
 
   return (
