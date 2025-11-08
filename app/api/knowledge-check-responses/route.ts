@@ -88,22 +88,18 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    let query = db
-      .select()
-      .from(knowledgeCheckResponses)
-      .where(eq(knowledgeCheckResponses.userId, userId))
-
-    // Filter by moduleId if provided
-    if (moduleId) {
-      query = query.where(
-        and(
+    // Build where clause
+    const whereClause = moduleId
+      ? and(
           eq(knowledgeCheckResponses.userId, userId),
           eq(knowledgeCheckResponses.moduleId, moduleId)
         )
-      ) as any
-    }
+      : eq(knowledgeCheckResponses.userId, userId)
 
-    const responses = await query
+    const responses = await db
+      .select()
+      .from(knowledgeCheckResponses)
+      .where(whereClause)
 
     // Calculate statistics
     const stats = {
