@@ -1332,8 +1332,22 @@ export default function NetworkPage() {
   if (!isAuthenticated) {
     return (
       <>
-        <div className="min-h-screen bg-black flex items-center justify-center px-4">
-          <div className="max-w-md w-full bg-zinc-900/50 backdrop-blur-xl border border-zinc-800 rounded-2xl p-8 text-center">
+        <div className="min-h-screen bg-black flex items-center justify-center px-4 relative overflow-hidden">
+          {/* Background Video */}
+          <video
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="absolute top-0 left-0 w-full h-full object-cover opacity-40 blur-[8px] scale-110"
+          >
+            <source src="https://hmn.digital/joinnetwork_bg_video.mp4" type="video/mp4" />
+          </video>
+
+          {/* Overlay gradient */}
+          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-black/50 to-black/70" />
+
+          <div className="max-w-md w-full bg-zinc-900/50 backdrop-blur-xl border border-zinc-800 rounded-2xl p-8 text-center relative z-10">
             <Users className="w-16 h-16 mx-auto mb-4 text-white opacity-50" />
             <h1 className="text-2xl font-bold text-white mb-3">Join the Network</h1>
             <p className="text-gray-400 mb-6">Connect with other learners and share your journey</p>
