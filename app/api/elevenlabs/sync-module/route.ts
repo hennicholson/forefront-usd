@@ -35,10 +35,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate chunks for the knowledge base
-    const chunks = chunkModule(moduleData)
+    // Cast moduleData to have proper types for JSONB fields
+    const chunks = chunkModule(moduleData as any)
 
     // Generate agent prompt
-    const agentPrompt = generateAgentPrompt(moduleData)
+    const agentPrompt = generateAgentPrompt(moduleData as any)
 
     // Create agent
     const agentName = `Module: ${moduleData.title}`
