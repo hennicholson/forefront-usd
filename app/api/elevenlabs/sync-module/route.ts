@@ -35,39 +35,27 @@ export async function POST(request: NextRequest) {
     // Generate agent prompt
     const agentPrompt = generateAgentPrompt(moduleData)
 
-    // Create or get agent
+    // Create agent
     const agentName = `Module: ${moduleData.title}`
 
-    let agent: any
-    try {
-      // List all agents to find existing one
-      const response = await elevenlabs.conversationalAi.agents.getAll()
-      agent = response.agents?.find((a: any) => a.name === agentName)
-    } catch (error) {
-      console.log('No existing agents found')
-    }
-
-    if (!agent) {
-      // Create new agent with conversation config
-      const createResponse = await elevenlabs.conversationalAi.agents.create({
-        conversationConfig: {
-          agent: {
-            prompt: {
-              prompt: agentPrompt,
-            },
-            firstMessage: `Hi! I'm your AI mentor for the ${moduleData.title} module. I'm here to help you understand the content and answer any questions you might have. How can I assist you today?`,
-            language: 'en',
+    // Create new agent with conversation config
+    const agent = await elevenlabs.conversationalAi.agents.create({
+      conversationConfig: {
+        agent: {
+          prompt: {
+            prompt: agentPrompt,
           },
+          firstMessage: `Hi! I'm your AI mentor for the ${moduleData.title} module. I'm here to help you understand the content and answer any questions you might have. How can I assist you today?`,
+          language: 'en',
         },
-        platform: {
-          name: agentName,
-        },
-      })
-      agent = createResponse
-    }
+      },
+      platform: {
+        name: agentName,
+      },
+    })
 
     if (!agent || !agent.agentId) {
-      throw new Error('Failed to create or retrieve agent')
+      throw new Error('Failed to create agent')
     }
 
     // Add knowledge base documents to the agent
