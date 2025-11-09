@@ -62,11 +62,17 @@ export async function POST(request: NextRequest) {
 
       try {
         // Upload each chunk as a text document to the knowledge base
-        await elevenlabs.conversationalAi.knowledgeBase.documents.createFromText({
-          text: chunk.text,
-          name: `${chunk.metadata.slideTitle}`,
-          agentId: agent.agentId,
-        })
+        await elevenlabs.conversationalAi.knowledgeBase.documents.createFromText(
+          {
+            text: chunk.text,
+            name: `${chunk.metadata.slideTitle}`,
+          },
+          {
+            queryParams: {
+              agent_id: agent.agentId,
+            },
+          }
+        )
       } catch (error: any) {
         console.error(`Error adding chunk ${i}:`, error.message)
         // Continue with other chunks even if one fails
