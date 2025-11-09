@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
         await elevenlabs.conversationalAi.knowledgeBase.documents.createFromText({
           text: chunk.text,
           name: `${chunk.metadata.slideTitle}`,
-          agentIds: [agent.agentId],
+          agentId: agent.agentId,
         })
       } catch (error: any) {
         console.error(`Error adding chunk ${i}:`, error.message)
