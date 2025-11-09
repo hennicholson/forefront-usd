@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js'
 import { chunkModule, generateAgentPrompt } from '@/lib/elevenlabs/knowledge-base'
+import { db } from '@/lib/db'
+import { modules } from '@/lib/db/schema'
+import { eq } from 'drizzle-orm'
 
 const elevenlabs = new ElevenLabsClient({
   apiKey: process.env.ELEVENLABS_API_KEY!
@@ -17,17 +20,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Fetch module data from the modules API
-    const moduleResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/modules/${slug}`)
+    // Fetch module data directly from database
+    const [moduleData] = await db
+      .select()
+      .from(modules)
+      .where(eq(modules.slug, slug))
+      .limit(1)
 
-    if (!moduleResponse.ok) {
+    if (!moduleData) {
       return NextResponse.json(
         { error: 'Module not found' },
         { status: 404 }
       )
     }
-
-    const moduleData = await moduleResponse.json()
 
     // Generate chunks for the knowledge base
     const chunks = chunkModule(moduleData)
