@@ -2,10 +2,11 @@
 
 import React, { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Send, Loader2, Sparkles, X, Code, Image as ImageIcon, Video, Zap, FileText, Palette, Film, Bookmark, BookmarkCheck, Check, AlertCircle } from 'lucide-react'
+import { Send, Loader2, Sparkles, X, Code, Image as ImageIcon, Video, Zap, FileText, Palette, Film, Bookmark, BookmarkCheck, Check, AlertCircle, Mic, MicOff, Phone, PhoneOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
+import { useConversation } from '@elevenlabs/react'
 
 interface Toast {
   id: number
@@ -27,6 +28,7 @@ interface Message {
 interface AIPlaygroundProps {
   moduleTitle: string
   moduleId?: string
+  moduleSlug?: string
   slideId?: string
   userId?: string
   currentSlide: {
@@ -38,7 +40,8 @@ interface AIPlaygroundProps {
   onClose?: () => void
 }
 
-export function AIPlayground({ moduleTitle, moduleId, slideId, userId, currentSlide, isDarkMode, onClose }: AIPlaygroundProps) {
+export function AIPlayground({ moduleTitle, moduleId, moduleSlug, slideId, userId, currentSlide, isDarkMode, onClose }: AIPlaygroundProps) {
+  const [mode, setMode] = useState<'text' | 'voice'>('text')
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -53,6 +56,27 @@ export function AIPlayground({ moduleTitle, moduleId, slideId, userId, currentSl
   const [savingMessageIndex, setSavingMessageIndex] = useState<number | null>(null)
   const [toasts, setToasts] = useState<Toast[]>([])
   const toastIdCounter = useRef(0)
+
+  // Voice mode state
+  const [agentId, setAgentId] = useState<string | null>(null)
+  const [signedUrl, setSignedUrl] = useState<string | null>(null)
+
+  // Use ElevenLabs conversation hook
+  const conversation = useConversation({
+    onConnect: () => {
+      showToast('success', 'Voice mentor connected!')
+    },
+    onDisconnect: () => {
+      showToast('success', 'Voice mentor disconnected')
+    },
+    onError: (error) => {
+      console.error('Voice error:', error)
+      showToast('error', 'Voice connection error')
+    },
+    onMessage: (message) => {
+      console.log('Message from agent:', message)
+    },
+  })
 
   const modelOptions = [
     { id: 'gemini-2.0-flash', name: 'Gemini 2.0', category: 'Text', icon: Sparkles, color: 'from-blue-500 to-cyan-500' },
@@ -335,32 +359,211 @@ export function AIPlayground({ moduleTitle, moduleId, slideId, userId, currentSl
     setShowFolderModal(true)
   }
 
+  // Voice mode functions
+  const startVoiceSession = async () => {
+    try {
+      // First, sync the module to create KB and agent if needed
+      if (moduleSlug) {
+        showToast('success', 'Syncing module content...')
+        const syncRes = await fetch('/api/elevenlabs/sync-module', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug: moduleSlug })
+        })
+
+        if (!syncRes.ok) {
+          throw new Error('Failed to sync module')
+        }
+
+        const { agent } = await syncRes.json()
+        setAgentId(agent.id)
+
+        // Get WebSocket connection
+        const sessionRes = await fetch(`/api/elevenlabs/voice-agent?agentId=${agent.id}`)
+        if (!sessionRes.ok) {
+          throw new Error('Failed to create voice session')
+        }
+
+        const { signedUrl } = await sessionRes.json()
+        setSignedUrl(signedUrl)
+
+        // Start the conversation using the hook
+        await conversation.startSession({ signedUrl })
+      }
+    } catch (error: any) {
+      console.error('Error starting voice session:', error)
+      showToast('error', error.message || 'Failed to start voice session')
+    }
+  }
+
+  const stopVoiceSession = async () => {
+    await conversation.endSession()
+  }
+
+  const toggleMute = () => {
+    conversation.setIsMuted(!conversation.isMuted)
+  }
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (conversation.status === 'connected') {
+        conversation.endSession()
+      }
+    }
+  }, [])
+
   return (
     <div className="h-full flex flex-col bg-zinc-900/80 backdrop-blur-xl border-l border-zinc-800 text-white">
       {/* Header */}
-      <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-zinc-800 rounded-lg">
-            <Sparkles size={18} />
+      <div className="p-4 border-b border-zinc-800">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-zinc-800 rounded-lg">
+              <Sparkles size={18} />
+            </div>
+            <div>
+              <h3 className="font-semibold text-sm">AI Assistant</h3>
+              <p className="text-xs text-zinc-500">Learning: {currentSlide.title}</p>
+            </div>
           </div>
-          <div>
-            <h3 className="font-semibold text-sm">AI Assistant</h3>
-            <p className="text-xs text-zinc-500">Learning: {currentSlide.title}</p>
-          </div>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg transition-colors hover:bg-zinc-800"
+            >
+              <X size={18} />
+            </button>
+          )}
         </div>
-        {onClose && (
+
+        {/* Mode Tabs */}
+        <div className="flex gap-2 bg-zinc-800/50 p-1 rounded-lg">
           <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg transition-colors hover:bg-zinc-800"
+            onClick={() => setMode('text')}
+            className={cn(
+              "flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-all",
+              mode === 'text'
+                ? "bg-white text-black"
+                : "text-zinc-400 hover:text-white"
+            )}
           >
-            <X size={18} />
+            Text Chat
           </button>
-        )}
+          <button
+            onClick={() => setMode('voice')}
+            className={cn(
+              "flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center justify-center gap-1.5",
+              mode === 'voice'
+                ? "bg-white text-black"
+                : "text-zinc-400 hover:text-white"
+            )}
+          >
+            <Mic size={14} />
+            Voice Mode
+          </button>
+        </div>
       </div>
 
       {/* Content */}
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-        {messages.length === 0 ? (
+        {mode === 'voice' ? (
+          /* Voice Mode UI */
+          <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-6">
+            <div className="flex flex-col items-center space-y-4">
+              {/* Voice Status Indicator */}
+              <div className="relative">
+                <motion.div
+                  animate={conversation.status === 'connected' ? {
+                    scale: [1, 1.2, 1],
+                    opacity: [0.5, 0.8, 0.5]
+                  } : {}}
+                  transition={{
+                    duration: 2,
+                    repeat: conversation.status === 'connected' ? Infinity : 0
+                  }}
+                  className={cn(
+                    "absolute inset-0 rounded-full blur-2xl",
+                    conversation.status === 'connected' ? "bg-green-500" : "bg-zinc-700"
+                  )}
+                />
+                <div className={cn(
+                  "relative p-8 rounded-full border-2 transition-all",
+                  conversation.status === 'connected'
+                    ? "bg-green-500/20 border-green-500"
+                    : "bg-zinc-800/50 border-zinc-700"
+                )}>
+                  <Mic size={48} className={conversation.status === 'connected' ? "text-green-400" : "text-zinc-500"} />
+                </div>
+              </div>
+
+              {/* Status Text */}
+              <div className="text-center space-y-2">
+                <h3 className="text-lg font-medium">
+                  {conversation.status === 'connected' ? "Voice Mentor Active" : "Voice Mentor"}
+                </h3>
+                <p className="text-sm text-zinc-500 max-w-xs">
+                  {conversation.status === 'connected'
+                    ? "I'm listening! Ask me anything about the module."
+                    : "Click connect to start talking with your AI mentor"}
+                </p>
+              </div>
+
+              {/* Connect/Disconnect Button */}
+              <button
+                onClick={conversation.status === 'connected' ? stopVoiceSession : startVoiceSession}
+                className={cn(
+                  "px-6 py-3 rounded-xl font-medium transition-all flex items-center gap-2",
+                  conversation.status === 'connected'
+                    ? "bg-red-500 hover:bg-red-600 text-white"
+                    : "bg-white hover:bg-zinc-200 text-black"
+                )}
+              >
+                {conversation.status === 'connected' ? (
+                  <>
+                    <PhoneOff size={20} />
+                    Disconnect
+                  </>
+                ) : (
+                  <>
+                    <Phone size={20} />
+                    Connect Voice Mentor
+                  </>
+                )}
+              </button>
+
+              {/* Mute Toggle (only when connected) */}
+              {conversation.status === 'connected' && (
+                <button
+                  onClick={toggleMute}
+                  className={cn(
+                    "px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2",
+                    conversation.isMuted
+                      ? "bg-zinc-800 text-zinc-400"
+                      : "bg-zinc-800/50 text-white hover:bg-zinc-800"
+                  )}
+                >
+                  {conversation.isMuted ? <MicOff size={16} /> : <Mic size={16} />}
+                  {conversation.isMuted ? "Unmute" : "Mute"}
+                </button>
+              )}
+            </div>
+
+            {/* Transcript Display */}
+            {conversation.messages && conversation.messages.length > 0 && (
+              <div className="w-full max-w-md bg-zinc-800/50 rounded-xl p-4 border border-zinc-700">
+                <h4 className="text-xs font-medium text-zinc-400 mb-2">Conversation</h4>
+                <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                  {conversation.messages.map((msg: any, index: number) => (
+                    <p key={index} className="text-sm text-zinc-300">
+                      {msg.role}: {msg.message}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : messages.length === 0 ? (
           /* Empty State */
           <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-6">
             <div className="flex flex-col items-center space-y-3">
@@ -468,9 +671,10 @@ export function AIPlayground({ moduleTitle, moduleId, slideId, userId, currentSl
           </div>
         )}
 
-        {/* Input Area */}
-        <div className="mt-auto border-t border-zinc-800">
-          <form onSubmit={handleSubmit} className="p-4 space-y-3">
+        {/* Input Area (only in text mode) */}
+        {mode === 'text' && (
+          <div className="mt-auto border-t border-zinc-800">
+            <form onSubmit={handleSubmit} className="p-4 space-y-3">
             <div className="relative rounded-xl ring-1 ring-zinc-700 overflow-hidden bg-zinc-800/50">
               <textarea
                 ref={inputRef}
@@ -556,8 +760,9 @@ export function AIPlayground({ moduleTitle, moduleId, slideId, userId, currentSl
                 <span className="text-xs text-zinc-500">to send</span>
               </div>
             </div>
-          </form>
-        </div>
+            </form>
+          </div>
+        )}
       </div>
 
       {/* Folder Selection Modal */}

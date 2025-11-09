@@ -881,6 +881,7 @@ export default function ModuleViewerPage({ params }: { params: Promise<{ slug: s
               <AIPlayground
                 moduleTitle={module.title}
                 moduleId={module.moduleId || String(module.id)}
+                moduleSlug={slug}
                 slideId={String(currentSlide.id)}
                 userId={user?.id}
                 currentSlide={{
