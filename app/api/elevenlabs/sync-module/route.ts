@@ -49,9 +49,7 @@ export async function POST(request: NextRequest) {
           language: 'en',
         },
       },
-      platform: {
-        name: agentName,
-      },
+      name: agentName,
     })
 
     if (!agent || !agent.agentId) {
