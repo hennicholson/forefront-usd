@@ -551,19 +551,8 @@ export function AIPlayground({ moduleTitle, moduleId, moduleSlug, slideId, userI
               )}
             </div>
 
-            {/* Transcript Display */}
-            {conversation.messages && conversation.messages.length > 0 && (
-              <div className="w-full max-w-md bg-zinc-800/50 rounded-xl p-4 border border-zinc-700">
-                <h4 className="text-xs font-medium text-zinc-400 mb-2">Conversation</h4>
-                <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                  {conversation.messages.map((msg: any, index: number) => (
-                    <p key={index} className="text-sm text-zinc-300">
-                      {msg.role}: {msg.message}
-                    </p>
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* Transcript Display - Coming Soon */}
+            {/* conversation.messages is not available in the current SDK version */}
           </div>
         ) : messages.length === 0 ? (
           /* Empty State */
