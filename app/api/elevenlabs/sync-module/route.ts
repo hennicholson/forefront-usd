@@ -27,16 +27,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const module = await moduleResponse.json()
+    const moduleData = await moduleResponse.json()
 
     // Generate chunks for the knowledge base
-    const chunks = chunkModule(module)
+    const chunks = chunkModule(moduleData)
 
     // Generate agent prompt
-    const agentPrompt = generateAgentPrompt(module)
+    const agentPrompt = generateAgentPrompt(moduleData)
 
     // Create or get agent
-    const agentName = `Module: ${module.title}`
+    const agentName = `Module: ${moduleData.title}`
 
     let agent: any
     try {
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
             prompt: {
               prompt: agentPrompt,
             },
-            firstMessage: `Hi! I'm your AI mentor for the ${module.title} module. I'm here to help you understand the content and answer any questions you might have. How can I assist you today?`,
+            firstMessage: `Hi! I'm your AI mentor for the ${moduleData.title} module. I'm here to help you understand the content and answer any questions you might have. How can I assist you today?`,
             language: 'en',
           },
         },
