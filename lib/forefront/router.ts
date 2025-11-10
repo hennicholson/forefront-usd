@@ -72,9 +72,9 @@ Complexity:
       temperature: 0.1,
       maxTokens: 200,
       stream: false
-    })
+    }) as any
 
-    const content = response.choices[0]?.message?.content || '{}'
+    const content = response.choices?.[0]?.message?.content || '{}'
     const classification = parseClassificationResponse(content)
 
     // Map to optimal model
