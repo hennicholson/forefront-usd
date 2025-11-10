@@ -83,7 +83,11 @@ Complexity:
     return {
       ...classification,
       ...modelSelection,
-      type: classification.type || 'simple' // Ensure type is never undefined
+      type: classification.type || 'simple',
+      needsWebSearch: classification.needsWebSearch || false,
+      needsReasoning: classification.needsReasoning || false,
+      needsMultimodal: classification.needsMultimodal || false,
+      needsToolUse: classification.needsToolUse || false
     }
   } catch (error) {
     console.error('Router classification error:', error)
