@@ -82,7 +82,8 @@ Complexity:
 
     return {
       ...classification,
-      ...modelSelection
+      ...modelSelection,
+      type: classification.type || 'simple' // Ensure type is never undefined
     }
   } catch (error) {
     console.error('Router classification error:', error)
