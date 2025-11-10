@@ -94,6 +94,9 @@ export default function ModuleViewerPage({ params }: { params: Promise<{ slug: s
   const [playgroundOpen, setPlaygroundOpen] = useState(false)
   const [playgroundWidth, setPlaygroundWidth] = useState(50) // percentage
   const [isResizing, setIsResizing] = useState(false)
+  const [highlightedText, setHighlightedText] = useState<string>('')
+  const [showHighlightMenu, setShowHighlightMenu] = useState(false)
+  const [highlightMenuPosition, setHighlightMenuPosition] = useState({ x: 0, y: 0 })
 
   // Fetch module data
   useEffect(() => {
@@ -285,6 +288,42 @@ export default function ModuleViewerPage({ params }: { params: Promise<{ slug: s
       return () => clearTimeout(timer)
     }
   }, [currentSlideIndex, module])
+
+  // Handle text selection for highlighting
+  const handleTextSelection = () => {
+    const selection = window.getSelection()
+    const selectedText = selection?.toString().trim()
+
+    if (selectedText && selectedText.length > 0) {
+      setHighlightedText(selectedText)
+
+      // Get selection position
+      const range = selection?.getRangeAt(0)
+      const rect = range?.getBoundingClientRect()
+
+      if (rect) {
+        setHighlightMenuPosition({
+          x: rect.left + rect.width / 2,
+          y: rect.top - 10
+        })
+        setShowHighlightMenu(true)
+      }
+    } else {
+      setShowHighlightMenu(false)
+    }
+  }
+
+  // Listen for text selection
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      handleTextSelection()
+    }
+
+    document.addEventListener('selectionchange', handleSelectionChange)
+    return () => {
+      document.removeEventListener('selectionchange', handleSelectionChange)
+    }
+  }, [])
 
   // Handle resizing
   useEffect(() => {
@@ -616,6 +655,13 @@ export default function ModuleViewerPage({ params }: { params: Promise<{ slug: s
     }
   }
 
+  // Add to AI chat with highlighted text
+  const sendHighlightedToChat = () => {
+    setPlaygroundOpen(true)
+    setShowHighlightMenu(false)
+    // The highlighted text will be passed via context
+  }
+
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-zinc-950 text-white' : 'bg-white text-black'} transition-colors duration-300`}>
       {/* Header */}
@@ -889,6 +935,7 @@ export default function ModuleViewerPage({ params }: { params: Promise<{ slug: s
                   content: currentSlide.description || '',
                   type: currentSlide.type
                 }}
+                highlightedText={highlightedText}
                 isDarkMode={isDarkMode}
                 onClose={() => setPlaygroundOpen(false)}
               />
@@ -946,6 +993,38 @@ export default function ModuleViewerPage({ params }: { params: Promise<{ slug: s
                   </div>
                 </div>
               </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Highlight Menu */}
+        <AnimatePresence>
+          {showHighlightMenu && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 10 }}
+              transition={{ duration: 0.15 }}
+              style={{
+                position: 'fixed',
+                left: highlightMenuPosition.x,
+                top: highlightMenuPosition.y,
+                transform: 'translateX(-50%) translateY(-100%)',
+                zIndex: 100
+              }}
+              className={`rounded-lg shadow-lg border overflow-hidden ${
+                isDarkMode ? 'bg-zinc-800 border-zinc-700' : 'bg-white border-zinc-200'
+              }`}
+            >
+              <button
+                onClick={sendHighlightedToChat}
+                className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors whitespace-nowrap ${
+                  isDarkMode ? 'hover:bg-zinc-700 text-white' : 'hover:bg-zinc-50 text-black'
+                }`}
+              >
+                <Sparkles size={14} />
+                Ask AI about this
+              </button>
             </motion.div>
           )}
         </AnimatePresence>

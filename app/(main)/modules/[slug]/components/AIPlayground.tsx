@@ -2,11 +2,16 @@
 
 import React, { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Send, Loader2, Sparkles, X, Code, Image as ImageIcon, Video, Zap, FileText, Palette, Film, Bookmark, BookmarkCheck, Check, AlertCircle, Mic, MicOff, Phone, PhoneOff } from 'lucide-react'
+import { Send, Loader2, Sparkles, X, Code, Image as ImageIcon, Video, Zap, FileText, Palette, Film, Bookmark, BookmarkCheck, Check, AlertCircle, Mic, MicOff, Phone, PhoneOff, Brain, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { useConversation } from '@elevenlabs/react'
+import { MediaViewer } from '@/components/ui/media-viewer'
+import { CitationDisplay } from '@/components/ui/citation-display'
+import { MarkdownMessage } from '@/components/ui/markdown-message'
+import { ModelSelectorModal } from '@/components/ui/model-selector-modal'
+import { allModels, getModelById } from '@/lib/models/all-models'
 
 interface Toast {
   id: number
@@ -36,16 +41,18 @@ interface AIPlaygroundProps {
     content: string
     type?: string
   }
+  highlightedText?: string
   isDarkMode: boolean
   onClose?: () => void
 }
 
-export function AIPlayground({ moduleTitle, moduleId, moduleSlug, slideId, userId, currentSlide, isDarkMode, onClose }: AIPlaygroundProps) {
+export function AIPlayground({ moduleTitle, moduleId, moduleSlug, slideId, userId, currentSlide, highlightedText, isDarkMode, onClose }: AIPlaygroundProps) {
   const [mode, setMode] = useState<'text' | 'voice'>('text')
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [selectedModel, setSelectedModel] = useState('gemini-2.0-flash')
+  const [selectedModel, setSelectedModel] = useState('llama-3.3-70b-versatile')
+  const [showModelSelector, setShowModelSelector] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const folderInputRef = useRef<HTMLInputElement>(null)
@@ -82,6 +89,8 @@ export function AIPlayground({ moduleTitle, moduleId, moduleSlug, slideId, userI
 
   const modelOptions = [
     { id: 'gemini-2.0-flash', name: 'Gemini 2.0', category: 'Text', icon: Sparkles, color: 'from-blue-500 to-cyan-500' },
+    { id: 'sonar-pro', name: 'Sonar Pro', category: 'Web Search', icon: Brain, color: 'from-violet-500 to-purple-500' },
+    { id: 'sonar', name: 'Sonar', category: 'Web Search', icon: Zap, color: 'from-purple-500 to-fuchsia-500' },
     { id: 'gpt-4', name: 'GPT-4', category: 'Text', icon: FileText, color: 'from-green-500 to-emerald-500' },
     { id: 'claude-3', name: 'Claude 3', category: 'Text', icon: Zap, color: 'from-orange-500 to-red-500' },
     { id: 'seedream-4', name: 'Seed Dream', category: 'Image', icon: Sparkles, color: 'from-cyan-500 to-blue-500' },
@@ -144,6 +153,14 @@ export function AIPlayground({ moduleTitle, moduleId, moduleSlug, slideId, userI
     }
   }
 
+  // Auto-fill input when highlighted text is provided
+  useEffect(() => {
+    if (highlightedText && highlightedText.length > 0) {
+      setInput(`Explain this: "${highlightedText}"`)
+      inputRef.current?.focus()
+    }
+  }, [highlightedText])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!input.trim() || isLoading) return
@@ -151,7 +168,8 @@ export function AIPlayground({ moduleTitle, moduleId, moduleSlug, slideId, userI
     const userMessage: Message = {
       role: 'user',
       content: input,
-      timestamp: new Date()
+      timestamp: new Date(),
+      metadata: highlightedText ? { highlightedText } : undefined
     }
 
     setMessages(prev => [...prev, userMessage])
@@ -159,6 +177,10 @@ export function AIPlayground({ moduleTitle, moduleId, moduleSlug, slideId, userI
     setIsLoading(true)
 
     try {
+      // Check if it's a Groq model (supports streaming)
+      const modelData = getModelById(selectedModel)
+      const isGroqModel = modelData?.provider === 'Groq'
+
       const response = await fetch('/api/playground/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -166,6 +188,7 @@ export function AIPlayground({ moduleTitle, moduleId, moduleSlug, slideId, userI
           message: input,
           model: selectedModel,
           userId: userId,
+          highlightedText: highlightedText || null,
           context: {
             userId: userId,
             moduleId: moduleId,
@@ -176,26 +199,82 @@ export function AIPlayground({ moduleTitle, moduleId, moduleSlug, slideId, userI
               content: currentSlide.content,
               type: currentSlide.type
             },
-            conversationHistory: messages.slice(-5)
+            conversationHistory: messages.slice(-10)
           }
         })
       })
 
-      const data = await response.json()
+      // Handle streaming responses for Groq models
+      if (isGroqModel && response.headers.get('content-type')?.includes('text/event-stream')) {
+        const reader = response.body?.getReader()
+        const decoder = new TextDecoder()
+        let fullContent = ''
 
-      if (response.ok) {
-        const assistantMessage: Message = {
+        // Add empty assistant message that will be updated
+        const messageIndex = messages.length + 1
+        setMessages(prev => [...prev, {
           role: 'assistant',
-          content: data.response,
+          content: '',
           timestamp: new Date(),
-          type: data.type || 'text',
-          metadata: data.metadata,
           userPrompt: input,
           saved: false
+        }])
+
+        if (reader) {
+          try {
+            while (true) {
+              const { done, value } = await reader.read()
+              if (done) break
+
+              const chunk = decoder.decode(value)
+              const lines = chunk.split('\n')
+
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  const data = line.slice(6)
+                  if (data === '[DONE]') break
+
+                  try {
+                    const parsed = JSON.parse(data)
+                    if (parsed.content) {
+                      fullContent += parsed.content
+                      setMessages(prev => {
+                        const newMessages = [...prev]
+                        newMessages[messageIndex] = {
+                          ...newMessages[messageIndex],
+                          content: fullContent
+                        }
+                        return newMessages
+                      })
+                    }
+                  } catch (e) {
+                    // Skip invalid JSON
+                  }
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Stream reading error:', error)
+          }
         }
-        setMessages(prev => [...prev, assistantMessage])
       } else {
-        throw new Error(data.error || 'Failed to get response')
+        // Handle non-streaming responses (Perplexity, Gemini, image models)
+        const data = await response.json()
+
+        if (response.ok) {
+          const assistantMessage: Message = {
+            role: 'assistant',
+            content: data.response,
+            timestamp: new Date(),
+            type: data.type || 'text',
+            metadata: data.metadata,
+            userPrompt: input,
+            saved: false
+          }
+          setMessages(prev => [...prev, assistantMessage])
+        } else {
+          throw new Error(data.error || 'Failed to get response')
+        }
       }
     } catch (error) {
       console.error('Error:', error)
@@ -629,7 +708,26 @@ export function AIPlayground({ moduleTitle, moduleId, moduleSlug, slideId, userI
                       )}
                     </div>
                   ) : (
-                    <p className="text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
+                    <>
+                      {message.metadata?.highlightedText && (
+                        <div className={`mb-2 p-2 rounded border-l-2 text-xs italic ${
+                          isDarkMode ? 'bg-zinc-900/50 border-zinc-600 text-zinc-400' : 'bg-zinc-100 border-zinc-400 text-zinc-600'
+                        }`}>
+                          Referenced: "{message.metadata.highlightedText}"
+                        </div>
+                      )}
+                      {message.role === 'assistant' ? (
+                        <MarkdownMessage content={message.content} isDarkMode={isDarkMode} />
+                      ) : (
+                        <p className="text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
+                      )}
+                      {message.metadata?.videos && message.role === 'assistant' && (
+                        <MediaViewer videos={message.metadata.videos} images={message.metadata.images} isDarkMode={isDarkMode} />
+                      )}
+                      {message.metadata?.citations && message.role === 'assistant' && (
+                        <CitationDisplay citations={message.metadata.citations} searchResults={message.metadata.searchResults} isDarkMode={isDarkMode} />
+                      )}
+                    </>
                   )}
                   <p className="text-xs mt-2 opacity-60 flex items-center gap-2">
                     {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -695,53 +793,33 @@ export function AIPlayground({ moduleTitle, moduleId, moduleSlug, slideId, userI
             </div>
 
             <div className="flex items-center justify-between rounded-lg px-3 py-2 border bg-zinc-800/30 border-zinc-700">
-              <Select value={selectedModel} onValueChange={setSelectedModel}>
-                <SelectTrigger className="h-8 w-[160px] text-xs border-none shadow-none bg-transparent">
-                  <SelectValue>
-                    {(() => {
-                      const selected = modelOptions.find(m => m.id === selectedModel)
-                      if (!selected) return "Select model"
-                      const Icon = selected.icon
-                      return (
-                        <div className="flex items-center gap-2">
-                          <div className={cn(
-                            "w-5 h-5 rounded-md bg-gradient-to-br flex items-center justify-center shrink-0",
-                            selected.color
-                          )}>
-                            <Icon size={12} className="text-white" />
-                          </div>
-                          <span className="truncate">{selected.name}</span>
-                        </div>
-                      )
-                    })()}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent className="z-[100] bg-zinc-900 border-zinc-700">
-                  {modelOptions.map(model => {
-                    const Icon = model.icon
-                    return (
-                      <SelectItem
-                        key={model.id}
-                        value={model.id}
-                        className="text-xs cursor-pointer"
-                      >
-                        <div className="flex items-center gap-2.5 py-1">
-                          <div className={cn(
-                            "w-6 h-6 rounded-md bg-gradient-to-br flex items-center justify-center shrink-0",
-                            model.color
-                          )}>
-                            <Icon size={14} className="text-white" />
-                          </div>
-                          <div className="flex flex-col gap-0.5">
-                            <span className="font-medium">{model.name}</span>
-                            <span className="text-[10px] text-zinc-500">{model.category}</span>
-                          </div>
-                        </div>
-                      </SelectItem>
-                    )
-                  })}
-                </SelectContent>
-              </Select>
+              <button
+                onClick={() => setShowModelSelector(true)}
+                className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-zinc-700/50 transition-colors"
+              >
+                {(() => {
+                  const selected = getModelById(selectedModel)
+                  if (!selected) {
+                    return <span className="text-xs text-zinc-400">Select model</span>
+                  }
+                  const Icon = selected.icon
+                  return (
+                    <>
+                      <div className={cn(
+                        "w-5 h-5 rounded-md bg-gradient-to-br flex items-center justify-center shrink-0",
+                        selected.color
+                      )}>
+                        <Icon size={12} className="text-white" />
+                      </div>
+                      <div className="flex flex-col items-start">
+                        <span className="text-xs font-medium text-white">{selected.name}</span>
+                        <span className="text-[10px] text-zinc-500">{selected.speed}</span>
+                      </div>
+                      <ChevronDown size={14} className="text-zinc-500 ml-1" />
+                    </>
+                  )
+                })()}
+              </button>
 
               <div className="flex items-center gap-1">
                 <span className="text-xs text-zinc-500">Press</span>
@@ -863,6 +941,18 @@ export function AIPlayground({ moduleTitle, moduleId, moduleSlug, slideId, userI
           ))}
         </AnimatePresence>
       </div>
+
+      {/* Model Selector Modal */}
+      <ModelSelectorModal
+        isOpen={showModelSelector}
+        onClose={() => setShowModelSelector(false)}
+        selectedModelId={selectedModel}
+        onSelectModel={(modelId) => {
+          setSelectedModel(modelId)
+          setShowModelSelector(false)
+        }}
+        isDarkMode={isDarkMode}
+      />
     </div>
   )
 }

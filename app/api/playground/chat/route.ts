@@ -1,12 +1,211 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { GoogleGenAI } from '@google/genai'
+import { perplexityClient } from '@/lib/perplexity/client'
+import { groqClient } from '@/lib/groq/client'
+import { allModels, getModelById } from '@/lib/models/all-models'
 
 export async function POST(request: NextRequest) {
   try {
-    const { message, model, context, userId } = await request.json()
+    const { message, model, context, userId, highlightedText } = await request.json()
 
     if (!message) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
+    }
+
+    // Handle Perplexity Sonar models
+    if (model === 'sonar' || model === 'sonar-pro') {
+      try {
+        // Build system prompt with context
+        const systemPrompt = `You are an AI learning assistant with access to real-time web knowledge. You help students learn by providing up-to-date information, explanations, and examples.
+
+CURRENT LEARNING CONTEXT:
+- Module: ${context.moduleTitle}
+- Current Slide: ${context.currentSlide.title}
+${highlightedText ? `- Student highlighted: "${highlightedText}"` : ''}
+
+YOUR ROLE:
+1. Provide accurate, current information using web sources
+2. Cite your sources clearly
+3. Include relevant videos and images when helpful
+4. Focus on the latest AI developments and best practices
+5. Search Reddit, X.com, and AI forums for community insights
+
+Stay focused on helping the student learn effectively.`
+
+        // Use conversation history
+        const conversationHistory = context.conversationHistory || []
+        const messages = [
+          { role: 'system' as const, content: systemPrompt },
+          ...conversationHistory.map((msg: any) => ({
+            role: msg.role as 'user' | 'assistant',
+            content: msg.content
+          })),
+          { role: 'user' as const, content: message }
+        ]
+
+        const response = await perplexityClient.chat({
+          messages,
+          model: model as 'sonar' | 'sonar-pro',
+          includeVideos: true,
+          includeImages: true,
+          searchRecency: 'week'
+        })
+
+        const responseText = response.choices[0]?.message?.content || 'Sorry, I could not generate a response.'
+
+        // Save to generation history
+        if (userId || context?.userId) {
+          try {
+            const { db } = await import('@/lib/db')
+            const { generationHistory } = await import('@/lib/db/schema')
+
+            await db.insert(generationHistory).values({
+              userId: userId || context?.userId,
+              moduleId: context?.moduleId || null,
+              slideId: context?.slideId || null,
+              type: 'text',
+              model: model,
+              prompt: message,
+              response: responseText,
+              metadata: {
+                moduleTitle: context?.moduleTitle,
+                slideTitle: context?.currentSlide?.title,
+                highlightedText: highlightedText || null,
+                citations: response.citations || [],
+                hasVideos: (response.videos?.length || 0) > 0,
+                hasImages: (response.images?.length || 0) > 0
+              }
+            })
+          } catch (err) {
+            console.error('Failed to save to history:', err)
+          }
+        }
+
+        return NextResponse.json({
+          response: responseText,
+          model: model,
+          type: 'text',
+          metadata: {
+            citations: response.citations || [],
+            searchResults: response.search_results || [],
+            videos: response.videos || [],
+            images: response.images || [],
+            highlightedText: highlightedText || null
+          }
+        })
+      } catch (error: any) {
+        console.error('Error with Perplexity:', error)
+        return NextResponse.json(
+          { error: 'Failed to get response from Perplexity', details: error.message },
+          { status: 500 }
+        )
+      }
+    }
+
+    // Handle Groq models
+    const modelData = getModelById(model)
+    const isGroqModel = modelData?.provider === 'Groq'
+    if (isGroqModel) {
+      try {
+        // Build system prompt with context
+        const systemPrompt = `You are an AI learning assistant helping students learn about AI and technology. You provide clear explanations, practical examples, and engaging dialogue.
+
+CURRENT LEARNING CONTEXT:
+- Module: ${context.moduleTitle}
+- Current Slide: ${context.currentSlide.title}
+${highlightedText ? `- Student highlighted: "${highlightedText}"` : ''}
+
+YOUR ROLE:
+1. Provide accurate, helpful information tailored to the student's learning level
+2. Use clear examples and analogies
+3. Break down complex concepts into understandable parts
+4. Encourage critical thinking and exploration
+5. Stay focused on the learning objectives
+
+Be concise, clear, and supportive in your responses.`
+
+        // Use conversation history
+        const conversationHistory = context.conversationHistory || []
+        const messages = [
+          { role: 'system' as const, content: systemPrompt },
+          ...conversationHistory.map((msg: any) => ({
+            role: msg.role as 'user' | 'assistant',
+            content: msg.content
+          })),
+          { role: 'user' as const, content: message }
+        ]
+
+        const completion = await groqClient.chat({
+          model,
+          messages,
+          temperature: 0.7,
+          maxTokens: 4096,
+          stream: true
+        })
+
+        // Create a readable stream for the response
+        const encoder = new TextEncoder()
+        const stream = new ReadableStream({
+          async start(controller) {
+            try {
+              let fullResponse = ''
+
+              for await (const chunk of completion as any) {
+                const content = chunk.choices[0]?.delta?.content || ''
+                if (content) {
+                  fullResponse += content
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`))
+                }
+              }
+
+              // Save to generation history after stream completes
+              if (userId || context?.userId) {
+                try {
+                  const { db } = await import('@/lib/db')
+                  const { generationHistory } = await import('@/lib/db/schema')
+
+                  await db.insert(generationHistory).values({
+                    userId: userId || context?.userId,
+                    moduleId: context?.moduleId || null,
+                    slideId: context?.slideId || null,
+                    type: 'text',
+                    model: model,
+                    prompt: message,
+                    response: fullResponse,
+                    metadata: {
+                      moduleTitle: context?.moduleTitle,
+                      slideTitle: context?.currentSlide?.title,
+                      highlightedText: highlightedText || null
+                    }
+                  })
+                } catch (err) {
+                  console.error('Failed to save to history:', err)
+                }
+              }
+
+              controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+              controller.close()
+            } catch (error) {
+              console.error('Stream error:', error)
+              controller.error(error)
+            }
+          }
+        })
+
+        return new Response(stream, {
+          headers: {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+          },
+        })
+      } catch (error: any) {
+        console.error('Error with Groq:', error)
+        return NextResponse.json(
+          { error: 'Failed to get response from Groq', details: error.message },
+          { status: 500 }
+        )
+      }
     }
 
     // Check if this is Seed Dream 4 model - handle image generation
@@ -235,43 +434,59 @@ This component provides a beautiful loading animation for image generation with 
 
     const ai = new GoogleGenAI({ apiKey })
 
-    // Build context-aware system prompt for text models
-    const systemPrompt = `You are an AI learning assistant integrated into Forefront, an innovative AI education platform. You help students learn by answering questions, providing explanations, and guiding them through their learning journey.
+    // Build enhanced context-aware system prompt for text models
+    const systemPrompt = `You are an advanced AI learning assistant integrated into Forefront, a cutting-edge AI education platform. You help students master AI concepts through clear explanations, practical examples, and engaging dialogue.
 
 CURRENT LEARNING CONTEXT:
 - Module: ${context.moduleTitle}
 - Current Slide: ${context.currentSlide.title}
 - Slide Type: ${context.currentSlide.type || 'lesson'}
-- Slide Content Summary: ${context.currentSlide.content.substring(0, 500)}
+- Slide Content: ${context.currentSlide.content.substring(0, 800)}
+${highlightedText ? `\n- Student Highlighted Text: "${highlightedText}"` : ''}
+
+YOUR ENHANCED CAPABILITIES:
+1. **Contextual Understanding**: Deep awareness of the student's current lesson and progress
+2. **Adaptive Teaching**: Adjust explanations based on student's questions and comprehension
+3. **Practical Examples**: Provide real-world applications and code examples
+4. **Interactive Learning**: Encourage experimentation with AI models and tools
+5. **Best Practices**: Share industry standards and modern AI development patterns
 
 YOUR ROLE:
-1. Answer student questions about the current slide or module content
-2. Provide clear explanations tailored to the student's learning level
-3. Offer examples and analogies to reinforce understanding
-4. Suggest experiments they can try with AI models when relevant
-5. Encourage active learning and critical thinking
-6. If asked about different AI models (image, video, text generation), explain their strengths and use cases
+1. Answer questions about the current slide or module with depth and clarity
+2. Provide explanations tailored to the learning context
+3. Offer concrete examples, analogies, and visual descriptions
+4. Suggest hands-on experiments students can try
+5. Encourage critical thinking and deeper exploration
+6. Connect concepts to real-world AI applications
+7. When relevant, explain trade-offs between different AI models and approaches
 
-IMPORTANT:
-- Stay focused on the current learning content
+RESPONSE GUIDELINES:
+- Be concise yet comprehensive - quality over quantity
+- Use technical terms appropriately with clear explanations
+- Include code examples when helpful (use markdown formatting)
+- Reference the highlighted text if provided
+- Stay focused on educational value
 - Be encouraging and supportive
-- If the student seems confused, offer to break down concepts into simpler parts
-- When discussing AI models, explain practical differences and trade-offs
-- Don't just give answers - help students understand the "why" behind concepts
+- Help students understand the "why" behind concepts, not just the "what"
 
-Keep responses concise but comprehensive. Use clear examples when explaining technical concepts.`
+Remember: You're not just answering questions - you're fostering deep understanding and practical skills in AI development.`
 
-    // Build conversation history
+    // Build conversation history with extended context window
     const conversationHistory = context.conversationHistory || []
     const messages = conversationHistory.map((msg: any) => ({
       role: msg.role === 'user' ? 'user' : 'assistant',
       content: msg.content
     }))
 
-    // Add current message
+    // Add current message with highlighted context
+    let currentMessage = message
+    if (highlightedText) {
+      currentMessage = `[Regarding highlighted text: "${highlightedText}"]\n\n${message}`
+    }
+
     messages.push({
       role: 'user',
-      content: message
+      content: currentMessage
     })
 
     // Combine system prompt with conversation
