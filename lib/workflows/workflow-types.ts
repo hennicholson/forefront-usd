@@ -18,7 +18,6 @@ export interface WorkflowNode {
     // Prompt node
     promptText?: string
     variables?: string[]
-    savedGenerationId?: number  // NEW: Link to saved prompt from generationHistory
 
     // Screenshot node
     imageUrl?: string
