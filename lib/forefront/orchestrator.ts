@@ -184,9 +184,9 @@ export class ForefrontOrchestrator {
       temperature: 0.7,
       maxTokens: 4096,
       stream: false
-    })
+    }) as any
 
-    const content = response.choices[0]?.message?.content || ''
+    const content = response.choices?.[0]?.message?.content || ''
 
     return {
       content,
