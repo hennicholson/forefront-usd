@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/Button";
+import { Button } from "@/components/ui/button";
 import { ChevronRight, Download } from "lucide-react";
 
 interface DownloadButtonProps {
