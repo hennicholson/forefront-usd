@@ -3,6 +3,7 @@ import { GoogleGenAI } from '@google/genai'
 import { perplexityClient } from '@/lib/perplexity/client'
 import { groqClient } from '@/lib/groq/client'
 import { allModels, getModelById } from '@/lib/models/all-models'
+import { ForefrontOrchestrator } from '@/lib/forefront/orchestrator'
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,6 +11,70 @@ export async function POST(request: NextRequest) {
 
     if (!message) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
+    }
+
+    // Handle Forefront Intelligence (multi-agent orchestration)
+    if (model === 'forefront-intelligence') {
+      try {
+        const orchestrator = new ForefrontOrchestrator()
+
+        const orchestratorResponse = await orchestrator.execute({
+          message,
+          context: {
+            moduleTitle: context.moduleTitle,
+            currentSlide: context.currentSlide,
+            highlightedText,
+            conversationHistory: context.conversationHistory || [],
+            userId,
+            moduleId: context.moduleId,
+            slideId: context.slideId
+          },
+          userId
+        })
+
+        // Save to generation history
+        if (userId || context?.userId) {
+          try {
+            const { db } = await import('@/lib/db')
+            const { generationHistory } = await import('@/lib/db/schema')
+
+            await db.insert(generationHistory).values({
+              userId: userId || context?.userId,
+              moduleId: context?.moduleId || null,
+              slideId: context?.slideId || null,
+              type: 'text',
+              model: model,
+              prompt: message,
+              response: orchestratorResponse.content,
+              metadata: {
+                moduleTitle: context?.moduleTitle,
+                slideTitle: context?.currentSlide?.title,
+                highlightedText: highlightedText || null,
+                intent: orchestratorResponse.intent,
+                modelUsed: orchestratorResponse.metadata.modelUsed,
+                executionTime: orchestratorResponse.metadata.executionTime,
+                fallbackUsed: orchestratorResponse.metadata.fallbackUsed,
+                citations: orchestratorResponse.metadata.citations || []
+              }
+            })
+          } catch (err) {
+            console.error('Failed to save to history:', err)
+          }
+        }
+
+        return NextResponse.json({
+          response: orchestratorResponse.content,
+          model: model,
+          type: 'text',
+          metadata: orchestratorResponse.metadata
+        })
+      } catch (error: any) {
+        console.error('Error with Forefront Intelligence:', error)
+        return NextResponse.json(
+          { error: 'Failed to get response from Forefront Intelligence', details: error.message },
+          { status: 500 }
+        )
+      }
     }
 
     // Handle Perplexity Sonar models

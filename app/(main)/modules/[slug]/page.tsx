@@ -289,38 +289,106 @@ export default function ModuleViewerPage({ params }: { params: Promise<{ slug: s
     }
   }, [currentSlideIndex, module])
 
-  // Handle text selection for highlighting
+  // Check if selection is within allowed content area
+  const isValidSelectionTarget = (selection: Selection | null): boolean => {
+    if (!selection || selection.rangeCount === 0) return false
+
+    const range = selection.getRangeAt(0)
+    const container = range.commonAncestorContainer
+    const element = container.nodeType === Node.TEXT_NODE ? container.parentElement : container as Element
+
+    if (!element) return false
+
+    // Check if selection is within the main content area
+    const isInContent = contentRef.current?.contains(element)
+    if (!isInContent) return false
+
+    // Exclude interactive elements and UI controls
+    const excludedSelectors = [
+      'textarea',
+      'input',
+      '[contenteditable="true"]',
+      'button',
+      '[role="button"]',
+      '[data-no-highlight]'
+    ]
+
+    // Check if the element or any parent matches excluded selectors
+    let currentElement: Element | null = element
+    while (currentElement && currentElement !== contentRef.current) {
+      if (excludedSelectors.some(selector => currentElement!.matches(selector))) {
+        return false
+      }
+      currentElement = currentElement.parentElement
+    }
+
+    return true
+  }
+
+  // Handle text selection for highlighting with debouncing
   const handleTextSelection = () => {
     const selection = window.getSelection()
     const selectedText = selection?.toString().trim()
 
-    if (selectedText && selectedText.length > 0) {
-      setHighlightedText(selectedText)
-
-      // Get selection position
-      const range = selection?.getRangeAt(0)
-      const rect = range?.getBoundingClientRect()
-
-      if (rect) {
-        setHighlightMenuPosition({
-          x: rect.left + rect.width / 2,
-          y: rect.top - 10
-        })
-        setShowHighlightMenu(true)
-      }
-    } else {
+    // Validate selection
+    if (!selectedText || selectedText.length < 3) {
       setShowHighlightMenu(false)
+      return
+    }
+
+    // Check if it's a valid Range selection (not just cursor placement)
+    if (selection?.type !== 'Range') {
+      setShowHighlightMenu(false)
+      return
+    }
+
+    // Check if selection is in valid area
+    if (!isValidSelectionTarget(selection)) {
+      setShowHighlightMenu(false)
+      return
+    }
+
+    setHighlightedText(selectedText)
+
+    // Get selection position
+    const range = selection.getRangeAt(0)
+    const rect = range.getBoundingClientRect()
+
+    if (rect) {
+      // Calculate position with boundary detection
+      const menuWidth = 200 // Approximate menu width
+      let x = rect.left + rect.width / 2
+      const y = rect.top - 10
+
+      // Keep menu within viewport
+      if (x + menuWidth / 2 > window.innerWidth) {
+        x = window.innerWidth - menuWidth / 2 - 20
+      } else if (x - menuWidth / 2 < 0) {
+        x = menuWidth / 2 + 20
+      }
+
+      setHighlightMenuPosition({ x, y })
+      setShowHighlightMenu(true)
     }
   }
 
-  // Listen for text selection
+  // Listen for text selection with debouncing
   useEffect(() => {
+    let debounceTimeout: NodeJS.Timeout
+
     const handleSelectionChange = () => {
-      handleTextSelection()
+      // Clear previous timeout
+      clearTimeout(debounceTimeout)
+
+      // Debounce by 300ms to wait until user finishes selecting
+      debounceTimeout = setTimeout(() => {
+        handleTextSelection()
+      }, 300)
     }
 
     document.addEventListener('selectionchange', handleSelectionChange)
     return () => {
+      clearTimeout(debounceTimeout)
       document.removeEventListener('selectionchange', handleSelectionChange)
     }
   }, [])
@@ -657,9 +725,13 @@ export default function ModuleViewerPage({ params }: { params: Promise<{ slug: s
 
   // Add to AI chat with highlighted text
   const sendHighlightedToChat = () => {
-    setPlaygroundOpen(true)
+    if (!playgroundOpen) {
+      setPlaygroundOpen(true)
+    }
     setShowHighlightMenu(false)
-    // The highlighted text will be passed via context
+
+    // Clear the browser's text selection visually
+    window.getSelection()?.removeAllRanges()
   }
 
   return (
@@ -936,6 +1008,7 @@ export default function ModuleViewerPage({ params }: { params: Promise<{ slug: s
                   type: currentSlide.type
                 }}
                 highlightedText={highlightedText}
+                onClearHighlight={() => setHighlightedText('')}
                 isDarkMode={isDarkMode}
                 onClose={() => setPlaygroundOpen(false)}
               />

@@ -1,6 +1,6 @@
 import { LucideIcon, Zap, Brain, Code, Languages, Shield, Mic, Volume2, Wrench, Sparkles, BookOpen, Search, Image as ImageIcon, Palette, Globe } from 'lucide-react'
 
-export type ModelProvider = 'Groq' | 'Google' | 'Perplexity' | 'ByteDance' | 'OpenAI' | 'Anthropic'
+export type ModelProvider = 'Groq' | 'Google' | 'Perplexity' | 'ByteDance' | 'OpenAI' | 'Anthropic' | 'Forefront'
 
 export interface AIModel {
   id: string
@@ -32,6 +32,26 @@ export interface AIModel {
 }
 
 export const allModels: AIModel[] = [
+  // ===== FOREFRONT INTELLIGENCE =====
+  {
+    id: 'forefront-intelligence',
+    name: 'Forefront Intelligence',
+    provider: 'Forefront',
+    description: 'Revolutionary multi-agent AI orchestrating 30+ models for reasoning, web search, and structured educational responses. Automatically routes to the optimal model.',
+    category: 'system',
+    icon: Brain,
+    color: 'from-purple-600 via-pink-600 to-orange-500',
+    contextWindow: 1000000,
+    speed: 'Adaptive',
+    capabilities: ['Multi-agent routing', 'Web search', 'Advanced reasoning', 'Context-aware', 'Auto-optimization'],
+    features: {
+      toolCalling: true,
+      webSearch: true,
+      streaming: true,
+      multimodal: true
+    }
+  },
+
   // ===== GOOGLE MODELS =====
   {
     id: 'gemini-2.0-flash',
@@ -492,6 +512,7 @@ export const getWebSearchModels = () => {
 }
 
 export const providers = [
+  { id: 'Forefront', name: 'Forefront', description: 'Multi-agent orchestration', icon: Brain, color: 'from-purple-600 via-pink-600 to-orange-500' },
   { id: 'Groq', name: 'Groq', description: 'Lightning-fast inference', icon: Zap, color: 'from-orange-500 to-red-500' },
   { id: 'Google', name: 'Google', description: 'Advanced multimodal AI', icon: Sparkles, color: 'from-blue-500 to-cyan-500' },
   { id: 'Perplexity', name: 'Perplexity', description: 'Real-time web knowledge', icon: Search, color: 'from-purple-500 to-pink-500' },

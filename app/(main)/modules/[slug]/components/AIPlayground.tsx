@@ -42,16 +42,17 @@ interface AIPlaygroundProps {
     type?: string
   }
   highlightedText?: string
+  onClearHighlight?: () => void
   isDarkMode: boolean
   onClose?: () => void
 }
 
-export function AIPlayground({ moduleTitle, moduleId, moduleSlug, slideId, userId, currentSlide, highlightedText, isDarkMode, onClose }: AIPlaygroundProps) {
+export function AIPlayground({ moduleTitle, moduleId, moduleSlug, slideId, userId, currentSlide, highlightedText, onClearHighlight, isDarkMode, onClose }: AIPlaygroundProps) {
   const [mode, setMode] = useState<'text' | 'voice'>('text')
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [selectedModel, setSelectedModel] = useState('llama-3.3-70b-versatile')
+  const [selectedModel, setSelectedModel] = useState('forefront-intelligence')
   const [showModelSelector, setShowModelSelector] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -153,11 +154,15 @@ export function AIPlayground({ moduleTitle, moduleId, moduleSlug, slideId, userI
     }
   }
 
+  // Track the last highlighted text we processed to avoid duplicates
+  const lastHighlightedRef = useRef<string>('')
+
   // Auto-fill input when highlighted text is provided
   useEffect(() => {
-    if (highlightedText && highlightedText.length > 0) {
+    if (highlightedText && highlightedText.length > 0 && highlightedText !== lastHighlightedRef.current) {
       setInput(`Explain this: "${highlightedText}"`)
       inputRef.current?.focus()
+      lastHighlightedRef.current = highlightedText
     }
   }, [highlightedText])
 
@@ -175,6 +180,12 @@ export function AIPlayground({ moduleTitle, moduleId, moduleSlug, slideId, userI
     setMessages(prev => [...prev, userMessage])
     setInput('')
     setIsLoading(true)
+
+    // Clear highlighted text after using it
+    if (highlightedText && onClearHighlight) {
+      onClearHighlight()
+      lastHighlightedRef.current = ''
+    }
 
     try {
       // Check if it's a Groq model (supports streaming)
@@ -495,7 +506,7 @@ export function AIPlayground({ moduleTitle, moduleId, moduleSlug, slideId, userI
   }, [])
 
   return (
-    <div className="h-full flex flex-col bg-zinc-900/80 backdrop-blur-xl border-l border-zinc-800 text-white">
+    <div data-no-highlight className="h-full flex flex-col bg-zinc-900/80 backdrop-blur-xl border-l border-zinc-800 text-white">
       {/* Header */}
       <div className="p-4 border-b border-zinc-800">
         <div className="flex items-center justify-between mb-3">
