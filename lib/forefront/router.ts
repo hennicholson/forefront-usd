@@ -87,7 +87,9 @@ Complexity:
       needsWebSearch: classification.needsWebSearch || false,
       needsReasoning: classification.needsReasoning || false,
       needsMultimodal: classification.needsMultimodal || false,
-      needsToolUse: classification.needsToolUse || false
+      needsToolUse: classification.needsToolUse || false,
+      complexity: classification.complexity || 'medium',
+      confidence: classification.confidence || 0.5
     }
   } catch (error) {
     console.error('Router classification error:', error)
