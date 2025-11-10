@@ -61,7 +61,7 @@ export class GroqClient {
       file,
       language,
       prompt,
-      response_format: responseFormat,
+      response_format: responseFormat as any,
       temperature,
     })
 
