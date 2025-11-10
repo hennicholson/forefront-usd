@@ -12,10 +12,13 @@ export interface WorkflowNode {
     toolName?: string
     toolUrl?: string
     toolIcon?: string
+    modelId?: string  // NEW: Link to Forefront Intelligence model
+    savedGenerationId?: number  // NEW: Link to generationHistory
 
     // Prompt node
     promptText?: string
     variables?: string[]
+    savedGenerationId?: number  // NEW: Link to saved prompt from generationHistory
 
     // Screenshot node
     imageUrl?: string
@@ -55,12 +58,18 @@ export interface Workflow {
   description: string | null
   category: WorkflowCategory
   isPublic: boolean
+  publishStatus: 'draft' | 'review' | 'published'  // NEW: Publication workflow
   likesCount: number
   viewsCount: number
   forksCount: number
+  executionCount: number  // NEW: How many times workflow was run
+  avgExecutionTime: number  // NEW: Average execution time in ms
   forkedFrom: number | null
   nodes: WorkflowNode[]
   connections: WorkflowConnection[]
+  modelMapping: Record<string, string>  // NEW: nodeId -> modelId mapping
+  collaborators: string[]  // NEW: Array of user IDs who can edit
+  realTimeSessionId: string | null  // NEW: Ably channel for live editing
   canvasSettings: {
     zoom: number
     pan: { x: number; y: number }

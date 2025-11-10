@@ -18,8 +18,9 @@ import {
   StudentNetworkCard,
   AIWorkflowsCard,
   SubmitCourseCard,
-  LatestNewsCard
+  NewsletterCard
 } from './components/BentoDashboardCards'
+import { NewsletterSelectorModal } from '@/components/ui/newsletter-selector-modal'
 
 export default function DashboardPage() {
   const { user, isAuthenticated, progress } = useAuth()
@@ -29,6 +30,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [portfolioModalOpen, setPortfolioModalOpen] = useState(false)
   const [submissionsModalOpen, setSubmissionsModalOpen] = useState(false)
+  const [newsletterModalOpen, setNewsletterModalOpen] = useState(false)
   const [generationStats, setGenerationStats] = useState({ saved: 0, total: 0 })
 
   useEffect(() => {
@@ -213,7 +215,9 @@ export default function DashboardPage() {
                 userId={user?.id || ''}
               />
             }
-            latestNews={<LatestNewsCard />}
+            latestNews={
+              <NewsletterCard onClick={() => setNewsletterModalOpen(true)} />
+            }
             mySubmissions={
               <MySubmissionsCard
                 submissions={submissions}
@@ -294,6 +298,12 @@ export default function DashboardPage() {
           onClose={() => setPortfolioModalOpen(false)}
         />
       )}
+
+      {/* Newsletter Selector Modal */}
+      <NewsletterSelectorModal
+        isOpen={newsletterModalOpen}
+        onClose={() => setNewsletterModalOpen(false)}
+      />
     </main>
   )
 }

@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Send, Loader2, Sparkles, X, Code, Image as ImageIcon, Video, Zap, FileText, Palette, Film, Bookmark, BookmarkCheck, Check, AlertCircle, Mic, MicOff, Phone, PhoneOff, Brain, ChevronDown } from 'lucide-react'
+import { Send, Loader2, Sparkles, X, Code, Image as ImageIcon, Video, Zap, FileText, Palette, Film, Bookmark, BookmarkCheck, Check, AlertCircle, Mic, MicOff, Phone, PhoneOff, Brain, ChevronDown, Copy } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
@@ -64,6 +64,7 @@ export function AIPlayground({ moduleTitle, moduleId, moduleSlug, slideId, userI
   const [savingMessageIndex, setSavingMessageIndex] = useState<number | null>(null)
   const [toasts, setToasts] = useState<Toast[]>([])
   const toastIdCounter = useRef(0)
+  const [loadingPhase, setLoadingPhase] = useState('')
 
   // Voice mode state
   const [agentId, setAgentId] = useState<string | null>(null)
@@ -181,6 +182,11 @@ export function AIPlayground({ moduleTitle, moduleId, moduleSlug, slideId, userI
     setInput('')
     setIsLoading(true)
 
+    // Loading phase indicators
+    setLoadingPhase('Analyzing query...')
+    setTimeout(() => setLoadingPhase('Selecting model...'), 500)
+    setTimeout(() => setLoadingPhase('Fetching response...'), 1000)
+
     // Clear highlighted text after using it
     if (highlightedText && onClearHighlight) {
       onClearHighlight()
@@ -297,6 +303,7 @@ export function AIPlayground({ moduleTitle, moduleId, moduleSlug, slideId, userI
       setMessages(prev => [...prev, errorMessage])
     } finally {
       setIsLoading(false)
+      setLoadingPhase('')
     }
   }
 
@@ -514,9 +521,18 @@ export function AIPlayground({ moduleTitle, moduleId, moduleSlug, slideId, userI
             <div className="p-2 bg-zinc-800 rounded-lg">
               <Sparkles size={18} />
             </div>
-            <div>
+            <div className="flex flex-col gap-1">
               <h3 className="font-semibold text-sm">AI Assistant</h3>
-              <p className="text-xs text-zinc-500">Learning: {currentSlide.title}</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5">
+                  📚 {moduleTitle}
+                </Badge>
+                {highlightedText && (
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5">
+                    ✏️ Highlighted text
+                  </Badge>
+                )}
+              </div>
             </div>
           </div>
           {onClose && (
@@ -690,13 +706,36 @@ export function AIPlayground({ moduleTitle, moduleId, moduleSlug, slideId, userI
                 <div
                   onDoubleClick={() => handleDoubleClick(index)}
                   className={cn(
-                    "max-w-[85%] rounded-2xl px-4 py-3 border relative cursor-pointer",
+                    "max-w-[85%] rounded-2xl px-4 py-3 border relative cursor-pointer group",
                     message.role === 'user'
-                      ? "bg-white text-black border-zinc-700"
-                      : "bg-zinc-800/50 border-zinc-700 hover:border-zinc-600"
+                      ? "bg-white/10 text-white border-zinc-700"
+                      : "border-l-4 border-purple-500/50 bg-zinc-800/30 border-zinc-700 hover:border-zinc-600"
                   )}
                   title={message.role === 'assistant' ? "Double-click to save" : undefined}
                 >
+                  {/* Hover actions for AI messages */}
+                  {message.role === 'assistant' && (
+                    <div className="opacity-0 group-hover:opacity-100 absolute top-2 right-2 flex gap-1 transition-opacity">
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(message.content)
+                          showToast('success', 'Copied to clipboard!')
+                        }}
+                        className="p-1.5 rounded-md bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 transition-colors"
+                        title="Copy message"
+                      >
+                        <Copy size={14} />
+                      </button>
+                      <button
+                        onClick={() => openFolderModal(index)}
+                        className="p-1.5 rounded-md bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 transition-colors"
+                        title="Save to notes"
+                      >
+                        <Bookmark size={14} />
+                      </button>
+                    </div>
+                  )}
+
                   {message.type === 'image' || message.type === 'video' ? (
                     <div className="space-y-2">
                       {message.type === 'image' ? (
@@ -740,6 +779,28 @@ export function AIPlayground({ moduleTitle, moduleId, moduleSlug, slideId, userI
                       )}
                     </>
                   )}
+
+                  {/* Model metadata for assistant messages */}
+                  {message.role === 'assistant' && message.metadata && (
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      {message.metadata.modelUsed && (
+                        <Badge variant="secondary" className="text-xs bg-zinc-800/50 border border-zinc-700">
+                          Routed to: {message.metadata.modelUsed}
+                        </Badge>
+                      )}
+                      {message.metadata.executionTime && (
+                        <Badge variant="secondary" className="text-xs bg-zinc-800/50 border border-zinc-700">
+                          {message.metadata.executionTime}ms
+                        </Badge>
+                      )}
+                      {message.metadata.citations && message.metadata.citations.length > 0 && (
+                        <Badge variant="secondary" className="text-xs bg-zinc-800/50 border border-zinc-700">
+                          🔍 Web Search
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+
                   <p className="text-xs mt-2 opacity-60 flex items-center gap-2">
                     {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     {message.saved && (
@@ -758,10 +819,12 @@ export function AIPlayground({ moduleTitle, moduleId, moduleSlug, slideId, userI
                 animate={{ opacity: 1 }}
                 className="flex justify-start"
               >
-                <div className="rounded-2xl px-4 py-3 border bg-zinc-800/50 border-zinc-700">
+                <div className="rounded-2xl px-4 py-3 border bg-zinc-800/50 border-zinc-700 border-l-4 border-purple-500/50">
                   <div className="flex items-center gap-2">
-                    <Loader2 size={16} className="animate-spin text-zinc-500" />
-                    <span className="text-sm text-zinc-500">Thinking...</span>
+                    <Loader2 size={16} className="animate-spin text-purple-400" />
+                    <span className="text-sm text-zinc-400 italic">
+                      {loadingPhase || 'Thinking...'}
+                    </span>
                   </div>
                 </div>
               </motion.div>

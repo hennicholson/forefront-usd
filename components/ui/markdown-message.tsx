@@ -105,13 +105,13 @@ export function MarkdownMessage({ content, isDarkMode = true }: MarkdownMessageP
           ),
           // Lists
           ul: ({ node, ...props }) => (
-            <ul className="list-disc list-inside space-y-1 my-3" {...props} />
+            <ul className="list-disc pl-6 space-y-2 my-3" {...props} />
           ),
           ol: ({ node, ...props }) => (
-            <ol className="list-decimal list-inside space-y-1 my-3" {...props} />
+            <ol className="list-decimal pl-6 space-y-2 my-3" {...props} />
           ),
           li: ({ node, ...props }) => (
-            <li className={`${isDarkMode ? 'text-zinc-200' : 'text-zinc-700'}`} {...props} />
+            <li className={`leading-relaxed ${isDarkMode ? 'text-zinc-200' : 'text-zinc-700'}`} {...props} />
           ),
           // Blockquotes
           blockquote: ({ node, ...props }) => (
@@ -129,7 +129,7 @@ export function MarkdownMessage({ content, isDarkMode = true }: MarkdownMessageP
             <h1 className="text-2xl font-bold mt-6 mb-3" {...props} />
           ),
           h2: ({ node, ...props }) => (
-            <h2 className="text-xl font-bold mt-5 mb-2" {...props} />
+            <h2 className="text-xl font-bold mt-6 mb-3" {...props} />
           ),
           h3: ({ node, ...props }) => (
             <h3 className="text-lg font-semibold mt-4 mb-2" {...props} />

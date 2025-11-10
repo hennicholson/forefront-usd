@@ -285,3 +285,117 @@ html {
     font-size: clamp(36px, 12vw, 72px);
   }
 }
+
+/* Workflow Animation Styles */
+.workflow-light {
+  offset-anchor: 10px 0px;
+  animation: workflow-path-animation;
+  animation-iteration-count: infinite;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  animation-duration: 4s;
+  animation-delay: 1s;
+}
+
+.wf-light-1 {
+  offset-path: path("M 25 10 v 15 q 0 5 5 5 h 45 q 5 0 5 5 v 25");
+}
+
+.wf-light-2 {
+  offset-path: path("M 62.5 10 v 10 q 0 5 5 5 h 8 q 5 0 5 5 v 25");
+}
+
+.wf-light-3 {
+  offset-path: path("M 100 10 v 10 q 0 5 -5 5 h -10 q -5 0 -5 5 v 25");
+}
+
+.wf-light-4 {
+  offset-path: path("M 137.5 10 v 10 q 0 5 5 5 h 8 q 5 0 5 5 v 25");
+}
+
+.wf-light-5 {
+  offset-path: path("M 175 10 v 15 q 0 5 -5 5 h -45 q -5 0 -5 5 v 25");
+}
+
+@keyframes workflow-path-animation {
+  0% {
+    offset-distance: 0%;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    offset-distance: 100%;
+    opacity: 0;
+  }
+}
+
+/* Node pulse effect */
+@keyframes node-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.85;
+  }
+}
+
+.node-active {
+  animation: node-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Glow effects for workflow editor */
+.glow-border {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1),
+              0 0 20px rgba(255, 255, 255, 0.03);
+  transition: box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glow-border:hover {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2),
+              0 0 30px rgba(255, 255, 255, 0.08);
+}
+
+.glow-border:focus-within {
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.3),
+              0 0 40px rgba(139, 92, 246, 0.15);
+}
+
+/* Animated grid background */
+.workflow-grid {
+  background-image:
+    linear-gradient(to right, rgba(63, 63, 70, 0.3) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(63, 63, 70, 0.3) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Floating animation */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.float-animation {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* Connection line animation */
+@keyframes dash {
+  to {
+    stroke-dashoffset: -100;
+  }
+}
+
+.connection-animated {
+  stroke-dasharray: 5 5;
+  animation: dash 20s linear infinite;
+}

@@ -10,11 +10,13 @@ export default function MainLayout({
 }) {
   const pathname = usePathname()
   const isModulePage = pathname?.startsWith('/modules/')
+  const isWorkflowDetailPage = pathname?.match(/^\/workflows\/\d+/)
+  const hideHeader = isModulePage || isWorkflowDetailPage
 
   return (
     <>
-      {!isModulePage && <Header />}
-      <div style={{ paddingTop: isModulePage ? '0' : '70px' }}>
+      {!hideHeader && <Header />}
+      <div style={{ paddingTop: hideHeader ? '0' : '70px' }}>
         {children}
       </div>
     </>

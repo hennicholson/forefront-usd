@@ -3,6 +3,10 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { useAuth } from '@/contexts/AuthContext'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Play, ArrowRight, Heart, Eye, BookOpen, GraduationCap, Zap, Video, Code, TrendingUp, Palette, PenTool, User, BarChart } from 'lucide-react'
+import { ParticleAnimation } from '@/components/ui/particle-animation'
 
 export default function WorkflowsPage() {
   const { user } = useAuth()
@@ -32,12 +36,12 @@ export default function WorkflowsPage() {
   }
 
   const categories = [
-    { id: 'video', name: 'Video', icon: '🎬', count: workflows.filter(w => w.category === 'video').length },
-    { id: 'coding', name: 'Coding', icon: '💻', count: workflows.filter(w => w.category === 'coding').length },
-    { id: 'marketing', name: 'Marketing', icon: '📱', count: workflows.filter(w => w.category === 'marketing').length },
-    { id: 'design', name: 'Design', icon: '🎨', count: workflows.filter(w => w.category === 'design').length },
-    { id: 'content', name: 'Content', icon: '✍️', count: workflows.filter(w => w.category === 'content').length },
-    { id: 'automation', name: 'Automation', icon: '⚡', count: workflows.filter(w => w.category === 'automation').length },
+    { id: 'video', name: 'Video', icon: Video, count: workflows.filter(w => w.category === 'video').length },
+    { id: 'coding', name: 'Coding', icon: Code, count: workflows.filter(w => w.category === 'coding').length },
+    { id: 'marketing', name: 'Marketing', icon: TrendingUp, count: workflows.filter(w => w.category === 'marketing').length },
+    { id: 'design', name: 'Design', icon: Palette, count: workflows.filter(w => w.category === 'design').length },
+    { id: 'content', name: 'Content', icon: PenTool, count: workflows.filter(w => w.category === 'content').length },
+    { id: 'automation', name: 'Automation', icon: Zap, count: workflows.filter(w => w.category === 'automation').length },
   ]
 
   const filteredWorkflows = workflows.filter(w => {
@@ -151,23 +155,21 @@ export default function WorkflowsPage() {
           marginBottom: '50px',
           flexWrap: 'wrap'
         }}>
-          {isAdmin && (
-            <Link href="/admin/workflows/new/edit" style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '14px 28px',
-              background: '#fff',
-              color: '#000',
-              textDecoration: 'none',
-              borderRadius: '8px',
-              fontWeight: 600,
-              fontSize: '15px',
-              transition: 'transform 0.2s',
-            }}>
-              <span>✨</span> Create Workflow
-            </Link>
-          )}
+          <Link href="/workflows/create" style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '14px 28px',
+            background: '#fff',
+            color: '#000',
+            textDecoration: 'none',
+            borderRadius: '8px',
+            fontWeight: 600,
+            fontSize: '15px',
+            transition: 'transform 0.2s',
+          }}>
+            Create Workflow
+          </Link>
           <input
             type="text"
             placeholder="Search workflows..."
@@ -209,30 +211,33 @@ export default function WorkflowsPage() {
           >
             All
           </button>
-          {categories.map(cat => (
-            <button
-              key={cat.id}
-              onClick={() => setSelectedCategory(cat.id)}
-              style={{
-                padding: '10px 20px',
-                background: selectedCategory === cat.id ? '#fff' : '#0a0a0a',
-                color: selectedCategory === cat.id ? '#000' : '#fff',
-                border: '1px solid ' + (selectedCategory === cat.id ? '#fff' : '#1a1a1a'),
-                borderRadius: '8px',
-                fontSize: '14px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              <span>{cat.icon}</span>
-              <span>{cat.name}</span>
-              <span style={{ opacity: 0.5, fontSize: '12px' }}>({cat.count})</span>
-            </button>
-          ))}
+          {categories.map(cat => {
+            const IconComponent = cat.icon
+            return (
+              <button
+                key={cat.id}
+                onClick={() => setSelectedCategory(cat.id)}
+                style={{
+                  padding: '10px 20px',
+                  background: selectedCategory === cat.id ? '#fff' : '#0a0a0a',
+                  color: selectedCategory === cat.id ? '#000' : '#fff',
+                  border: '1px solid ' + (selectedCategory === cat.id ? '#fff' : '#1a1a1a'),
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <IconComponent size={16} />
+                <span>{cat.name}</span>
+                <span style={{ opacity: 0.5, fontSize: '12px' }}>({cat.count})</span>
+              </button>
+            )
+          })}
         </div>
 
         {/* Workflows Grid */}
@@ -254,193 +259,87 @@ export default function WorkflowsPage() {
             gap: '24px'
           }}>
             {filteredWorkflows.map((workflow, index) => (
-            <motion.div
+            <Link
               key={workflow.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
+              href={`/workflows/${workflow.id}`}
+              className="group relative block"
             >
-              <Link
-                href={`/workflows/${workflow.id}`}
-                style={{
-                  display: 'block',
-                  background: '#0a0a0a',
-                  border: '1px solid #1a1a1a',
-                  borderRadius: '16px',
-                  padding: '24px',
-                  textDecoration: 'none',
-                  color: 'inherit',
-                  transition: 'all 0.3s',
-                  cursor: 'pointer'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = '#fff'
-                  e.currentTarget.style.transform = 'translateY(-4px)'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = '#1a1a1a'
-                  e.currentTarget.style.transform = 'translateY(0)'
-                }}
-              >
-                {/* Header */}
-                <div style={{ marginBottom: '20px' }}>
-                  <div style={{
-                    display: 'inline-block',
-                    padding: '4px 12px',
-                    background: '#fff',
-                    color: '#000',
-                    borderRadius: '6px',
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    textTransform: 'uppercase',
-                    letterSpacing: '1px',
-                    marginBottom: '12px'
-                  }}>
-                    {categories.find(c => c.id === workflow.category)?.icon} {workflow.category}
+              {/* White Corner Squares */}
+              <div className="absolute -top-1 -left-1 w-3 h-3 bg-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10" />
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10" />
+              <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10" />
+              <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10" />
+
+              <Card className="h-full bg-gradient-to-b from-zinc-950/60 to-zinc-950/30 border-zinc-800 backdrop-blur-sm transition-all duration-300 group-hover:border-zinc-600">
+                <CardHeader className="space-y-4">
+                  {/* Icon and Category */}
+                  <div className="flex items-start justify-between">
+                    <div className="p-3 rounded-lg border border-zinc-700 bg-zinc-900/50">
+                      <GraduationCap className="h-6 w-6 text-zinc-400" />
+                    </div>
+                    <Badge variant="secondary" className="bg-zinc-800/50 text-zinc-300 border-zinc-700 hover:bg-zinc-800 flex items-center gap-1.5">
+                      {(() => {
+                        const CategoryIcon = categories.find(c => c.id === workflow.category)?.icon
+                        return CategoryIcon ? <CategoryIcon size={12} /> : null
+                      })()}
+                      {workflow.category}
+                    </Badge>
                   </div>
-                  <h3 style={{
-                    fontSize: '20px',
-                    fontWeight: 700,
-                    marginBottom: '8px',
-                    lineHeight: 1.3
-                  }}>
+
+                  <CardTitle className="text-xl font-semibold tracking-tight text-white group-hover:text-zinc-100 transition-colors">
                     {workflow.title}
-                  </h3>
-                  <p style={{
-                    fontSize: '14px',
-                    color: '#999',
-                    lineHeight: 1.6
-                  }}>
+                  </CardTitle>
+                </CardHeader>
+
+                <CardContent className="space-y-4">
+                  {/* Description */}
+                  <p className="text-sm text-zinc-400 leading-relaxed line-clamp-2">
                     {workflow.description}
                   </p>
-                </div>
 
-                {/* Workflow Visualization */}
-                <div style={{
-                  position: 'relative',
-                  height: '360px',
-                  background: '#000',
-                  border: '1px solid #1a1a1a',
-                  borderRadius: '12px',
-                  marginBottom: '20px',
-                  padding: '20px',
-                  overflow: 'hidden'
-                }}>
-                  <svg style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: '100%',
-                    pointerEvents: 'none'
-                  }}>
-                    {/* Draw connections */}
-                    {workflow.nodes.slice(0, -1).map((node: any, i: number) => {
-                      const nextNode = workflow.nodes[i + 1]
-                      const fromX = node.x
-                      const fromY = node.y + 20
-                      const toX = nextNode.x
-                      const toY = nextNode.y
+                  {/* Particle Animation */}
+                  <ParticleAnimation />
 
-                      return (
-                        <g key={`conn-${i}`}>
-                          <line
-                            x1={`${fromX}%`}
-                            y1={`${fromY}%`}
-                            x2={`${toX}%`}
-                            y2={`${toY}%`}
-                            stroke="#333"
-                            strokeWidth="2"
-                            strokeDasharray="4 4"
-                          />
-                          {/* Arrow */}
-                          <circle
-                            cx={`${toX}%`}
-                            cy={`${toY - 2}%`}
-                            r="3"
-                            fill="#666"
-                          />
-                        </g>
-                      )
-                    })}
-                  </svg>
-
-                  {/* Draw nodes */}
-                  {workflow.nodes.map((node: any, i: number) => (
-                    <div
-                      key={node.id}
-                      style={{
-                        position: 'absolute',
-                        left: `${node.x}%`,
-                        top: `${node.y}%`,
-                        transform: 'translate(-50%, -50%)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        gap: '6px',
-                        zIndex: 10
-                      }}
-                    >
-                      <div style={{
-                        width: '48px',
-                        height: '48px',
-                        background: '#0a0a0a',
-                        border: '2px solid #333',
-                        borderRadius: '12px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '20px',
-                        transition: 'all 0.2s'
-                      }}>
-                        {node.icon}
+                  {/* Meta Info */}
+                  <div className="flex flex-col gap-2 pt-2 border-t border-zinc-800">
+                    <div className="flex items-center gap-2 text-xs text-zinc-500">
+                      <User className="h-3.5 w-3.5" />
+                      <span>{workflow.author?.name || 'Anonymous'}</span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2 text-xs text-zinc-500">
+                        <Heart className="h-3.5 w-3.5" />
+                        <span>{workflow.likes}</span>
                       </div>
-                      <div style={{
-                        fontSize: '11px',
-                        fontWeight: 600,
-                        color: '#999',
-                        textAlign: 'center',
-                        maxWidth: '80px',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis'
-                      }}>
-                        {node.label}
+                      <div className="flex items-center gap-2 text-xs text-zinc-500">
+                        <BookOpen className="h-3.5 w-3.5" />
+                        <span>{workflow.steps} steps</span>
                       </div>
                     </div>
-                  ))}
-                </div>
-
-                {/* Meta */}
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  paddingTop: '16px',
-                  borderTop: '1px solid #1a1a1a'
-                }}>
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '16px',
-                    fontSize: '13px',
-                    color: '#666'
-                  }}>
-                    <span>❤️ {workflow.likes}</span>
-                    <span>👁️ {workflow.views}</span>
-                    <span>📋 {workflow.steps} steps</span>
+                    <div className="flex items-center gap-2 text-xs">
+                      <BarChart className="h-3.5 w-3.5 text-zinc-500" />
+                      <span className={
+                        workflow.difficulty === 'beginner' ? 'text-green-400' :
+                        workflow.difficulty === 'intermediate' ? 'text-yellow-400' :
+                        'text-red-400'
+                      }>
+                        {workflow.difficulty}
+                      </span>
+                    </div>
                   </div>
-                  <span style={{
-                    fontSize: '11px',
-                    color: '#666',
-                    textTransform: 'uppercase',
-                    letterSpacing: '1px'
-                  }}>
-                    {workflow.difficulty}
-                  </span>
-                </div>
-              </Link>
-            </motion.div>
+
+                  {/* View Button */}
+                  <div className="flex items-center gap-2 text-sm font-medium text-zinc-400 group-hover:text-white transition-colors pt-2">
+                    <Play className="h-4 w-4" />
+                    <span>View Workflow</span>
+                    <ArrowRight className="h-4 w-4 ml-auto group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </CardContent>
+
+                {/* Gradient Overlay on Hover */}
+                <div className="absolute inset-0 bg-gradient-to-t from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-lg" />
+              </Card>
+            </Link>
             ))}
           </div>
         )}

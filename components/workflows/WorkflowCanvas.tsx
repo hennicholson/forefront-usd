@@ -1,5 +1,5 @@
 'use client'
-import React, { useCallback, useEffect } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import ReactFlow, {
   Background,
   Controls,
@@ -18,6 +18,7 @@ import { WorkflowNode, WorkflowConnection } from '@/lib/workflows/workflow-types
 import { WorkflowToolNode } from './nodes/WorkflowToolNode'
 import { WorkflowPromptNode } from './nodes/WorkflowPromptNode'
 import { WorkflowActionNode } from './nodes/WorkflowActionNode'
+import { NodeContextMenu } from './NodeContextMenu'
 
 interface WorkflowCanvasProps {
   initialNodes: WorkflowNode[]
@@ -25,6 +26,9 @@ interface WorkflowCanvasProps {
   onNodesChange?: (nodes: WorkflowNode[]) => void
   onEdgesChange?: (edges: WorkflowConnection[]) => void
   onNodeSelect?: (nodeId: string | null) => void
+  onNodeDelete?: (nodeId: string) => void
+  onNodeReorder?: (nodeId: string, direction: 'up' | 'down') => void
+  onNodeDuplicate?: (nodeId: string) => void
   editable?: boolean
 }
 
@@ -44,8 +48,18 @@ function WorkflowCanvasInner({
   onNodesChange: onNodesChangeCallback,
   onEdgesChange: onEdgesChangeCallback,
   onNodeSelect,
+  onNodeDelete,
+  onNodeReorder,
+  onNodeDuplicate,
   editable = true
 }: WorkflowCanvasProps) {
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    show: boolean
+    x: number
+    y: number
+    nodeId: string
+  } | null>(null)
   // Convert workflow nodes to React Flow nodes
   const convertToReactFlowNodes = useCallback((workflowNodes: WorkflowNode[]): Node[] => {
     return workflowNodes.map(node => ({
@@ -180,7 +194,20 @@ function WorkflowCanvasInner({
     if (onNodeSelect) {
       onNodeSelect(null)
     }
+    // Close context menu
+    setContextMenu(null)
   }, [onNodeSelect])
+
+  // Handle right-click on node
+  const onNodeContextMenu = useCallback((event: React.MouseEvent, node: Node) => {
+    event.preventDefault()
+    setContextMenu({
+      show: true,
+      x: event.clientX,
+      y: event.clientY,
+      nodeId: node.id
+    })
+  }, [])
 
   return (
     <div style={{ width: '100%', height: '100%', background: '#000' }}>
@@ -192,6 +219,7 @@ function WorkflowCanvasInner({
         onConnect={onConnect}
         onNodeClick={onNodeClick}
         onNodeDragStop={onNodeDragStop}
+        onNodeContextMenu={onNodeContextMenu}
         onPaneClick={onPaneClick}
         nodeTypes={nodeTypes}
         fitView
@@ -231,6 +259,22 @@ function WorkflowCanvasInner({
           />
         )}
       </ReactFlow>
+
+      {/* Context Menu */}
+      {contextMenu && onNodeDelete && (
+        <NodeContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          nodeId={contextMenu.nodeId}
+          isFirst={initialNodes.findIndex(n => n.id === contextMenu.nodeId) === 0}
+          isLast={initialNodes.findIndex(n => n.id === contextMenu.nodeId) === initialNodes.length - 1}
+          onClose={() => setContextMenu(null)}
+          onDelete={onNodeDelete}
+          onMoveUp={onNodeReorder ? (nodeId) => onNodeReorder(nodeId, 'up') : undefined}
+          onMoveDown={onNodeReorder ? (nodeId) => onNodeReorder(nodeId, 'down') : undefined}
+          onDuplicate={onNodeDuplicate}
+        />
+      )}
     </div>
   )
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { generationHistory } from '@/lib/db/schema'
 import { eq, and, desc } from 'drizzle-orm'
+import { downloadAndSaveImage, downloadAndSaveVideo } from '@/lib/image-storage'
 
 // GET - Fetch user's generation history
 export async function GET(request: NextRequest) {
@@ -90,6 +91,27 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Download and save images/videos locally to prevent URL expiration
+    let savedResponse = response || null
+
+    if (response && typeof response === 'string') {
+      try {
+        if (type === 'image') {
+          console.log('Downloading and saving image for user:', userId)
+          savedResponse = await downloadAndSaveImage(response, userId)
+          console.log('Image saved to:', savedResponse)
+        } else if (type === 'video') {
+          console.log('Downloading and saving video for user:', userId)
+          savedResponse = await downloadAndSaveVideo(response, userId)
+          console.log('Video saved to:', savedResponse)
+        }
+      } catch (downloadError) {
+        console.error('Error downloading media, using original URL:', downloadError)
+        // Fall back to original response URL if download fails
+        savedResponse = response
+      }
+    }
+
     const [created] = await db
       .insert(generationHistory)
       .values({
@@ -99,7 +121,7 @@ export async function POST(request: NextRequest) {
         type,
         model,
         prompt,
-        response: response || null,
+        response: savedResponse,
         metadata: metadata || {}
       })
       .returning()

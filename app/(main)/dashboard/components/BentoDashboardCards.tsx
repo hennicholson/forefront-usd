@@ -465,20 +465,47 @@ export const SubmitCourseCard = () => {
   )
 }
 
-// Card 13: Latest News/Updates
-export const LatestNewsCard = () => {
+// Card 13: Newsletter
+export const NewsletterCard = ({ onClick }: { onClick?: () => void }) => {
   return (
-    <Link href="/modules">
-      <div className="h-full bg-zinc-900 border-2 border-zinc-800 rounded-2xl p-6 hover:border-emerald-500 transition-all duration-300 cursor-pointer group">
+    <div
+      onClick={onClick}
+      className="h-full bg-gradient-to-br from-purple-900/20 to-pink-900/20 border-2 border-zinc-800 rounded-2xl p-6 hover:border-purple-500 transition-all duration-300 cursor-pointer group relative overflow-hidden"
+    >
+      {/* Animated gradient background */}
+      <div
+        className="absolute inset-0 opacity-20 group-hover:opacity-30 transition-opacity duration-500"
+        style={{
+          background: 'linear-gradient(45deg, #5b00ff, #00ffa3, #ff9a00, #ea00ff)',
+          backgroundSize: '400% 400%',
+          animation: 'gradient 15s ease infinite'
+        }}
+      />
+
+      <div className="relative z-10">
         <div className="text-xs uppercase tracking-wider text-zinc-500 mb-3 font-bold">
-          stay updated
+          weekly insights
         </div>
-        <div className="text-3xl font-bold text-white mb-2">latest news</div>
-        <div className="text-sm text-zinc-400 mb-4">latest ai breakthroughs, tools, and discoveries</div>
-        <div className="text-xs uppercase tracking-wider text-emerald-400 font-bold opacity-0 group-hover:opacity-100 transition-opacity">
-          read now →
+        <div className="text-3xl font-bold text-white mb-2">newsletter</div>
+        <div className="text-sm text-zinc-400 mb-4">ai breakthroughs & student discoveries</div>
+        <div className="text-xs uppercase tracking-wider text-purple-400 font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+          read editions →
         </div>
       </div>
-    </Link>
+
+      <style jsx>{`
+        @keyframes gradient {
+          0% {
+            background-position: 0% 50%;
+          }
+          50% {
+            background-position: 100% 50%;
+          }
+          100% {
+            background-position: 0% 50%;
+          }
+        }
+      `}</style>
+    </div>
   )
 }

@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Star, Image as ImageIcon, FileText, Film, Bookmark, Search, Filter, X } from 'lucide-react'
+import { Star, Image as ImageIcon, FileText, Film, Bookmark, Search, Filter, Copy, Check, Sparkles, Calendar, Zap } from 'lucide-react'
+import { motion } from 'framer-motion'
 
 interface Generation {
   id: number
@@ -28,31 +29,17 @@ export function GenerationPortfolio({ userId }: { userId: string }) {
   const [minRating, setMinRating] = useState<number>(0)
   const [searchQuery, setSearchQuery] = useState('')
   const [showFilters, setShowFilters] = useState(false)
-  const [folders, setFolders] = useState<string[]>([])
-  const [selectedFolderFilter, setSelectedFolderFilter] = useState<string>('all')
+  const [copiedId, setCopiedId] = useState<number | null>(null)
 
   useEffect(() => {
     fetchGenerations()
-    fetchFolders()
   }, [userId])
-
-  const fetchFolders = async () => {
-    try {
-      const res = await fetch(`/api/folders?userId=${userId}`)
-      if (res.ok) {
-        const data = await res.json()
-        setFolders(data.folders || [])
-      }
-    } catch (err) {
-      console.error('Error loading folders:', err)
-    }
-  }
 
   const fetchGenerations = async () => {
     try {
       const params = new URLSearchParams({
         userId,
-        saved: 'true', // Only show saved generations in portfolio
+        saved: 'true',
         limit: '100'
       })
 
@@ -97,47 +84,46 @@ export function GenerationPortfolio({ userId }: { userId: string }) {
 
   const handleUnsave = (generationId: number) => {
     updateGeneration(generationId, { saved: false }).then(() => {
-      // Remove from UI immediately
       setGenerations(prev => prev.filter(g => g.id !== generationId))
     })
   }
 
-  // Get unique models
+  const handleCopyPrompt = (prompt: string, id: number) => {
+    navigator.clipboard.writeText(prompt)
+    setCopiedId(id)
+    setTimeout(() => setCopiedId(null), 2000)
+  }
+
   const models = Array.from(new Set(generations.map(g => g.model)))
 
-  // Filter generations
   const filteredGenerations = generations.filter(gen => {
     if (filterType !== 'all' && gen.type !== filterType) return false
     if (filterModel !== 'all' && gen.model !== filterModel) return false
     if (minRating > 0 && (gen.rating || 0) < minRating) return false
     if (searchQuery && !gen.prompt.toLowerCase().includes(searchQuery.toLowerCase())) return false
-    if (selectedFolderFilter !== 'all' && !gen.tags.includes(selectedFolderFilter)) return false
     return true
   })
 
   if (loading) {
     return (
-      <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
-        loading your portfolio...
+      <div className="flex items-center justify-center py-20">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-zinc-500">Loading your portfolio...</p>
+        </div>
       </div>
     )
   }
 
   if (generations.length === 0) {
     return (
-      <div style={{
-        padding: '60px',
-        textAlign: 'center',
-        background: '#000',
-        borderRadius: '16px',
-        border: '2px dashed #333'
-      }}>
-        <Bookmark size={48} style={{ color: '#666', margin: '0 auto 16px' }} />
-        <div style={{ fontSize: '18px', fontWeight: 700, color: '#fff', marginBottom: '8px' }}>
-          no saved generations yet
-        </div>
-        <div style={{ fontSize: '14px', color: '#666' }}>
-          save your favorite AI generations from the playground to build your portfolio
+      <div className="flex items-center justify-center py-20">
+        <div className="text-center max-w-md">
+          <Bookmark size={48} className="text-zinc-700 mx-auto mb-4" />
+          <h3 className="text-xl font-bold text-white mb-2">No saved generations yet</h3>
+          <p className="text-zinc-500">
+            Save your favorite AI generations from the playground to build your portfolio
+          </p>
         </div>
       </div>
     )
@@ -154,456 +140,225 @@ export function GenerationPortfolio({ userId }: { userId: string }) {
 
   return (
     <div>
-      {/* Header with Filters */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '24px',
-        flexWrap: 'wrap',
-        gap: '16px'
-      }}>
-        <div>
-          <h2 style={{
-            fontSize: '24px',
-            fontWeight: 700,
-            textTransform: 'uppercase',
-            letterSpacing: '2px',
-            color: '#000',
-            marginBottom: '4px'
-          }}>
-            generation portfolio
-          </h2>
-          <p style={{ fontSize: '14px', color: '#666' }}>
-            {filteredGenerations.length} saved generation{filteredGenerations.length !== 1 ? 's' : ''}
-          </p>
+      {/* Header */}
+      <div className="mb-8">
+        <div className="flex items-center gap-3 mb-2">
+          <Sparkles className="h-8 w-8 text-purple-400" />
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight">Generation Portfolio</h1>
         </div>
-
-        <button
-          onClick={() => setShowFilters(!showFilters)}
-          style={{
-            padding: '12px 24px',
-            background: showFilters ? '#000' : '#fff',
-            color: showFilters ? '#fff' : '#000',
-            border: '2px solid #000',
-            borderRadius: '8px',
-            fontSize: '12px',
-            fontWeight: 700,
-            textTransform: 'uppercase',
-            letterSpacing: '1px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            transition: 'all 0.2s ease'
-          }}
-        >
-          <Filter size={16} />
-          {showFilters ? 'hide filters' : 'show filters'}
-        </button>
+        <p className="text-zinc-500 text-lg">
+          {filteredGenerations.length} saved generation{filteredGenerations.length !== 1 ? 's' : ''}
+        </p>
       </div>
 
-      {/* Filter Panel */}
-      {showFilters && (
-        <div style={{
-          padding: '24px',
-          background: '#000',
-          borderRadius: '12px',
-          marginBottom: '24px',
-          border: '2px solid #333'
-        }}>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: '20px'
-          }}>
-            {/* Search */}
-            <div>
-              <label style={{
-                display: 'block',
-                fontSize: '11px',
-                textTransform: 'uppercase',
-                letterSpacing: '1px',
-                color: '#666',
-                marginBottom: '8px',
-                fontWeight: 700
-              }}>
-                search prompts
-              </label>
-              <div style={{ position: 'relative' }}>
-                <Search
-                  size={16}
-                  style={{
-                    position: 'absolute',
-                    left: '12px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    color: '#666'
-                  }}
-                />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="search..."
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px 10px 36px',
-                    background: '#111',
-                    border: '1px solid #333',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    fontSize: '14px'
-                  }}
-                />
-              </div>
-            </div>
+      {/* Filters */}
+      <div className="mb-8">
+        <button
+          onClick={() => setShowFilters(!showFilters)}
+          className="flex items-center gap-2 px-4 py-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-lg transition-colors"
+        >
+          <Filter size={16} />
+          {showFilters ? 'Hide Filters' : 'Show Filters'}
+        </button>
 
-            {/* Type Filter */}
-            <div>
-              <label style={{
-                display: 'block',
-                fontSize: '11px',
-                textTransform: 'uppercase',
-                letterSpacing: '1px',
-                color: '#666',
-                marginBottom: '8px',
-                fontWeight: 700
-              }}>
-                type
-              </label>
-              <select
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value as any)}
-                style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  background: '#111',
-                  border: '1px solid #333',
-                  borderRadius: '8px',
-                  color: '#fff',
-                  fontSize: '14px',
-                  cursor: 'pointer'
-                }}
-              >
-                <option value="all">all types</option>
-                <option value="text">text</option>
-                <option value="image">image</option>
-                <option value="video">video</option>
-              </select>
-            </div>
-
-            {/* Model Filter */}
-            <div>
-              <label style={{
-                display: 'block',
-                fontSize: '11px',
-                textTransform: 'uppercase',
-                letterSpacing: '1px',
-                color: '#666',
-                marginBottom: '8px',
-                fontWeight: 700
-              }}>
-                model
-              </label>
-              <select
-                value={filterModel}
-                onChange={(e) => setFilterModel(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  background: '#111',
-                  border: '1px solid #333',
-                  borderRadius: '8px',
-                  color: '#fff',
-                  fontSize: '14px',
-                  cursor: 'pointer'
-                }}
-              >
-                <option value="all">all models</option>
-                {models.map(model => (
-                  <option key={model} value={model}>{model}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Folder Filter */}
-            {folders.length > 0 && (
+        {showFilters && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="mt-4 p-6 bg-zinc-950/50 border border-zinc-800 rounded-lg"
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Search */}
               <div>
-                <label style={{
-                  display: 'block',
-                  fontSize: '11px',
-                  textTransform: 'uppercase',
-                  letterSpacing: '1px',
-                  color: '#666',
-                  marginBottom: '8px',
-                  fontWeight: 700
-                }}>
-                  folder
+                <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">
+                  Search Prompts
+                </label>
+                <div className="relative">
+                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search..."
+                    className="w-full pl-10 pr-4 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white text-sm focus:outline-none focus:border-zinc-600"
+                  />
+                </div>
+              </div>
+
+              {/* Type Filter */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">
+                  Type
                 </label>
                 <select
-                  value={selectedFolderFilter}
-                  onChange={(e) => setSelectedFolderFilter(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    background: '#111',
-                    border: '1px solid #333',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    fontSize: '14px',
-                    cursor: 'pointer'
-                  }}
+                  value={filterType}
+                  onChange={(e) => setFilterType(e.target.value as any)}
+                  className="w-full px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white text-sm cursor-pointer focus:outline-none focus:border-zinc-600"
                 >
-                  <option value="all">all folders</option>
-                  {folders.map(folder => (
-                    <option key={folder} value={folder}>{folder}</option>
+                  <option value="all">All Types</option>
+                  <option value="text">Text</option>
+                  <option value="image">Image</option>
+                  <option value="video">Video</option>
+                </select>
+              </div>
+
+              {/* Model Filter */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">
+                  Model
+                </label>
+                <select
+                  value={filterModel}
+                  onChange={(e) => setFilterModel(e.target.value)}
+                  className="w-full px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white text-sm cursor-pointer focus:outline-none focus:border-zinc-600"
+                >
+                  <option value="all">All Models</option>
+                  {models.map(model => (
+                    <option key={model} value={model}>{model}</option>
                   ))}
                 </select>
               </div>
-            )}
 
-            {/* Rating Filter */}
-            <div>
-              <label style={{
-                display: 'block',
-                fontSize: '11px',
-                textTransform: 'uppercase',
-                letterSpacing: '1px',
-                color: '#666',
-                marginBottom: '8px',
-                fontWeight: 700
-              }}>
-                minimum rating
-              </label>
-              <select
-                value={minRating}
-                onChange={(e) => setMinRating(parseInt(e.target.value))}
-                style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  background: '#111',
-                  border: '1px solid #333',
-                  borderRadius: '8px',
-                  color: '#fff',
-                  fontSize: '14px',
-                  cursor: 'pointer'
-                }}
-              >
-                <option value="0">any rating</option>
-                <option value="1">1+ stars</option>
-                <option value="2">2+ stars</option>
-                <option value="3">3+ stars</option>
-                <option value="4">4+ stars</option>
-                <option value="5">5 stars</option>
-              </select>
+              {/* Rating Filter */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">
+                  Min Rating
+                </label>
+                <select
+                  value={minRating}
+                  onChange={(e) => setMinRating(parseInt(e.target.value))}
+                  className="w-full px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white text-sm cursor-pointer focus:outline-none focus:border-zinc-600"
+                >
+                  <option value="0">Any Rating</option>
+                  <option value="1">1+ Stars</option>
+                  <option value="2">2+ Stars</option>
+                  <option value="3">3+ Stars</option>
+                  <option value="4">4+ Stars</option>
+                  <option value="5">5 Stars</option>
+                </select>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </motion.div>
+        )}
+      </div>
 
       {/* Generation Grid */}
       {filteredGenerations.length === 0 ? (
-        <div style={{
-          padding: '40px',
-          textAlign: 'center',
-          background: '#000',
-          borderRadius: '12px',
-          border: '2px solid #333'
-        }}>
-          <div style={{ fontSize: '16px', color: '#666' }}>
-            no generations match your filters
-          </div>
+        <div className="text-center py-12">
+          <p className="text-zinc-500">No generations match your filters</p>
         </div>
       ) : (
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-          gap: '20px'
-        }}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredGenerations.map((gen) => (
-            <div
+            <motion.div
               key={gen.id}
-              className="card-dark"
-              style={{
-                padding: '24px',
-                position: 'relative',
-                overflow: 'hidden',
-                display: 'flex',
-                flexDirection: 'column',
-                minHeight: '280px'
-              }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="group relative"
             >
-              {/* Type Badge */}
-              <div style={{
-                position: 'absolute',
-                top: '16px',
-                right: '16px',
-                padding: '6px 12px',
-                background: '#111',
-                borderRadius: '6px',
-                fontSize: '10px',
-                textTransform: 'uppercase',
-                letterSpacing: '1px',
-                fontWeight: 700,
-                color: '#fff',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}>
-                {getTypeIcon(gen.type)}
-                {gen.type}
-              </div>
+              {/* Corner Squares */}
+              <div className="absolute -top-1 -left-1 w-3 h-3 bg-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10" />
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10" />
+              <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10" />
+              <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10" />
 
-              {/* Model */}
-              <div style={{
-                fontSize: '11px',
-                textTransform: 'uppercase',
-                letterSpacing: '1px',
-                color: '#666',
-                marginBottom: '12px',
-                fontWeight: 700
-              }}>
-                {gen.model}
-              </div>
-
-              {/* Prompt */}
-              <div style={{
-                fontSize: '14px',
-                color: '#fff',
-                marginBottom: '16px',
-                lineHeight: 1.6,
-                flex: 1
-              }}>
-                <strong style={{ color: '#999', display: 'block', marginBottom: '8px' }}>
-                  prompt:
-                </strong>
-                {gen.prompt.length > 150 ? `${gen.prompt.substring(0, 150)}...` : gen.prompt}
-              </div>
-
-              {/* Response Preview */}
-              {gen.response && gen.type === 'text' && (
-                <div style={{
-                  padding: '12px',
-                  background: '#111',
-                  borderRadius: '8px',
-                  fontSize: '12px',
-                  color: '#999',
-                  marginBottom: '16px',
-                  border: '1px solid #333',
-                  maxHeight: '100px',
-                  overflow: 'hidden'
-                }}>
-                  {gen.response.length > 100 ? `${gen.response.substring(0, 100)}...` : gen.response}
+              <div className="h-full bg-gradient-to-b from-zinc-950/60 to-zinc-950/30 border border-zinc-800 backdrop-blur-sm rounded-lg p-6 transition-all duration-300 group-hover:border-zinc-600 flex flex-col">
+                {/* Header */}
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900/50 border border-zinc-700 rounded-lg">
+                    {getTypeIcon(gen.type)}
+                    <span className="text-xs font-semibold uppercase tracking-wider">{gen.type}</span>
+                  </div>
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        onClick={() => handleRating(gen.id, star)}
+                        className="transition-transform hover:scale-125"
+                      >
+                        <Star
+                          size={16}
+                          fill={gen.rating && star <= gen.rating ? '#ffd700' : 'transparent'}
+                          stroke={gen.rating && star <= gen.rating ? '#ffd700' : '#3f3f46'}
+                        />
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              )}
 
-              {/* Image/Video Display */}
-              {(gen.type === 'image' || gen.type === 'video') && gen.response && (
-                <div style={{
-                  marginBottom: '16px',
-                  borderRadius: '8px',
-                  overflow: 'hidden',
-                  border: '1px solid #333'
-                }}>
-                  {gen.type === 'image' ? (
+                {/* Model */}
+                <div className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-3">
+                  {gen.model}
+                </div>
+
+                {/* Prompt */}
+                <div className="mb-4 flex-1">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Prompt</span>
+                    <button
+                      onClick={() => handleCopyPrompt(gen.prompt, gen.id)}
+                      className="p-1.5 hover:bg-zinc-800 rounded transition-colors"
+                    >
+                      {copiedId === gen.id ? (
+                        <Check size={14} className="text-green-400" />
+                      ) : (
+                        <Copy size={14} className="text-zinc-500" />
+                      )}
+                    </button>
+                  </div>
+                  <p className="text-sm text-zinc-300 leading-relaxed line-clamp-4">
+                    {gen.prompt}
+                  </p>
+                </div>
+
+                {/* Media Preview */}
+                {gen.type === 'image' && gen.response && (
+                  <div className="mb-4 rounded-lg overflow-hidden border border-zinc-800">
                     <img
                       src={gen.response}
                       alt="Generated content"
-                      style={{ width: '100%', height: 'auto', display: 'block' }}
+                      className="w-full h-48 object-cover"
                     />
-                  ) : (
+                  </div>
+                )}
+
+                {gen.type === 'video' && gen.response && (
+                  <div className="mb-4 rounded-lg overflow-hidden border border-zinc-800">
                     <video
                       src={gen.response}
                       controls
-                      style={{ width: '100%', height: 'auto', display: 'block' }}
+                      className="w-full h-48 object-cover"
                     />
-                  )}
-                </div>
-              )}
+                  </div>
+                )}
 
-              {/* Rating */}
-              <div style={{ marginBottom: '16px' }}>
-                <div style={{
-                  fontSize: '11px',
-                  textTransform: 'uppercase',
-                  letterSpacing: '1px',
-                  color: '#666',
-                  marginBottom: '8px',
-                  fontWeight: 700
-                }}>
-                  rate this generation
-                </div>
-                <div style={{ display: 'flex', gap: '4px' }}>
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <button
-                      key={star}
-                      onClick={() => handleRating(gen.id, star)}
-                      style={{
-                        background: 'transparent',
-                        border: 'none',
-                        cursor: 'pointer',
-                        padding: '4px',
-                        transition: 'transform 0.2s ease'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = 'scale(1.2)'
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = 'scale(1)'
-                      }}
-                    >
-                      <Star
-                        size={20}
-                        fill={gen.rating && star <= gen.rating ? '#ffd700' : 'transparent'}
-                        stroke={gen.rating && star <= gen.rating ? '#ffd700' : '#666'}
-                      />
-                    </button>
-                  ))}
-                </div>
-              </div>
+                {gen.type === 'text' && gen.response && (
+                  <div className="mb-4 p-3 bg-zinc-950 border border-zinc-800 rounded-lg">
+                    <p className="text-xs text-zinc-400 line-clamp-3 font-mono">
+                      {gen.response}
+                    </p>
+                  </div>
+                )}
 
-              {/* Footer */}
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                paddingTop: '16px',
-                borderTop: '1px solid #333'
-              }}>
-                <div style={{ fontSize: '11px', color: '#666' }}>
-                  {new Date(gen.createdAt).toLocaleDateString()}
+                {/* Footer */}
+                <div className="flex items-center justify-between pt-4 border-t border-zinc-800">
+                  <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+                    <Calendar size={14} />
+                    {new Date(gen.createdAt).toLocaleDateString()}
+                  </div>
+                  <button
+                    onClick={() => handleUnsave(gen.id)}
+                    className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-500 hover:text-red-400 hover:bg-red-400/10 border border-zinc-800 hover:border-red-400/20 rounded-lg transition-colors"
+                  >
+                    Remove
+                  </button>
                 </div>
-                <button
-                  onClick={() => handleUnsave(gen.id)}
-                  style={{
-                    padding: '6px 12px',
-                    background: 'transparent',
-                    color: '#666',
-                    border: '1px solid #333',
-                    borderRadius: '6px',
-                    fontSize: '10px',
-                    fontWeight: 700,
-                    textTransform: 'uppercase',
-                    letterSpacing: '1px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = '#ff0000'
-                    e.currentTarget.style.color = '#000'
-                    e.currentTarget.style.borderColor = '#ff0000'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'transparent'
-                    e.currentTarget.style.color = '#666'
-                    e.currentTarget.style.borderColor = '#333'
-                  }}
-                >
-                  remove
-                </button>
+
+                {/* Gradient Overlay on Hover */}
+                <div className="absolute inset-0 bg-gradient-to-t from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-lg" />
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
       )}
