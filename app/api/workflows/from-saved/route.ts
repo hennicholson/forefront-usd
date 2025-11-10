@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
       data: {
         ...(generation.type === 'text'
           ? { noteText: generation.response || 'View output in generation history' }
-          : { imageUrl: generation.response, imageCaption: 'AI-generated media' }
+          : { imageUrl: generation.response || undefined, imageCaption: 'AI-generated media' }
         )
       }
     }
