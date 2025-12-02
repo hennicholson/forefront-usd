@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState, useRef } from 'react'
+import { motion } from 'framer-motion'
 import { Avatar } from '@/components/common/Avatar'
 import { GenerationPortfolioModal } from './components/GenerationPortfolioModal'
 import { SubmissionsModal } from './components/SubmissionsModal'
@@ -116,6 +117,63 @@ export default function DashboardPage() {
     return null
   }
 
+  // Loading skeleton component
+  const LoadingSkeleton = () => (
+    <div className="grid grid-cols-12 gap-4">
+      {/* Large card skeleton */}
+      <div className="col-span-12 md:col-span-4 row-span-2">
+        <motion.div
+          className="h-full min-h-[300px] bg-zinc-900 border-2 border-zinc-800 rounded-2xl p-8"
+          animate={{ opacity: [0.5, 0.8, 0.5] }}
+          transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+        >
+          <div className="h-4 w-24 bg-zinc-800 rounded mb-4" />
+          <div className="h-16 w-32 bg-zinc-800 rounded mb-4" />
+          <div className="h-3 w-20 bg-zinc-800 rounded mb-8" />
+          <div className="space-y-6">
+            <div>
+              <div className="h-10 w-20 bg-zinc-800 rounded mb-2" />
+              <div className="h-2 bg-zinc-800 rounded" />
+            </div>
+            <div>
+              <div className="h-10 w-20 bg-zinc-800 rounded mb-2" />
+              <div className="h-2 bg-zinc-800 rounded" />
+            </div>
+          </div>
+        </motion.div>
+      </div>
+      {/* Medium card skeletons */}
+      {[...Array(4)].map((_, i) => (
+        <div key={i} className="col-span-12 md:col-span-4">
+          <motion.div
+            className="h-full min-h-[150px] bg-zinc-900 border-2 border-zinc-800 rounded-2xl p-6"
+            animate={{ opacity: [0.5, 0.8, 0.5] }}
+            transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut", delay: i * 0.1 }}
+          >
+            <div className="h-3 w-20 bg-zinc-800 rounded mb-3" />
+            <div className="h-12 w-16 bg-zinc-800 rounded mb-2" />
+            <div className="h-3 w-24 bg-zinc-800 rounded" />
+          </motion.div>
+        </div>
+      ))}
+      {/* Wide card skeleton */}
+      <div className="col-span-12 md:col-span-8">
+        <motion.div
+          className="h-full min-h-[200px] bg-zinc-900 border-2 border-zinc-800 rounded-2xl p-6"
+          animate={{ opacity: [0.5, 0.8, 0.5] }}
+          transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut", delay: 0.3 }}
+        >
+          <div className="h-3 w-24 bg-zinc-800 rounded mb-4" />
+          <div className="grid grid-cols-2 gap-3">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-24 bg-zinc-800/50 rounded-lg" />
+            ))}
+          </div>
+        </motion.div>
+      </div>
+    </div>
+  )
+
   const totalModules = modules.length
   const startedModules = progress.length
   const completedModules = progress.filter(p => p.completed).length
@@ -126,7 +184,7 @@ export default function DashboardPage() {
     <main className="bg-black text-white min-h-screen">
       {/* Hero with Banner */}
       <div className="section" style={{
-        paddingTop: '100px',
+        paddingTop: 'clamp(60px, 12vw, 100px)',
         paddingBottom: '40px',
         minHeight: 'auto',
         position: 'relative'
@@ -148,7 +206,7 @@ export default function DashboardPage() {
         )}
 
         <div className="content" style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '24px', marginBottom: '24px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '16px', marginBottom: '24px' }} className="sm:flex-row sm:items-center sm:gap-6">
             <Avatar
               src={user?.profileImage}
               name={user?.name || 'User'}
@@ -192,7 +250,10 @@ export default function DashboardPage() {
       {/* Bento Dashboard Grid */}
       <div className="section" style={{ paddingTop: '60px', paddingBottom: '80px', minHeight: 'auto' }}>
         <div className="content">
-          <BentoDashboardGrid
+          {loading ? (
+            <LoadingSkeleton />
+          ) : (
+            <BentoDashboardGrid
             progressStats={
               <ProgressStatsCard
                 completedModules={completedModules}
@@ -279,6 +340,7 @@ export default function DashboardPage() {
               />
             }
           />
+          )}
         </div>
       </div>
 

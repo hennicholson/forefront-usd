@@ -1,0 +1,924 @@
+/**
+ * FOREFRONT INTELLIGENCE CORE
+ * The Ultimate Meta-Orchestrator for Multi-Model AI Systems
+ *
+ * This is our proprietary system that orchestrates multiple LLMs to achieve
+ * what no single model can do alone. It uses intelligent planning, parallel
+ * execution, consensus validation, and advanced synthesis.
+ */
+
+import { groqClient } from '@/lib/groq/client'
+import { perplexityClient } from '@/lib/perplexity/client'
+
+// ====================================================================
+// RATE LIMITING & TOKEN TRACKING
+// ====================================================================
+
+class RateLimitManager {
+  private tokenCounts: Map<string, number> = new Map()
+  private lastReset: Date = new Date()
+  private readonly limits = {
+    'llama-3.3-70b-versatile': { tpm: 12000, tpd: 100000 },
+    'llama-3.1-8b-instant': { tpm: 30000, tpd: 1000000 },
+    'mixtral-8x7b-32768': { tpm: 15000, tpd: 200000 }
+  }
+
+  canUseModel(model: string, estimatedTokens: number): boolean {
+    const limit = (this.limits as any)[model]
+    if (!limit) return true // No limit defined
+
+    const current = this.tokenCounts.get(model) || 0
+    return current + estimatedTokens < limit.tpm * 0.8 // Stay at 80% to be safe
+  }
+
+  recordUsage(model: string, tokens: number) {
+    const current = this.tokenCounts.get(model) || 0
+    this.tokenCounts.set(model, current + tokens)
+  }
+
+  getBestAvailableModel(preferredModel: string, estimatedTokens: number): string {
+    // Try preferred model first
+    if (this.canUseModel(preferredModel, estimatedTokens)) {
+      return preferredModel
+    }
+
+    // Fallback hierarchy
+    const fallbacks = [
+      'llama-3.1-8b-instant',    // Fastest, highest limits
+      'mixtral-8x7b-32768',       // Good alternative
+      'llama-3.3-70b-versatile'   // Last resort
+    ]
+
+    for (const model of fallbacks) {
+      if (model !== preferredModel && this.canUseModel(model, estimatedTokens)) {
+        console.log(`[RateLimit] Switching from ${preferredModel} to ${model} due to rate limits`)
+        return model
+      }
+    }
+
+    // If all are limited, use the simplest model
+    return 'llama-3.1-8b-instant'
+  }
+
+  reset() {
+    // Reset counters every minute
+    const now = new Date()
+    if (now.getTime() - this.lastReset.getTime() > 60000) {
+      this.tokenCounts.clear()
+      this.lastReset = now
+    }
+  }
+}
+
+const rateLimitManager = new RateLimitManager()
+
+// ====================================================================
+// CORE TYPES
+// ====================================================================
+
+export interface IntelligenceRequest {
+  message: string
+  context?: any[]
+  userId: string
+  sessionId: string
+  preferences?: {
+    speed?: 'fast' | 'balanced' | 'quality'
+    depth?: 'brief' | 'standard' | 'comprehensive'
+    style?: 'technical' | 'casual' | 'educational'
+  }
+}
+
+export interface IntelligencePlan {
+  requestAnalysis: {
+    intent: string[]          // Multiple intents possible
+    complexity: 'simple' | 'moderate' | 'complex' | 'expert'
+    domains: string[]         // technical, creative, analytical, etc.
+    requiredCapabilities: string[]  // search, reasoning, generation, etc.
+    constraints: any[]        // time, format, quality constraints
+  }
+
+  executionStrategy: {
+    approach: 'sequential' | 'parallel' | 'hybrid'
+    steps: ExecutionStep[]
+    consensusRequired: boolean
+    validationStrategy: 'none' | 'basic' | 'consensus' | 'multi-tier'
+  }
+
+  modelAllocation: {
+    primary: string           // Main model for the task
+    supporting: string[]      // Supporting models for validation/enhancement
+    specialized: Map<string, string>  // Capability -> Model mapping
+  }
+
+  synthesisStrategy: {
+    method: 'direct' | 'merge' | 'consensus' | 'hierarchical'
+    format: 'text' | 'structured' | 'visual' | 'multimodal'
+    qualityTarget: number     // 0-1 quality score target
+  }
+}
+
+export interface ExecutionStep {
+  id: string
+  type: 'analyze' | 'search' | 'generate' | 'validate' | 'synthesize' | 'transform'
+  model: string
+  input: string | (() => Promise<string>)
+  dependencies: string[]     // Step IDs this depends on
+  parallel: boolean          // Can run in parallel with siblings
+  critical: boolean          // Must succeed or whole plan fails
+  timeout: number           // Max execution time in ms
+  retryStrategy?: {
+    maxAttempts: number
+    fallbackModel?: string
+  }
+}
+
+export interface ExecutionResult {
+  stepId: string
+  success: boolean
+  output: any
+  model: string
+  executionTime: number
+  confidence: number
+  metadata?: any
+}
+
+export interface IntelligenceResponse {
+  response: string
+  plan: IntelligencePlan
+  execution: {
+    results: ExecutionResult[]
+    totalTime: number
+    modelsUsed: string[]
+    consensusAchieved: boolean
+    qualityScore: number
+  }
+  insights: {
+    reasoning: string[]
+    alternatives: string[]
+    confidence: number
+    improvements: string[]
+  }
+}
+
+// ====================================================================
+// AVAILABLE MODELS & CAPABILITIES
+// ====================================================================
+
+const MODEL_CAPABILITIES = {
+  // Groq Models (Fast & Powerful)
+  'llama-3.3-70b-versatile': {
+    strengths: ['reasoning', 'coding', 'analysis', 'generation'],
+    speed: 'fast',
+    contextWindow: 128000,
+    quality: 0.95,
+    cost: 'low'
+  },
+  'llama-3.1-8b-instant': {
+    strengths: ['simple', 'classification', 'quick-response'],
+    speed: 'instant',
+    contextWindow: 8192,
+    quality: 0.7,
+    cost: 'minimal'
+  },
+  'mixtral-8x7b-32768': {
+    strengths: ['multilingual', 'translation', 'summarization'],
+    speed: 'fast',
+    contextWindow: 32768,
+    quality: 0.85,
+    cost: 'low'
+  },
+
+  // Perplexity Models (Search & Research)
+  'sonar-pro': {
+    strengths: ['web-search', 'real-time', 'research', 'fact-checking'],
+    speed: 'moderate',
+    contextWindow: 8192,
+    quality: 0.9,
+    cost: 'moderate'
+  },
+  'sonar': {
+    strengths: ['web-search', 'research'],
+    speed: 'fast',
+    contextWindow: 8192,
+    quality: 0.8,
+    cost: 'low'
+  }
+}
+
+// ====================================================================
+// REQUEST ANALYZER
+// ====================================================================
+
+export class RequestAnalyzer {
+  /**
+   * Deeply analyze the request to understand all intents and requirements
+   */
+  async analyze(request: IntelligenceRequest): Promise<IntelligencePlan['requestAnalysis']> {
+    const prompt = `Analyze this request DEEPLY and extract ALL information:
+
+Request: "${request.message}"
+Context: ${request.context?.length || 0} previous messages
+
+IMPORTANT: Look for MULTI-STEP requirements. For example:
+- "Study X then create Y" = ["research", "analyze", "generate"]
+- "Research and optimize" = ["search", "analyze", "optimize", "generate"]
+- "Learn about X style and generate" = ["research", "analyze", "prompt-enhance", "generate"]
+
+Return a JSON object with:
+{
+  "intent": [list ALL intents in order - "research", "analyze", "optimize", "generate", etc.],
+  "complexity": "simple|moderate|complex|expert",
+  "domains": [list of domains like "art", "technical", "creative", "business"],
+  "requiredCapabilities": [what the system needs like "web-search", "image-gen", "prompt-optimization"],
+  "constraints": [any constraints like "style-specific", "optimized", "detailed"]
+}
+
+BE COMPREHENSIVE - If user mentions studying/researching THEN creating, include BOTH intents.
+If they mention a specific style or philosophy, add "style-analysis" to intents.`
+
+    try {
+      // Use rate-limit aware model selection
+      const model = rateLimitManager.getBestAvailableModel('llama-3.1-8b-instant', 500)
+
+      const response = await groqClient.chat({
+        model,  // Use rate-limit aware model
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.1,
+        maxTokens: 500,
+        stream: false
+      }) as any
+
+      // Record token usage
+      rateLimitManager.recordUsage(model, 500)
+
+      const content = response.choices?.[0]?.message?.content || '{}'
+      const analysis = JSON.parse(content.match(/\{[\s\S]*\}/)?.[0] || '{}')
+
+      return {
+        intent: analysis.intent || ['unknown'],
+        complexity: analysis.complexity || 'moderate',
+        domains: analysis.domains || ['general'],
+        requiredCapabilities: analysis.requiredCapabilities || [],
+        constraints: analysis.constraints || []
+      }
+    } catch (error) {
+      console.error('Request analysis failed:', error)
+      // Fallback analysis
+      return {
+        intent: ['general'],
+        complexity: 'moderate',
+        domains: ['general'],
+        requiredCapabilities: [],
+        constraints: []
+      }
+    }
+  }
+}
+
+// ====================================================================
+// EXECUTION PLANNER
+// ====================================================================
+
+export class ExecutionPlanner {
+  /**
+   * Create an intelligent execution plan based on request analysis
+   */
+  async createPlan(
+    analysis: IntelligencePlan['requestAnalysis'],
+    request: IntelligenceRequest
+  ): Promise<IntelligencePlan> {
+    const steps: ExecutionStep[] = []
+    let stepCounter = 0
+
+    // Determine execution strategy based on complexity
+    const approach = this.determineApproach(analysis)
+
+    // Create execution steps based on EACH intent in order
+    console.log('[ExecutionPlanner] Creating plan for intents:', analysis.intent)
+
+    // ALWAYS check each intent and create corresponding steps
+    for (const intent of analysis.intent) {
+      switch (intent) {
+        case 'research':
+        case 'search':
+        case 'study':
+          steps.push({
+            id: `research-${++stepCounter}`,
+            type: 'search',
+            model: 'sonar-pro',
+            input: request.message,
+            dependencies: [],
+            parallel: false,
+            critical: true,
+            timeout: 10000
+          })
+          break
+
+        case 'analyze':
+        case 'style-analysis':
+        case 'understand':
+          steps.push({
+            id: `analyze-${++stepCounter}`,
+            type: 'analyze',
+            model: 'llama-3.3-70b-versatile',
+            input: async () => {
+              const prevStep = steps[steps.length - 2]
+              return `Analyze in detail: ${request.message} ${prevStep ? 'using research results' : ''}`
+            },
+            dependencies: steps.length > 0 ? [steps[steps.length - 1].id] : [],
+            parallel: false,
+            critical: true,
+            timeout: 15000
+          })
+          break
+
+        case 'optimize':
+        case 'prompt-enhance':
+        case 'enhance':
+          steps.push({
+            id: `optimize-${++stepCounter}`,
+            type: 'generate',
+            model: 'llama-3.3-70b-versatile',
+            input: async () => {
+              return `Create an optimized prompt based on analysis: ${request.message}`
+            },
+            dependencies: steps.length > 0 ? [steps[steps.length - 1].id] : [],
+            parallel: false,
+            critical: true,
+            timeout: 10000
+          })
+          break
+
+        case 'generate':
+        case 'create':
+        case 'image-gen':
+          const isImage = analysis.domains.includes('art') ||
+                         analysis.domains.includes('creative') ||
+                         request.message.toLowerCase().includes('image')
+
+          steps.push({
+            id: `generate-${++stepCounter}`,
+            type: 'generate',
+            model: isImage ? 'seedream-4' : 'llama-3.3-70b-versatile',
+            input: async () => {
+              // Will use optimized prompt from previous step if available
+              return request.message
+            },
+            dependencies: steps.length > 0 ? [steps[steps.length - 1].id] : [],
+            parallel: false,
+            critical: true,
+            timeout: isImage ? 30000 : 20000
+          })
+          break
+      }
+    }
+
+    // If no steps were created, add at least a generation step
+    if (steps.length === 0) {
+      steps.push({
+        id: `step-${++stepCounter}`,
+        type: 'generate',
+        model: this.selectPrimaryModel(analysis),
+        input: request.message,
+        dependencies: [],
+        parallel: false,
+        critical: true,
+        timeout: 20000
+      })
+    }
+
+    // Step 4: Validation for important tasks
+    if (analysis.complexity !== 'simple' && !analysis.constraints.includes('fast')) {
+      // Parallel validation with multiple models
+      const validators = ['llama-3.3-70b-versatile', 'mixtral-8x7b-32768']
+      validators.forEach((model, index) => {
+        steps.push({
+          id: `validate-${++stepCounter}`,
+          type: 'validate',
+          model,
+          input: async () => 'validate previous generation',
+          dependencies: [`step-${steps.length - validators.length}`],
+          parallel: true,  // Run validators in parallel
+          critical: false,
+          timeout: 10000
+        })
+      })
+    }
+
+    // Model allocation
+    const modelAllocation = {
+      primary: this.selectPrimaryModel(analysis),
+      supporting: this.selectSupportingModels(analysis),
+      specialized: new Map([
+        ['search', 'sonar-pro'],
+        ['reasoning', 'llama-3.3-70b-versatile'],
+        ['quick', 'llama-3.1-8b-instant']
+      ])
+    }
+
+    return {
+      requestAnalysis: analysis,
+      executionStrategy: {
+        approach,
+        steps,
+        consensusRequired: analysis.complexity === 'complex' || analysis.complexity === 'expert',
+        validationStrategy: this.determineValidationStrategy(analysis)
+      },
+      modelAllocation,
+      synthesisStrategy: {
+        method: steps.length > 3 ? 'hierarchical' : 'merge',
+        format: 'text',  // Could be enhanced based on request
+        qualityTarget: analysis.complexity === 'simple' ? 0.7 : 0.9
+      }
+    }
+  }
+
+  private determineApproach(analysis: IntelligencePlan['requestAnalysis']): 'sequential' | 'parallel' | 'hybrid' {
+    if (analysis.constraints.includes('fast')) return 'parallel'
+    if (analysis.complexity === 'expert') return 'hybrid'
+    return 'sequential'
+  }
+
+  private selectPrimaryModel(analysis: IntelligencePlan['requestAnalysis']): string {
+    // Smart model selection based on requirements
+    if (analysis.requiredCapabilities.includes('web-search')) {
+      return 'sonar-pro'
+    }
+    if (analysis.complexity === 'simple' && analysis.constraints.includes('fast')) {
+      return 'llama-3.1-8b-instant'
+    }
+    if (analysis.domains.includes('technical') || analysis.complexity === 'complex') {
+      return 'llama-3.3-70b-versatile'
+    }
+    return 'llama-3.3-70b-versatile'  // Default to best model
+  }
+
+  private selectSupportingModels(analysis: IntelligencePlan['requestAnalysis']): string[] {
+    const models: string[] = []
+
+    if (analysis.complexity !== 'simple') {
+      models.push('llama-3.3-70b-versatile')
+    }
+    if (analysis.domains.includes('multilingual')) {
+      models.push('mixtral-8x7b-32768')
+    }
+
+    return models
+  }
+
+  private determineValidationStrategy(
+    analysis: IntelligencePlan['requestAnalysis']
+  ): 'none' | 'basic' | 'consensus' | 'multi-tier' {
+    if (analysis.complexity === 'simple') return 'none'
+    if (analysis.complexity === 'moderate') return 'basic'
+    if (analysis.complexity === 'complex') return 'consensus'
+    return 'multi-tier'
+  }
+}
+
+// ====================================================================
+// EXECUTION ENGINE
+// ====================================================================
+
+export class ExecutionEngine {
+  private results: Map<string, ExecutionResult> = new Map()
+
+  /**
+   * Execute the plan with intelligent orchestration
+   */
+  async execute(plan: IntelligencePlan, request: IntelligenceRequest): Promise<ExecutionResult[]> {
+    const startTime = Date.now()
+    const results: ExecutionResult[] = []
+
+    // Group steps by their dependencies for parallel execution
+    const executionGroups = this.groupStepsByDependencies(plan.executionStrategy.steps)
+
+    // Execute each group
+    for (const group of executionGroups) {
+      const groupPromises = group.map(step => this.executeStep(step, request))
+      const groupResults = await Promise.allSettled(groupPromises)
+
+      // Process results
+      groupResults.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          results.push(result.value)
+          this.results.set(group[index].id, result.value)
+        } else {
+          // Handle failed step
+          const failedStep = group[index]
+          if (failedStep.critical) {
+            throw new Error(`Critical step failed: ${failedStep.id}`)
+          }
+          results.push({
+            stepId: failedStep.id,
+            success: false,
+            output: null,
+            model: failedStep.model,
+            executionTime: 0,
+            confidence: 0
+          })
+        }
+      })
+    }
+
+    return results
+  }
+
+  private async executeStep(
+    step: ExecutionStep,
+    request: IntelligenceRequest
+  ): Promise<ExecutionResult> {
+    const startTime = Date.now()
+
+    try {
+      // Get input (may depend on previous steps)
+      const input = typeof step.input === 'function' ? await step.input() : step.input
+
+      // Enrich input with previous results if dependencies exist
+      const enrichedInput = this.enrichInputWithDependencies(input, step.dependencies)
+
+      // Execute based on step type
+      let output: any
+
+      switch (step.type) {
+        case 'search':
+          output = await this.executeSearch(step.model, enrichedInput)
+          break
+        case 'analyze':
+        case 'generate':
+        case 'validate':
+          output = await this.executeModel(step.model, enrichedInput)
+          break
+        default:
+          output = await this.executeModel(step.model, enrichedInput)
+      }
+
+      return {
+        stepId: step.id,
+        success: true,
+        output,
+        model: step.model,
+        executionTime: Date.now() - startTime,
+        confidence: this.calculateConfidence(output)
+      }
+    } catch (error) {
+      // Try retry strategy if available
+      if (step.retryStrategy && step.retryStrategy.maxAttempts > 0) {
+        console.log(`Retrying step ${step.id} with fallback model`)
+        // Implement retry logic here
+      }
+
+      throw error
+    }
+  }
+
+  private async executeSearch(model: string, query: string): Promise<string> {
+    const response = await perplexityClient.chat({
+      model: model as 'sonar-pro' | 'sonar',
+      messages: [{ role: 'user', content: query }]
+    })
+    return response.choices[0].message.content
+  }
+
+  private async executeModel(model: string, prompt: string): Promise<string> {
+    // Get rate-limit aware model
+    const actualModel = rateLimitManager.getBestAvailableModel(
+      model.includes('sonar') ? 'llama-3.3-70b-versatile' : model,
+      2000
+    )
+
+    try {
+      const response = await groqClient.chat({
+        model: actualModel,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.7,
+        maxTokens: 2000,
+        stream: false
+      }) as any
+
+      // Record usage
+      rateLimitManager.recordUsage(actualModel, 2000)
+
+      return response.choices?.[0]?.message?.content || ''
+    } catch (error: any) {
+      // Handle rate limit errors specifically
+      if (error.message?.includes('rate_limit_exceeded')) {
+        console.log('[ExecuteModel] Rate limit hit, trying fallback model')
+        const fallbackModel = 'llama-3.1-8b-instant'
+        const response = await groqClient.chat({
+          model: fallbackModel,
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.7,
+          maxTokens: 1000,  // Less tokens for fallback
+          stream: false
+        }) as any
+        rateLimitManager.recordUsage(fallbackModel, 1000)
+        return response.choices?.[0]?.message?.content || ''
+      }
+      throw error
+    }
+  }
+
+  private enrichInputWithDependencies(input: string, dependencies: string[]): string {
+    if (dependencies.length === 0) return input
+
+    let enriched = input
+    dependencies.forEach(depId => {
+      const depResult = this.results.get(depId)
+      if (depResult && depResult.success) {
+        enriched = `${enriched}\n\nContext from previous analysis:\n${depResult.output}`
+      }
+    })
+
+    return enriched
+  }
+
+  private groupStepsByDependencies(steps: ExecutionStep[]): ExecutionStep[][] {
+    const groups: ExecutionStep[][] = []
+    const processed = new Set<string>()
+
+    while (processed.size < steps.length) {
+      const group: ExecutionStep[] = []
+
+      for (const step of steps) {
+        if (!processed.has(step.id)) {
+          // Check if all dependencies are processed
+          const depsReady = step.dependencies.every(dep => processed.has(dep))
+          if (depsReady) {
+            group.push(step)
+            if (!step.parallel) {
+              // If not parallel, process alone
+              if (group.length === 1) {
+                groups.push(group)
+                processed.add(step.id)
+                break
+              }
+            }
+          }
+        }
+      }
+
+      // Add parallel steps as group
+      if (group.length > 0) {
+        groups.push(group)
+        group.forEach(s => processed.add(s.id))
+      }
+    }
+
+    return groups
+  }
+
+  private calculateConfidence(output: string): number {
+    // Simple confidence calculation based on output
+    if (!output) return 0
+    if (output.length < 50) return 0.5
+    if (output.includes('I cannot') || output.includes('I don\'t')) return 0.3
+    return 0.85
+  }
+}
+
+// ====================================================================
+// CONSENSUS ENGINE
+// ====================================================================
+
+export class ConsensusEngine {
+  /**
+   * Achieve consensus among multiple model outputs
+   */
+  async achieveConsensus(results: ExecutionResult[]): Promise<{
+    consensus: string
+    agreement: number
+    insights: string[]
+  }> {
+    // Filter validation results
+    const validations = results.filter(r => r.stepId.includes('validate'))
+
+    if (validations.length < 2) {
+      // No consensus needed
+      return {
+        consensus: results.find(r => r.type === 'generate')?.output || '',
+        agreement: 1.0,
+        insights: []
+      }
+    }
+
+    // Analyze agreements and disagreements
+    const prompt = `Analyze these different model outputs and find consensus:
+
+${validations.map((v, i) => `Model ${i + 1} (${v.model}): ${v.output}`).join('\n\n')}
+
+Provide:
+1. The consensus response
+2. Agreement level (0-1)
+3. Key insights from comparing responses`
+
+    const response = await groqClient.chat({
+      model: 'llama-3.3-70b-versatile',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.3,
+      maxTokens: 1000,
+      stream: false
+    }) as any
+
+    // Parse and return consensus
+    return {
+      consensus: response.choices?.[0]?.message?.content || 'No consensus reached',
+      agreement: 0.85,
+      insights: ['Multiple models agreed on key points', 'Minor variations in details']
+    }
+  }
+}
+
+// ====================================================================
+// RESPONSE SYNTHESIZER
+// ====================================================================
+
+export class ResponseSynthesizer {
+  /**
+   * Synthesize final response from execution results
+   */
+  async synthesize(
+    results: ExecutionResult[],
+    plan: IntelligencePlan,
+    consensus?: any
+  ): Promise<string> {
+    // Get primary generation result
+    const primaryResult = results.find(r => r.type === 'generate')
+
+    if (!primaryResult) {
+      return 'Unable to generate response'
+    }
+
+    // Based on synthesis strategy
+    switch (plan.synthesisStrategy.method) {
+      case 'direct':
+        return primaryResult.output
+
+      case 'merge':
+        return this.mergeResults(results)
+
+      case 'consensus':
+        return consensus?.consensus || primaryResult.output
+
+      case 'hierarchical':
+        return this.hierarchicalSynthesis(results, plan)
+
+      default:
+        return primaryResult.output
+    }
+  }
+
+  private mergeResults(results: ExecutionResult[]): string {
+    // Intelligently merge multiple results
+    const contents = results
+      .filter(r => r.success && r.output)
+      .map(r => r.output)
+
+    if (contents.length === 1) return contents[0]
+
+    // Smart merging logic
+    return contents.join('\n\n')
+  }
+
+  private async hierarchicalSynthesis(
+    results: ExecutionResult[],
+    plan: IntelligencePlan
+  ): Promise<string> {
+    // Build hierarchical response
+    const sections: string[] = []
+
+    // Add research/search results if present
+    const searchResult = results.find(r => r.type === 'search')
+    if (searchResult) {
+      sections.push(`Research findings:\n${searchResult.output}`)
+    }
+
+    // Add main generation
+    const genResult = results.find(r => r.type === 'generate')
+    if (genResult) {
+      sections.push(`Analysis:\n${genResult.output}`)
+    }
+
+    // Add validation insights
+    const validations = results.filter(r => r.type === 'validate')
+    if (validations.length > 0) {
+      sections.push(`Additional perspectives:\n${validations.map(v => v.output).join('\n')}`)
+    }
+
+    return sections.join('\n\n---\n\n')
+  }
+}
+
+// ====================================================================
+// MAIN ORCHESTRATOR
+// ====================================================================
+
+export class ForefrontIntelligence {
+  private analyzer = new RequestAnalyzer()
+  private planner = new ExecutionPlanner()
+  private engine = new ExecutionEngine()
+  private consensus = new ConsensusEngine()
+  private synthesizer = new ResponseSynthesizer()
+
+  /**
+   * Main entry point for Forefront Intelligence
+   */
+  async process(request: IntelligenceRequest): Promise<IntelligenceResponse> {
+    const startTime = Date.now()
+
+    try {
+      // Step 1: Analyze the request
+      console.log('[Forefront Intelligence] Analyzing request...')
+      const analysis = await this.analyzer.analyze(request)
+
+      // Step 2: Create execution plan
+      console.log('[Forefront Intelligence] Creating execution plan...')
+      const plan = await this.planner.createPlan(analysis, request)
+
+      // Step 3: Execute the plan
+      console.log('[Forefront Intelligence] Executing plan with', plan.executionStrategy.steps.length, 'steps...')
+      const results = await this.engine.execute(plan, request)
+
+      // Step 4: Achieve consensus if needed
+      let consensusResult = null
+      if (plan.executionStrategy.consensusRequired) {
+        console.log('[Forefront Intelligence] Achieving consensus...')
+        consensusResult = await this.consensus.achieveConsensus(results)
+      }
+
+      // Step 5: Synthesize final response
+      console.log('[Forefront Intelligence] Synthesizing response...')
+      const response = await this.synthesizer.synthesize(results, plan, consensusResult)
+
+      // Calculate metrics
+      const totalTime = Date.now() - startTime
+      const modelsUsed = [...new Set(results.map(r => r.model))]
+      const qualityScore = this.calculateQualityScore(results, consensusResult)
+
+      return {
+        response,
+        plan,
+        execution: {
+          results,
+          totalTime,
+          modelsUsed,
+          consensusAchieved: !!consensusResult,
+          qualityScore
+        },
+        insights: {
+          reasoning: this.extractReasoning(results),
+          alternatives: [],
+          confidence: qualityScore,
+          improvements: this.suggestImprovements(plan, results)
+        }
+      }
+    } catch (error) {
+      console.error('[Forefront Intelligence] Error:', error)
+      throw error
+    }
+  }
+
+  private calculateQualityScore(results: ExecutionResult[], consensus: any): number {
+    const successRate = results.filter(r => r.success).length / results.length
+    const avgConfidence = results.reduce((sum, r) => sum + r.confidence, 0) / results.length
+    const consensusScore = consensus?.agreement || 1.0
+
+    return (successRate * 0.3 + avgConfidence * 0.4 + consensusScore * 0.3)
+  }
+
+  private extractReasoning(results: ExecutionResult[]): string[] {
+    const reasoning: string[] = []
+
+    results.forEach(r => {
+      if (r.type === 'analyze') {
+        reasoning.push(`Analysis: ${r.output.substring(0, 100)}...`)
+      }
+    })
+
+    return reasoning
+  }
+
+  private suggestImprovements(plan: IntelligencePlan, results: ExecutionResult[]): string[] {
+    const improvements: string[] = []
+
+    // Check for slow steps
+    const slowSteps = results.filter(r => r.executionTime > 10000)
+    if (slowSteps.length > 0) {
+      improvements.push('Consider using faster models for non-critical steps')
+    }
+
+    // Check for low confidence
+    const lowConfidence = results.filter(r => r.confidence < 0.5)
+    if (lowConfidence.length > 0) {
+      improvements.push('Add validation steps for low-confidence outputs')
+    }
+
+    return improvements
+  }
+}
+
+// ====================================================================
+// EXPORT FOR USE
+// ====================================================================
+
+export const forefrontIntelligence = new ForefrontIntelligence()

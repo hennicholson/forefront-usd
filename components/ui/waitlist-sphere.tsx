@@ -164,20 +164,6 @@ export function WaitlistSphere({
           images={images}
           {...sphereConfig}
         />
-
-        {/* Optional overlay text */}
-        {members.length > 0 && (
-          <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-            <div className="text-center">
-              <h3 className="text-2xl font-bold text-white drop-shadow-lg mb-2">
-                Join {members.length} Students
-              </h3>
-              <p className="text-white/80 drop-shadow-md">
-                at the forefront of AI
-              </p>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   )

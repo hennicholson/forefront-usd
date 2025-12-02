@@ -5,7 +5,7 @@ import { motion } from 'framer-motion'
 import { useAuth } from '@/contexts/AuthContext'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Play, ArrowRight, Heart, Eye, BookOpen, GraduationCap, Zap, Video, Code, TrendingUp, Palette, PenTool, User, BarChart } from 'lucide-react'
+import { Play, ArrowRight, Heart, Eye, BookOpen, GraduationCap, Zap, Video, Code, TrendingUp, Palette, PenTool, User, BarChart, Search, Workflow } from 'lucide-react'
 import { ParticleAnimation } from '@/components/ui/particle-animation'
 
 export default function WorkflowsPage() {
@@ -127,7 +127,7 @@ export default function WorkflowsPage() {
       <div style={{
         maxWidth: '1400px',
         margin: '0 auto',
-        padding: '0 40px 60px'
+        padding: '0 clamp(20px, 5vw, 40px) 60px'
       }}>
         <div style={{ marginBottom: '40px' }}>
           <h1 style={{
@@ -182,7 +182,7 @@ export default function WorkflowsPage() {
               borderRadius: '8px',
               color: '#fff',
               fontSize: '15px',
-              minWidth: '300px',
+              minWidth: 'min(300px, 100%)',
               outline: 'none'
             }}
           />
@@ -242,20 +242,44 @@ export default function WorkflowsPage() {
 
         {/* Workflows Grid */}
         {loading ? (
+          // Loading skeleton grid
           <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: '400px',
-            color: '#666',
-            fontSize: '14px'
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(min(280px, 100%), 1fr))',
+            gap: '24px'
           }}>
-            Loading workflows...
+            {[...Array(6)].map((_, i) => (
+              <motion.div
+                key={i}
+                className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6"
+                animate={{ opacity: [0.5, 0.8, 0.5] }}
+                transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut", delay: i * 0.1 }}
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div className="w-12 h-12 bg-zinc-800 rounded-lg" />
+                  <div className="w-20 h-5 bg-zinc-800 rounded-full" />
+                </div>
+                <div className="h-6 w-3/4 bg-zinc-800 rounded mb-4" />
+                <div className="space-y-2 mb-4">
+                  <div className="h-3 bg-zinc-800/70 rounded" />
+                  <div className="h-3 bg-zinc-800/70 rounded w-5/6" />
+                </div>
+                {/* Particle animation placeholder */}
+                <div className="h-24 bg-zinc-800/30 rounded-lg mb-4" />
+                <div className="pt-4 border-t border-zinc-800 space-y-2">
+                  <div className="h-3 w-24 bg-zinc-800/50 rounded" />
+                  <div className="flex gap-4">
+                    <div className="h-3 w-12 bg-zinc-800/50 rounded" />
+                    <div className="h-3 w-16 bg-zinc-800/50 rounded" />
+                  </div>
+                </div>
+              </motion.div>
+            ))}
           </div>
         ) : (
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(min(280px, 100%), 1fr))',
             gap: '24px'
           }}>
             {filteredWorkflows.map((workflow, index) => (
@@ -346,15 +370,35 @@ export default function WorkflowsPage() {
 
         {/* Empty State */}
         {!loading && filteredWorkflows.length === 0 && (
-          <div style={{
-            textAlign: 'center',
-            padding: '100px 20px',
-            color: '#666'
-          }}>
-            <div style={{ fontSize: '48px', marginBottom: '20px' }}>🔍</div>
-            <p style={{ fontSize: '18px' }}>No workflows found</p>
-            <p style={{ fontSize: '14px', marginTop: '8px' }}>Try adjusting your search or filters</p>
-          </div>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 400, damping: 25 }}
+            className="flex flex-col items-center justify-center py-20 text-center"
+          >
+            <motion.div
+              className="p-6 rounded-2xl bg-zinc-900/50 border border-zinc-800 mb-6"
+              animate={{ scale: [1, 1.02, 1] }}
+              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+            >
+              {searchQuery ? (
+                <Search className="w-12 h-12 text-zinc-600" />
+              ) : (
+                <Workflow className="w-12 h-12 text-zinc-600" />
+              )}
+            </motion.div>
+            <h3
+              className="text-2xl font-bold text-white mb-3"
+              style={{ fontFamily: "'Core Sans A 65 Bold', sans-serif" }}
+            >
+              {searchQuery ? 'no workflows found' : 'no workflows yet'}
+            </h3>
+            <p className="text-zinc-500 max-w-sm">
+              {searchQuery
+                ? 'try adjusting your search or filters to find what you\'re looking for'
+                : 'be the first to create an ai workflow and share it with the community'}
+            </p>
+          </motion.div>
         )}
       </div>
     </div>

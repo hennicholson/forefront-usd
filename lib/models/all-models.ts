@@ -54,6 +54,22 @@ export const allModels: AIModel[] = [
 
   // ===== GOOGLE MODELS =====
   {
+    id: 'gemini-3-pro',
+    name: 'Gemini 3 Pro',
+    provider: 'Google',
+    description: 'Google\'s advanced code-focused model with high thinking level for complex code generation, debugging, and architecture. Optimized for web development tasks.',
+    category: 'text',
+    icon: Code,
+    color: 'from-indigo-500 to-purple-500',
+    contextWindow: 1000000,
+    speed: 'Fast',
+    capabilities: ['Code generation', 'High reasoning', 'Web development', 'Debugging', 'Architecture'],
+    features: {
+      toolCalling: true,
+      streaming: true,
+    }
+  },
+  {
     id: 'gemini-2.0-flash',
     name: 'Gemini 2.0 Flash',
     provider: 'Google',

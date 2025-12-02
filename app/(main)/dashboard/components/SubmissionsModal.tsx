@@ -1,6 +1,7 @@
 'use client'
 
 import { X } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 
 interface Submission {
   id: string
@@ -18,44 +19,51 @@ interface SubmissionsModalProps {
 }
 
 export function SubmissionsModal({ submissions, isOpen, onClose, onClearRejected }: SubmissionsModalProps) {
-  if (!isOpen) return null
-
   const approved = submissions.filter(s => s.status === 'approved')
   const pending = submissions.filter(s => s.status === 'pending')
   const rejected = submissions.filter(s => s.status === 'rejected')
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'rgba(0, 0, 0, 0.95)',
-        zIndex: 9999,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '20px',
-        overflow: 'auto'
-      }}
-      onClick={onClose}
-    >
-      <div
-        style={{
-          background: '#000',
-          borderRadius: '16px',
-          maxWidth: '1200px',
-          width: '100%',
-          maxHeight: '90vh',
-          overflow: 'auto',
-          position: 'relative',
-          padding: '40px',
-          border: '2px solid #333'
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.95)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+            overflow: 'auto'
+          }}
+          onClick={onClose}
+        >
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.95, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+            style={{
+              background: '#000',
+              borderRadius: '16px',
+              maxWidth: '1200px',
+              width: '100%',
+              maxHeight: '90vh',
+              overflow: 'auto',
+              position: 'relative',
+              padding: '40px',
+              border: '2px solid #333'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
         {/* Close Button */}
         <button
           onClick={onClose}
@@ -312,7 +320,9 @@ export function SubmissionsModal({ submissions, isOpen, onClose, onClearRejected
             </div>
           </div>
         )}
-      </div>
-    </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   )
 }

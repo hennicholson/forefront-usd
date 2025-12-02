@@ -89,6 +89,11 @@ Important:
         }
       })
 
+      // Handle chained response (shouldn't happen for workflow builder, but handle it)
+      if ('isChained' in response) {
+        throw new Error('Unexpected chained response for workflow builder')
+      }
+
       // Parse JSON from response
       const parsed = this.parseWorkflowJSON(response.content)
 
@@ -151,6 +156,11 @@ Suggest 3-5 logical next steps. Return JSON array:
           conversationHistory: []
         }
       })
+
+      // Handle chained response
+      if ('isChained' in response) {
+        throw new Error('Unexpected chained response for workflow suggestions')
+      }
 
       const suggestions = this.parseWorkflowJSON(response.content)
       if (!Array.isArray(suggestions)) return []
@@ -217,6 +227,11 @@ Return JSON:
           conversationHistory: []
         }
       })
+
+      // Handle chained response
+      if ('isChained' in response) {
+        throw new Error('Unexpected chained response for workflow optimization')
+      }
 
       const result = this.parseWorkflowJSON(response.content)
 

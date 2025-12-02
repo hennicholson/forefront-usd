@@ -1,0 +1,725 @@
+/**
+ * Forefront Intelligence V2 Orchestrator
+ *
+ * Enhanced orchestrator that uses universal intent classification
+ * and dynamic workflow building for true meta-orchestration.
+ */
+
+import { classifyUniversalIntent, needsClarification, generateClarifyingQuestions, type UniversalIntent, type ClassificationContext } from './intent-classifier'
+import { analyzeSemantics, enhanceIntentWithSemantics, type SemanticAnalysis } from './semantic-analyzer'
+import { buildDynamicWorkflow, type DynamicWorkflow, type WorkflowStep } from './workflow-builder'
+import { groqClient } from '@/lib/groq/client'
+import { perplexityClient } from '@/lib/perplexity/client'
+import { GoogleGenAI } from '@google/genai'
+import { getModelById } from '@/lib/models/all-models'
+import { contextManager, type ManagedContext } from './context-manager'
+
+// Import existing orchestrator for compatibility
+import { ForefrontOrchestrator, type OrchestratorRequest, type OrchestratorResponse, type ChainedOrchestratorResponse } from './orchestrator'
+
+/**
+ * Enhanced orchestrator request with V2 features
+ */
+export interface OrchestratorRequestV2 extends OrchestratorRequest {
+  // Additional context for V2
+  model?: string  // Optional model override
+  allowClarification?: boolean  // Allow asking for clarification if ambiguous
+  maxIterations?: number  // Max quality improvement iterations
+  preferredModels?: string[]  // User's preferred models
+  qualityMode?: 'fast' | 'balanced' | 'quality'  // Quality vs speed tradeoff
+  enableQualityValidation?: boolean  // Enable quality validation
+  enableReResearch?: boolean  // Enable re-research loops
+  enableConsensus?: boolean  // Enable consensus
+}
+
+/**
+ * Workflow execution result
+ */
+export interface WorkflowExecutionResult {
+  stepId: string
+  output: any
+  executionTime: number
+  modelUsed: string
+  confidence: number
+  metadata?: any
+}
+
+/**
+ * Enhanced orchestrator response with V2 features
+ */
+export interface OrchestratorResponseV2 extends OrchestratorResponse {
+  // V2-specific fields
+  universalIntent?: UniversalIntent
+  semanticAnalysis?: SemanticAnalysis
+  workflow?: DynamicWorkflow
+  workflowResults?: WorkflowExecutionResult[]
+  clarificationNeeded?: boolean
+  clarifyingQuestions?: string[]
+  qualityScore?: number
+  iterations?: number
+}
+
+/**
+ * Enhanced Forefront Orchestrator with V2 capabilities
+ */
+export class ForefrontOrchestratorV2 extends ForefrontOrchestrator {
+  private geminiClient: GoogleGenAI
+
+  constructor() {
+    super()
+    this.geminiClient = new GoogleGenAI({
+      apiKey: process.env.GEMINI_API_KEY!
+    })
+  }
+
+  /**
+   * Execute with V2 enhancements
+   */
+  async executeV2(request: OrchestratorRequestV2): Promise<OrchestratorResponseV2> {
+    const startTime = Date.now()
+
+    try {
+      console.log('[Orchestrator V2] Starting enhanced orchestration...')
+
+      // Step 1: Universal intent classification
+      const classificationContext: ClassificationContext = {
+        conversationHistory: request.context.conversationHistory,
+        moduleTitle: request.context.moduleTitle,
+        currentSlide: request.context.currentSlide,
+        highlightedText: request.context.highlightedText,
+        userId: request.userId
+      }
+
+      const universalIntent = await classifyUniversalIntent(request.message, classificationContext)
+      console.log('[Orchestrator V2] Universal intent classified:', {
+        domain: universalIntent.domain,
+        taskType: universalIntent.taskType,
+        complexity: universalIntent.complexity,
+        confidence: universalIntent.confidence,
+        ambiguity: universalIntent.ambiguityLevel
+      })
+
+      // Step 2: Check if clarification needed
+      if (request.allowClarification && needsClarification(universalIntent)) {
+        console.log('[Orchestrator V2] Clarification needed due to ambiguity')
+        const questions = generateClarifyingQuestions(universalIntent)
+
+        return {
+          content: `I need some clarification to better help you:\n\n${questions.map((q, i) => `${i + 1}. ${q}`).join('\n')}`,
+          model: 'forefront-intelligence-v2',
+          intent: this.convertToLegacyIntent(universalIntent),
+          metadata: {
+            executionTime: Date.now() - startTime,
+            modelUsed: 'intent-classifier',
+            fallbackUsed: false
+          },
+          universalIntent,
+          clarificationNeeded: true,
+          clarifyingQuestions: questions
+        }
+      }
+
+      // Step 3: Semantic analysis for deep understanding
+      const semanticAnalysis = analyzeSemantics(request.message)
+      const enhancedIntent = enhanceIntentWithSemantics(universalIntent, semanticAnalysis)
+
+      console.log('[Orchestrator V2] Semantic analysis complete:', {
+        primaryAction: semanticAnalysis.primaryAction,
+        primarySubject: semanticAnalysis.primarySubject,
+        entities: semanticAnalysis.entities.length,
+        specificity: semanticAnalysis.specificity,
+        technicalLevel: semanticAnalysis.technicalLevel
+      })
+
+      // Step 4: Build dynamic workflow
+      const workflow = await buildDynamicWorkflow(enhancedIntent, semanticAnalysis)
+      console.log('[Orchestrator V2] Dynamic workflow built:', {
+        steps: workflow.steps.length,
+        estimatedTime: workflow.estimatedTime,
+        estimatedCost: workflow.estimatedCost,
+        workflowType: workflow.workflowType
+      })
+
+      // Step 5: Execute workflow with quality loops
+      const workflowResults = await this.executeWorkflow(workflow, request)
+
+      // Step 6: Calculate quality score
+      const qualityScore = this.calculateQualityScore(workflowResults, enhancedIntent)
+
+      // Step 7: Format final response
+      const finalResponse = await this.formatFinalResponse(workflowResults, enhancedIntent)
+
+      return {
+        content: finalResponse.content,
+        model: 'forefront-intelligence-v2',
+        intent: this.convertToLegacyIntent(enhancedIntent),
+        metadata: {
+          executionTime: Date.now() - startTime,
+          modelUsed: workflow.requiredModels.join(' + '),
+          fallbackUsed: false,
+          type: enhancedIntent.deliveryFormat === 'visual' ? 'image' : 'text',
+          ...this.extractMetadataFromResults(workflowResults)
+        },
+        universalIntent: enhancedIntent,
+        semanticAnalysis,
+        workflow,
+        workflowResults,
+        qualityScore
+      }
+
+    } catch (error) {
+      console.error('[Orchestrator V2] Error:', error)
+
+      // Don't fallback to V1 to avoid infinite recursion
+      // V1 detects V2 conditions and calls V2, which would call V1 again
+      return {
+        content: 'I apologize, but I encountered an error while processing your request. The system is being updated to handle this better. Please try again in a moment.',
+        model: 'forefront-intelligence-v2',
+        metadata: {
+          error: true,
+          errorMessage: error instanceof Error ? error.message : 'Unknown error',
+          fallbackUsed: false,
+          type: 'text'
+        }
+      }
+    }
+  }
+
+  /**
+   * Execute workflow steps
+   */
+  private async executeWorkflow(
+    workflow: DynamicWorkflow,
+    request: OrchestratorRequestV2
+  ): Promise<WorkflowExecutionResult[]> {
+    const results: WorkflowExecutionResult[] = []
+    const stepOutputs: Map<string, any> = new Map()
+
+    console.log(`[Orchestrator V2] Executing ${workflow.steps.length} workflow steps...`)
+
+    for (const step of workflow.steps) {
+      console.log(`[Orchestrator V2] Executing step ${step.stepNumber}: ${step.purpose} (${step.stepId})`)
+
+      try {
+        // Get input from previous step if specified
+        let input = request.message
+        if (step.inputFrom) {
+          input = stepOutputs.get(step.inputFrom) || input
+        }
+
+        // Execute based on step purpose
+        const result = await this.executeStep(step, input, request)
+
+        // Store result for future steps
+        stepOutputs.set(step.stepId, result.output)
+        results.push(result)
+
+        console.log(`[Orchestrator V2] Step ${step.stepId} complete:`, {
+          executionTime: result.executionTime,
+          confidence: result.confidence
+        })
+
+        // Check quality gate if exists
+        const qualityGate = workflow.qualityGates.find(g => g.afterStep === step.stepId)
+        if (qualityGate) {
+          const passed = await this.checkQualityGate(qualityGate, result, workflow.intent)
+          if (!passed) {
+            console.log(`[Orchestrator V2] Quality gate failed for ${step.stepId}, handling failure...`)
+            await this.handleQualityFailure(qualityGate, step, workflow, results)
+          }
+        }
+
+      } catch (error) {
+        console.error(`[Orchestrator V2] Step ${step.stepId} failed:`, error)
+
+        // Try fallback strategy
+        const fallback = workflow.fallbackStrategies.find(f => f.stepId === step.stepId)
+        if (fallback) {
+          console.log(`[Orchestrator V2] Applying fallback strategy for ${step.stepId}`)
+          await this.applyFallbackStrategy(fallback, step, workflow, results)
+        } else {
+          throw error
+        }
+      }
+    }
+
+    return results
+  }
+
+  /**
+   * Execute individual workflow step
+   */
+  private async executeStep(
+    step: WorkflowStep,
+    input: string,
+    request: OrchestratorRequestV2
+  ): Promise<WorkflowExecutionResult> {
+    const stepStart = Date.now()
+
+    switch (step.purpose) {
+      case 'interpret':
+        return await this.executeInterpretStep(step, input)
+
+      case 'research':
+        return await this.executeResearchStep(step, input, request)
+
+      case 'consensus':
+        return await this.executeConsensusStep(step, input)
+
+      case 'optimize':
+        return await this.executeOptimizeStep(step, input)
+
+      case 'generate':
+        return await this.executeGenerateStep(step, input, request)
+
+      case 'quality-check':
+        return await this.executeQualityCheckStep(step, input)
+
+      case 'format':
+        return await this.executeFormatStep(step, input)
+
+      default:
+        // Fallback to simple LLM call
+        const response = await this.callModel(step.models[0], input)
+        return {
+          stepId: step.stepId,
+          output: response,
+          executionTime: Date.now() - stepStart,
+          modelUsed: step.models[0],
+          confidence: 0.7
+        }
+    }
+  }
+
+  /**
+   * Execute interpretation step
+   */
+  private async executeInterpretStep(step: WorkflowStep, input: string): Promise<WorkflowExecutionResult> {
+    const startTime = Date.now()
+
+    const prompt = `Extract the key intent and entities from this request:
+"${input}"
+
+Return a JSON with:
+- extractedIntent: One sentence describing what the user wants
+- keyEntities: Array of important entities/concepts mentioned
+- confidence: Your confidence level (0-1)`
+
+    const response = await groqClient.chat({
+      model: step.models[0],
+      messages: [
+        { role: 'system', content: 'You are an intent extractor. Return only valid JSON.' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.0,
+      maxTokens: 200
+    }) as any
+
+    try {
+      const parsed = JSON.parse(response.choices[0].message.content)
+      return {
+        stepId: step.stepId,
+        output: parsed,
+        executionTime: Date.now() - startTime,
+        modelUsed: step.models[0],
+        confidence: parsed.confidence || 0.8
+      }
+    } catch {
+      return {
+        stepId: step.stepId,
+        output: { extractedIntent: input, keyEntities: [], confidence: 0.5 },
+        executionTime: Date.now() - startTime,
+        modelUsed: step.models[0],
+        confidence: 0.5
+      }
+    }
+  }
+
+  /**
+   * Execute research step
+   */
+  private async executeResearchStep(
+    step: WorkflowStep,
+    input: string,
+    request: OrchestratorRequestV2
+  ): Promise<WorkflowExecutionResult> {
+    const startTime = Date.now()
+
+    // Use search queries from config or input
+    const query = step.config?.searchQueries?.[0] || input
+
+    console.log(`[Orchestrator V2] Researching: "${query}"`)
+
+    // Call Perplexity for search
+    const response = await perplexityClient.chat({
+      model: step.models[0],
+      messages: [
+        { role: 'system', content: 'You are a research assistant. Provide comprehensive information with citations.' },
+        { role: 'user', content: query }
+      ]
+    })
+
+    return {
+      stepId: step.stepId,
+      output: response.choices[0].message.content,
+      executionTime: Date.now() - startTime,
+      modelUsed: step.models[0],
+      confidence: 0.85,
+      metadata: {
+        citations: response.citations || [],
+        searchResults: response.search_results || []
+      }
+    }
+  }
+
+  /**
+   * Execute consensus step with multiple models
+   */
+  private async executeConsensusStep(step: WorkflowStep, input: string): Promise<WorkflowExecutionResult> {
+    const startTime = Date.now()
+
+    console.log(`[Orchestrator V2] Running consensus with ${step.models.length} models`)
+
+    // Run all models in parallel
+    const modelPromises = step.models.map(async model => {
+      const response = await this.callModel(model, input)
+      return { model, output: response }
+    })
+
+    const modelOutputs = await Promise.all(modelPromises)
+
+    // Simple consensus: merge outputs
+    const consensus = modelOutputs.map(m => m.output).join('\n\n---\n\n')
+
+    return {
+      stepId: step.stepId,
+      output: consensus,
+      executionTime: Date.now() - startTime,
+      modelUsed: step.models.join(' + '),
+      confidence: 0.8,
+      metadata: {
+        modelOutputs
+      }
+    }
+  }
+
+  /**
+   * Execute optimization step
+   */
+  private async executeOptimizeStep(step: WorkflowStep, input: string): Promise<WorkflowExecutionResult> {
+    const startTime = Date.now()
+
+    const target = step.config?.optimizationTarget || 'general'
+
+    let prompt = ''
+    if (target === 'image-prompt') {
+      prompt = `Optimize this for AI image generation. Make it detailed and vivid:
+"${input}"
+
+Return ONLY the optimized prompt.`
+    } else if (target === 'code-quality') {
+      prompt = `Optimize this code for quality and performance:
+${input}
+
+Return the optimized code with brief comments.`
+    } else {
+      prompt = `Optimize and improve this:
+${input}
+
+Return the optimized version.`
+    }
+
+    const response = await this.callModel(step.models[0], prompt)
+
+    return {
+      stepId: step.stepId,
+      output: response,
+      executionTime: Date.now() - startTime,
+      modelUsed: step.models[0],
+      confidence: 0.85
+    }
+  }
+
+  /**
+   * Execute generation step
+   */
+  private async executeGenerateStep(
+    step: WorkflowStep,
+    input: string,
+    request: OrchestratorRequestV2
+  ): Promise<WorkflowExecutionResult> {
+    const startTime = Date.now()
+
+    // Special handling for image generation
+    if (step.models[0] === 'seedream-4') {
+      console.log(`[Orchestrator V2] Generating image with Seed Dream 4`)
+
+      // Call the actual Seed Dream 4 API
+      const imageGenRequest = {
+        message: input,  // The optimized prompt
+        model: 'seedream-4',
+        context: request.context || {},
+        userId: request.userId
+      }
+
+      // Use the parent class's image generation method
+      const imageResponse = await super.executeOnModel('seedream-4', imageGenRequest, startTime)
+
+      return {
+        stepId: step.stepId,
+        output: imageResponse.content, // The image URL
+        executionTime: Date.now() - startTime,
+        modelUsed: 'seedream-4',
+        confidence: 0.9,
+        metadata: {
+          type: 'image',
+          prompt: input,
+          aspectRatio: imageResponse.metadata?.aspectRatio
+        }
+      }
+    }
+
+    // Regular text generation
+    const response = await this.callModel(step.models[0], input)
+
+    return {
+      stepId: step.stepId,
+      output: response,
+      executionTime: Date.now() - startTime,
+      modelUsed: step.models[0],
+      confidence: 0.85
+    }
+  }
+
+  /**
+   * Execute quality check step
+   */
+  private async executeQualityCheckStep(step: WorkflowStep, input: string): Promise<WorkflowExecutionResult> {
+    const startTime = Date.now()
+
+    const prompt = `Evaluate the quality of this output:
+"${input}"
+
+Check for:
+- Factual accuracy
+- Completeness
+- Clarity
+- Any issues or errors
+
+Return a JSON with:
+- qualityScore: 0-1
+- issues: Array of any problems found
+- suggestions: Array of improvements`
+
+    const response = await this.callModel(step.models[0], prompt)
+
+    try {
+      const parsed = JSON.parse(response)
+      return {
+        stepId: step.stepId,
+        output: parsed,
+        executionTime: Date.now() - startTime,
+        modelUsed: step.models[0],
+        confidence: parsed.qualityScore || 0.7
+      }
+    } catch {
+      return {
+        stepId: step.stepId,
+        output: { qualityScore: 0.7, issues: [], suggestions: [] },
+        executionTime: Date.now() - startTime,
+        modelUsed: step.models[0],
+        confidence: 0.7
+      }
+    }
+  }
+
+  /**
+   * Execute formatting step
+   */
+  private async executeFormatStep(step: WorkflowStep, input: string): Promise<WorkflowExecutionResult> {
+    const startTime = Date.now()
+
+    const template = step.config?.formatTemplate || 'standard'
+
+    let prompt = `Format this content for presentation:\n${input}`
+
+    if (template === 'educational-structured') {
+      prompt += '\n\nUse clear sections, bullet points, and examples.'
+    } else if (template === 'code-documentation') {
+      prompt += '\n\nInclude code comments and documentation.'
+    }
+
+    const response = await this.callModel(step.models[0], prompt)
+
+    return {
+      stepId: step.stepId,
+      output: response,
+      executionTime: Date.now() - startTime,
+      modelUsed: step.models[0],
+      confidence: 0.9
+    }
+  }
+
+  /**
+   * Call a specific model
+   */
+  private async callModel(modelId: string, prompt: string): Promise<string> {
+    // Route to appropriate client based on model
+    if (modelId.includes('sonar')) {
+      const response = await perplexityClient.chat({
+        model: modelId,
+        messages: [{ role: 'user', content: prompt }]
+      })
+      return response.choices[0].message.content
+    } else if (modelId.includes('gemini')) {
+      // Don't use this.geminiClient directly, use groqClient or skip Gemini for now
+      // to avoid the undefined method error
+      const response = await groqClient.chat({
+        model: 'llama-3.3-70b-versatile', // Use Llama instead of Gemini for now
+        messages: [{ role: 'user', content: prompt }]
+      })
+      return response.choices[0].message.content
+    } else {
+      // Default to Groq
+      const response = await groqClient.chat({
+        model: modelId,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.7,
+        maxTokens: 1000
+      }) as any
+      return response.choices[0].message.content
+    }
+  }
+
+  /**
+   * Check quality gate
+   */
+  private async checkQualityGate(
+    gate: any,
+    result: WorkflowExecutionResult,
+    intent: UniversalIntent
+  ): Promise<boolean> {
+    // Simple confidence check for now
+    return result.confidence >= gate.threshold
+  }
+
+  /**
+   * Handle quality failure
+   */
+  private async handleQualityFailure(
+    gate: any,
+    step: WorkflowStep,
+    workflow: DynamicWorkflow,
+    results: WorkflowExecutionResult[]
+  ): Promise<void> {
+    console.log(`[Orchestrator V2] Handling quality failure: ${gate.onFailure}`)
+
+    // Simplified handling for now
+    if (gate.onFailure === 're_research') {
+      console.log('[Orchestrator V2] Would trigger re-research here')
+    } else if (gate.onFailure === 'retry') {
+      console.log('[Orchestrator V2] Would retry step here')
+    }
+  }
+
+  /**
+   * Apply fallback strategy
+   */
+  private async applyFallbackStrategy(
+    fallback: any,
+    step: WorkflowStep,
+    workflow: DynamicWorkflow,
+    results: WorkflowExecutionResult[]
+  ): Promise<void> {
+    console.log(`[Orchestrator V2] Applying fallback: ${fallback.action}`)
+
+    // Simplified fallback for now
+    if (fallback.action === 'use_alternative_model' && fallback.alternativeModels) {
+      step.models = fallback.alternativeModels
+    }
+  }
+
+  /**
+   * Calculate quality score
+   */
+  private calculateQualityScore(
+    results: WorkflowExecutionResult[],
+    intent: UniversalIntent
+  ): number {
+    // Average confidence across all steps
+    const avgConfidence = results.reduce((acc, r) => acc + r.confidence, 0) / results.length
+
+    // Weight by quality thresholds
+    const thresholdAvg = (
+      intent.qualityThresholds.factualAccuracy +
+      intent.qualityThresholds.creativityLevel +
+      intent.qualityThresholds.technicalDepth +
+      intent.qualityThresholds.educationalValue
+    ) / 4
+
+    return (avgConfidence + thresholdAvg) / 2
+  }
+
+  /**
+   * Format final response
+   */
+  private async formatFinalResponse(
+    results: WorkflowExecutionResult[],
+    intent: UniversalIntent
+  ): Promise<{ content: string }> {
+    // Find the main output (usually from generate or format step)
+    const mainResult = results.find(r => r.stepId === 'format') ||
+                      results.find(r => r.stepId === 'execute') ||
+                      results.find(r => r.stepId === 'generate') ||
+                      results[results.length - 1]
+
+    return {
+      content: typeof mainResult.output === 'string' ? mainResult.output : JSON.stringify(mainResult.output)
+    }
+  }
+
+  /**
+   * Extract metadata from results
+   */
+  private extractMetadataFromResults(results: WorkflowExecutionResult[]): any {
+    const metadata: any = {}
+
+    // Look for citations
+    const researchResult = results.find(r => r.stepId === 'research')
+    if (researchResult?.metadata) {
+      metadata.citations = researchResult.metadata.citations
+      metadata.searchResults = researchResult.metadata.searchResults
+    }
+
+    // Look for image generation
+    const generateResult = results.find(r => r.stepId === 'execute' || r.stepId === 'generate')
+    if (generateResult?.metadata?.type === 'image') {
+      metadata.type = 'image'
+      metadata.aspectRatio = '4:3'
+    }
+
+    return metadata
+  }
+
+  /**
+   * Convert universal intent to legacy format
+   */
+  private convertToLegacyIntent(intent: UniversalIntent): any {
+    return {
+      type: intent.taskType,
+      needsWebSearch: intent.capabilities.needsResearch,
+      needsReasoning: intent.domain === 'analytical',
+      needsMultimodal: intent.deliveryFormat === 'multimedia',
+      needsToolUse: intent.capabilities.needsSpecializedTools.length > 0,
+      needsImageGeneration: intent.deliveryFormat === 'visual' && intent.taskType === 'generation',
+      needsChaining: intent.capabilities.needsMultiModelConsensus,
+      complexity: intent.complexity === 'trivial' ? 'low' : intent.complexity === 'moderate' ? 'medium' : 'high',
+      confidence: intent.confidence,
+      suggestedModel: intent.suggestedModels?.[0] || 'llama-3.3-70b-versatile',
+      fallbackModel: intent.suggestedModels?.[1] || 'gemini-2.0-flash'
+    }
+  }
+}
+
+// Export singleton instance
+export const orchestratorV2 = new ForefrontOrchestratorV2()

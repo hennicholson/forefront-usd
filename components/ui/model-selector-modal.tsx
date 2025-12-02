@@ -72,7 +72,7 @@ export function ModelSelectorModal({
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
-          className={`w-full max-w-5xl max-h-[85vh] rounded-2xl border shadow-2xl overflow-hidden ${
+          className={`w-full max-w-sm sm:max-w-2xl md:max-w-5xl max-h-[85vh] rounded-2xl border shadow-2xl overflow-hidden ${
             isDarkMode
               ? 'bg-zinc-900 border-zinc-800'
               : 'bg-white border-zinc-200'

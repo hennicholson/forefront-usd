@@ -19,15 +19,27 @@ interface Toast {
   message: string
 }
 
+interface ChainedStep {
+  step: number
+  model: string
+  content: string
+  type: 'text' | 'image' | 'video'
+  purpose: string
+  executionTime: number
+  metadata?: any
+}
+
 interface Message {
   role: 'user' | 'assistant'
   content: string
   timestamp: Date
-  type?: 'text' | 'image' | 'video'
+  type?: 'text' | 'image' | 'video' | 'chained'
   metadata?: any
   saved?: boolean
   generationId?: number
   userPrompt?: string
+  chainedSteps?: ChainedStep[]
+  isChained?: boolean
 }
 
 interface AIPlaygroundProps {
@@ -275,20 +287,37 @@ export function AIPlayground({ moduleTitle, moduleId, moduleSlug, slideId, userI
           }
         }
       } else {
-        // Handle non-streaming responses (Perplexity, Gemini, image models)
+        // Handle non-streaming responses (Perplexity, Gemini, image models, chained)
         const data = await response.json()
 
         if (response.ok) {
-          const assistantMessage: Message = {
-            role: 'assistant',
-            content: data.response,
-            timestamp: new Date(),
-            type: data.type || 'text',
-            metadata: data.metadata,
-            userPrompt: input,
-            saved: false
+          // Check if it's a chained response
+          if (data.isChained && data.steps) {
+            const chainedMessage: Message = {
+              role: 'assistant',
+              content: '',  // Not used for chained
+              timestamp: new Date(),
+              type: 'chained',
+              isChained: true,
+              chainedSteps: data.steps,
+              metadata: data.metadata,
+              userPrompt: input,
+              saved: false
+            }
+            setMessages(prev => [...prev, chainedMessage])
+          } else {
+            // Regular single response
+            const assistantMessage: Message = {
+              role: 'assistant',
+              content: data.response,
+              timestamp: new Date(),
+              type: data.type || 'text',
+              metadata: data.metadata,
+              userPrompt: input,
+              saved: false
+            }
+            setMessages(prev => [...prev, assistantMessage])
           }
-          setMessages(prev => [...prev, assistantMessage])
         } else {
           throw new Error(data.error || 'Failed to get response')
         }
@@ -736,7 +765,51 @@ export function AIPlayground({ moduleTitle, moduleId, moduleSlug, slideId, userI
                     </div>
                   )}
 
-                  {message.type === 'image' || message.type === 'video' ? (
+                  {message.type === 'chained' && message.chainedSteps ? (
+                    <div className="space-y-4">
+                      <div className="text-xs font-semibold text-violet-400 flex items-center gap-2 mb-3">
+                        <Sparkles size={14} />
+                        Multi-Step AI Workflow
+                      </div>
+                      {message.chainedSteps.map((step, stepIdx) => (
+                        <div key={stepIdx} className="border-l-2 border-violet-500/30 pl-4 space-y-2">
+                          {/* Step header */}
+                          <div className="flex items-center justify-between">
+                            <div className="text-xs font-semibold text-violet-400">
+                              Step {step.step}: {step.purpose.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            </div>
+                            <div className="text-xs text-zinc-500">
+                              {step.model} • {step.executionTime}ms
+                            </div>
+                          </div>
+
+                          {/* Step content */}
+                          {step.type === 'image' ? (
+                            <img
+                              src={step.content}
+                              alt={`Step ${step.step} - ${step.purpose}`}
+                              className="rounded-lg max-w-full h-auto border border-zinc-700"
+                            />
+                          ) : step.type === 'video' ? (
+                            <video
+                              src={step.content}
+                              controls
+                              className="rounded-lg max-w-full h-auto border border-zinc-700"
+                            />
+                          ) : (
+                            <div className="bg-zinc-900/50 rounded-lg p-3 border border-zinc-700">
+                              <MarkdownMessage content={step.content} isDarkMode={isDarkMode} />
+                            </div>
+                          )}
+                        </div>
+                      ))}
+
+                      {/* Total execution time */}
+                      <div className="text-xs text-zinc-500 pt-2 border-t border-zinc-800">
+                        Total execution time: {message.metadata?.intent?.totalExecutionTime || 0}ms
+                      </div>
+                    </div>
+                  ) : message.type === 'image' || message.type === 'video' ? (
                     <div className="space-y-2">
                       {message.type === 'image' ? (
                         <img

@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
+import { motion, AnimatePresence } from 'framer-motion'
 
 interface LoginModalProps {
   isOpen: boolean
@@ -17,8 +18,6 @@ export function LoginModal({ isOpen, onClose, onSuccess, onSignupClick }: LoginM
   const [loading, setLoading] = useState(false)
   const { login } = useAuth()
   const router = useRouter()
-
-  if (!isOpen) return null
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -65,32 +64,43 @@ export function LoginModal({ isOpen, onClose, onSuccess, onSignupClick }: LoginM
   }
 
   return (
-    <div
-      onClick={handleBackdropClick}
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'rgba(0, 0, 0, 0.9)',
-        backdropFilter: 'blur(10px)',
-        WebkitBackdropFilter: 'blur(10px)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 10000,
-        padding: '20px'
-      }}
-    >
-      <div style={{
-        background: '#fff',
-        width: '100%',
-        maxWidth: '440px',
-        borderRadius: '16px',
-        boxShadow: '0 8px 40px rgba(0, 0, 0, 0.3)',
-        overflow: 'hidden'
-      }}>
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={handleBackdropClick}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.9)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            padding: '20px'
+          }}
+        >
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.95, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+            style={{
+              background: '#fff',
+              width: '100%',
+              maxWidth: '440px',
+              borderRadius: '16px',
+              boxShadow: '0 8px 40px rgba(0, 0, 0, 0.3)',
+              overflow: 'hidden'
+            }}
+          >
         {/* Header */}
         <div style={{
           background: '#000',
@@ -274,7 +284,9 @@ export function LoginModal({ isOpen, onClose, onSuccess, onSignupClick }: LoginM
             </button>
           </div>
         </form>
-      </div>
-    </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   )
 }

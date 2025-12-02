@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { UserProfile, Experience, Education, Certification, Project, Award } from '@/types/profile'
 import { ExpandableSection } from './ExpandableSection'
+import { motion, AnimatePresence } from 'framer-motion'
 
 interface UserProfileModalProps {
   userId: string
@@ -65,8 +66,6 @@ export function UserProfileModal({ userId, isOpen, onClose }: UserProfileModalPr
     }
   }
 
-  if (!isOpen) return null
-
   return (
     <>
       <style jsx>{`
@@ -90,37 +89,46 @@ export function UserProfileModal({ userId, isOpen, onClose }: UserProfileModalPr
         }
       `}</style>
 
-      <div
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.8)',
-          zIndex: 9999,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '20px',
-          overflowY: 'auto'
-        }}
-        onClick={onClose}
-      >
-        <div
-          className="modal-content"
-          style={{
-            background: '#fff',
-            maxWidth: '1000px',
-            width: '100%',
-            maxHeight: '90vh',
-            overflow: 'hidden',
-            position: 'relative',
-            border: '3px solid #000',
-            borderRadius: '16px'
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0, 0, 0, 0.8)',
+              zIndex: 9999,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '20px',
+              overflowY: 'auto'
+            }}
+            onClick={onClose}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+              className="modal-content"
+              style={{
+                background: '#fff',
+                maxWidth: '1000px',
+                width: '100%',
+                maxHeight: '90vh',
+                overflow: 'hidden',
+                position: 'relative',
+                border: '3px solid #000',
+                borderRadius: '16px'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
           {/* Close Button */}
           <button
             onClick={onClose}
@@ -810,8 +818,10 @@ export function UserProfileModal({ userId, isOpen, onClose }: UserProfileModalPr
               </div>
             )}
           </div>
-        </div>
-      </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   )
 }

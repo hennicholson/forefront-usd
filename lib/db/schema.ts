@@ -329,3 +329,28 @@ export const folders = pgTable('folders', {
   name: text('name').notNull(),
   createdAt: timestamp('created_at').defaultNow(),
 })
+
+// Chat Sessions - Standalone chat conversations
+export const chatSessions = pgTable('chat_sessions', {
+  id: serial('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id),
+  title: text('title').notNull(), // Auto-generated or user-defined
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+  lastMessageAt: timestamp('last_message_at').defaultNow(),
+  messageCount: integer('message_count').default(0),
+  isPinned: boolean('is_pinned').default(false),
+  tags: jsonb('tags').default('[]'), // For future organization
+})
+
+// Chat Messages - Individual messages within chat sessions
+export const chatMessages = pgTable('chat_messages', {
+  id: serial('id').primaryKey(),
+  sessionId: integer('session_id').notNull().references(() => chatSessions.id),
+  userId: text('user_id').notNull().references(() => users.id),
+  role: text('role').notNull(), // 'user' | 'assistant' | 'system'
+  content: text('content').notNull(),
+  model: text('model'), // Which model was used (forefront-intelligence, etc.)
+  metadata: jsonb('metadata').default('{}'), // Citations, tool calls, images, etc.
+  createdAt: timestamp('created_at').defaultNow(),
+})

@@ -1,0 +1,845 @@
+/**
+ * Dynamic Workflow Builder for Forefront Intelligence V2
+ *
+ * Constructs optimal execution chains at runtime based on intent,
+ * not pre-defined templates. This is the heart of the meta-orchestrator.
+ */
+
+import { UniversalIntent } from './intent-classifier'
+import { SemanticAnalysis } from './semantic-analyzer'
+
+/**
+ * Workflow step definition
+ */
+export interface WorkflowStep {
+  stepId: string
+  stepNumber: number
+  purpose: 'interpret' | 'research' | 'validate' | 'optimize' | 'generate' | 'format' | 'consensus' | 'quality-check'
+
+  // Model configuration
+  models: string[]  // Primary and consensus models
+  modelStrategy: 'single' | 'parallel' | 'sequential' | 'debate'
+
+  // Dependencies and flow
+  dependsOn: string[]  // Step IDs that must complete first
+  inputFrom?: string  // Which step's output to use as input
+  parallel: boolean  // Can run in parallel with other parallel steps
+
+  // Success criteria
+  successCriteria: {
+    minimumConfidence: number
+    requiredFields: string[]
+    validationChecks?: ValidationRule[]
+  }
+
+  // Execution parameters
+  maxRetries: number
+  timeoutMs: number
+
+  // Step-specific configuration
+  config?: {
+    searchQueries?: string[]
+    optimizationTarget?: string
+    validationRules?: string[]
+    formatTemplate?: string
+    consensusThreshold?: number
+  }
+}
+
+/**
+ * Validation rule for quality gates
+ */
+export interface ValidationRule {
+  type: 'output_length' | 'confidence_threshold' | 'format_check' | 'content_validation'
+  threshold?: number
+  pattern?: string
+  validator?: (output: any) => boolean
+}
+
+/**
+ * Quality gate definition
+ */
+export interface QualityGate {
+  afterStep: string
+  validators: string[]  // Validator names
+  threshold: number
+  onFailure: 'retry' | 're_research' | 'escalate' | 'continue' | 'abort'
+}
+
+/**
+ * Fallback strategy for failures
+ */
+export interface FallbackStrategy {
+  stepId: string
+  triggers: string[]  // Error types that trigger this fallback
+  action: 'use_alternative_model' | 'simplify_request' | 'add_research' | 'request_clarification'
+  alternativeModels?: string[]
+}
+
+/**
+ * Complete workflow definition
+ */
+export interface DynamicWorkflow {
+  workflowId: string
+  intent: UniversalIntent
+  semantics?: SemanticAnalysis
+
+  // Workflow structure
+  steps: WorkflowStep[]
+  parallelizable: boolean[]  // Which steps can run in parallel
+
+  // Quality control
+  qualityGates: QualityGate[]
+  fallbackStrategies: FallbackStrategy[]
+
+  // Metadata
+  estimatedTime: number
+  estimatedCost: number
+  requiredModels: string[]
+  workflowType: string  // e.g., "creative-generation", "technical-analysis"
+}
+
+/**
+ * Main function to build dynamic workflow from intent
+ */
+export async function buildDynamicWorkflow(
+  intent: UniversalIntent,
+  semantics?: SemanticAnalysis
+): Promise<DynamicWorkflow> {
+  const workflowId = `workflow_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  const steps: WorkflowStep[] = []
+  let stepNumber = 1
+
+  console.log('[Workflow Builder] Building workflow for:', {
+    domain: intent.domain,
+    taskType: intent.taskType,
+    complexity: intent.complexity
+  })
+
+  // Simplified workflow - only essential steps for better performance
+
+  // Step 1: Research if needed (skip interpretation for speed)
+  if (shouldIncludeResearch(intent, semantics)) {
+    steps.push(createResearchStep(stepNumber++, intent, semantics))
+  }
+
+  // Step 2: Optimization for generation tasks (especially images)
+  if (shouldIncludeOptimization(intent)) {
+    const previousStepId = steps.length > 0 ? steps[steps.length - 1].stepId : undefined
+    steps.push(createOptimizationStep(stepNumber++, intent, previousStepId))
+  }
+
+  // Step 3: Main execution/generation step (the actual work)
+  const previousStepId = steps.length > 0 ? steps[steps.length - 1].stepId : undefined
+  const executionStep = createExecutionStep(stepNumber++, intent, semantics, previousStepId)
+  if (executionStep) {
+    steps.push(executionStep)
+  }
+
+  // Skip consensus, quality check, and formatting for now to avoid timeouts
+  // These can be added back later once performance is optimized
+
+  // Determine which steps can run in parallel
+  const parallelizable = determineParallelization(steps)
+
+  // Create quality gates
+  const qualityGates = createQualityGates(intent, steps)
+
+  // Create fallback strategies
+  const fallbackStrategies = createFallbackStrategies(intent, steps)
+
+  // Calculate estimates
+  const estimatedTime = calculateEstimatedTime(steps, parallelizable)
+  const estimatedCost = calculateEstimatedCost(steps)
+  const requiredModels = extractRequiredModels(steps)
+
+  // Determine workflow type
+  const workflowType = determineWorkflowType(intent)
+
+  return {
+    workflowId,
+    intent,
+    semantics,
+    steps,
+    parallelizable,
+    qualityGates,
+    fallbackStrategies,
+    estimatedTime,
+    estimatedCost,
+    requiredModels,
+    workflowType
+  }
+}
+
+/**
+ * Create interpretation step
+ */
+function createInterpretationStep(stepNumber: number): WorkflowStep {
+  return {
+    stepId: 'interpret',
+    stepNumber,
+    purpose: 'interpret',
+    models: ['llama-3.1-8b-instant'],  // Fast model for quick understanding
+    modelStrategy: 'single',
+    dependsOn: [],
+    parallel: false,
+    successCriteria: {
+      minimumConfidence: 0.7,
+      requiredFields: ['extractedIntent', 'keyEntities']
+    },
+    maxRetries: 1,
+    timeoutMs: 3000,
+    config: {}
+  }
+}
+
+/**
+ * Create research step
+ */
+function createResearchStep(
+  stepNumber: number,
+  intent: UniversalIntent,
+  semantics?: SemanticAnalysis
+): WorkflowStep {
+  // Build search queries based on intent and semantics
+  const searchQueries = buildSearchQueries(intent, semantics)
+
+  return {
+    stepId: 'research',
+    stepNumber,
+    purpose: 'research',
+    models: ['sonar-pro'],  // Premium search model
+    modelStrategy: 'single',
+    dependsOn: [],  // No dependencies now since we skip interpret
+    inputFrom: undefined,  // Use original input
+    parallel: false,
+    successCriteria: {
+      minimumConfidence: 0.8,
+      requiredFields: ['citations', 'content', 'searchResults']
+    },
+    maxRetries: 2,
+    timeoutMs: 15000,
+    config: {
+      searchQueries
+    }
+  }
+}
+
+/**
+ * Create consensus step
+ */
+function createConsensusStep(
+  stepNumber: number,
+  intent: UniversalIntent,
+  dependsOn: string
+): WorkflowStep {
+  // Select models based on domain
+  const consensusModels = selectConsensusModels(intent)
+
+  return {
+    stepId: 'consensus',
+    stepNumber,
+    purpose: 'consensus',
+    models: consensusModels,
+    modelStrategy: 'parallel',  // Run all models in parallel
+    dependsOn: [dependsOn],
+    inputFrom: dependsOn,
+    parallel: false,
+    successCriteria: {
+      minimumConfidence: 0.7,
+      requiredFields: ['consensusScore', 'synthesizedOutput'],
+      validationChecks: [
+        {
+          type: 'confidence_threshold',
+          threshold: 0.7
+        }
+      ]
+    },
+    maxRetries: 1,
+    timeoutMs: 20000,
+    config: {
+      consensusThreshold: 0.7
+    }
+  }
+}
+
+/**
+ * Create optimization step
+ */
+function createOptimizationStep(
+  stepNumber: number,
+  intent: UniversalIntent,
+  dependsOn: string
+): WorkflowStep {
+  // Determine optimization target
+  let optimizationTarget = 'general'
+  if (intent.deliveryFormat === 'visual') {
+    optimizationTarget = 'image-prompt'
+  } else if (intent.deliveryFormat === 'code') {
+    optimizationTarget = 'code-quality'
+  } else if (intent.taskType === 'teaching') {
+    optimizationTarget = 'educational-clarity'
+  }
+
+  return {
+    stepId: 'optimize',
+    stepNumber,
+    purpose: 'optimize',
+    models: ['llama-3.3-70b-versatile'],
+    modelStrategy: 'single',
+    dependsOn: [dependsOn],
+    inputFrom: dependsOn,
+    parallel: false,
+    successCriteria: {
+      minimumConfidence: 0.8,
+      requiredFields: ['optimizedOutput']
+    },
+    maxRetries: 2,
+    timeoutMs: 10000,
+    config: {
+      optimizationTarget
+    }
+  }
+}
+
+/**
+ * Create execution step based on domain and task
+ */
+function createExecutionStep(
+  stepNumber: number,
+  intent: UniversalIntent,
+  semantics: SemanticAnalysis | undefined,
+  dependsOn: string
+): WorkflowStep | null {
+  // Map domain + task to execution model
+  const executionModel = selectExecutionModel(intent)
+
+  if (!executionModel) {
+    return null  // No specific execution needed
+  }
+
+  return {
+    stepId: 'execute',
+    stepNumber,
+    purpose: 'generate',
+    models: [executionModel],
+    modelStrategy: 'single',
+    dependsOn: [dependsOn],
+    inputFrom: dependsOn,
+    parallel: false,
+    successCriteria: {
+      minimumConfidence: 0.7,
+      requiredFields: ['output'],
+      validationChecks: getExecutionValidations(intent)
+    },
+    maxRetries: 2,
+    timeoutMs: intent.deliveryFormat === 'visual' ? 30000 : 15000,
+    config: {}
+  }
+}
+
+/**
+ * Create quality check step
+ */
+function createQualityCheckStep(
+  stepNumber: number,
+  intent: UniversalIntent,
+  dependsOn: string
+): WorkflowStep {
+  return {
+    stepId: 'quality-check',
+    stepNumber,
+    purpose: 'quality-check',
+    models: ['qwen/qwen3-32b'],  // Advanced reasoning for quality validation
+    modelStrategy: 'single',
+    dependsOn: [dependsOn],
+    inputFrom: dependsOn,
+    parallel: false,
+    successCriteria: {
+      minimumConfidence: 0.8,
+      requiredFields: ['qualityScore', 'issues'],
+      validationChecks: [
+        {
+          type: 'confidence_threshold',
+          threshold: intent.qualityThresholds.factualAccuracy
+        }
+      ]
+    },
+    maxRetries: 1,
+    timeoutMs: 8000,
+    config: {
+      validationRules: getQualityRules(intent)
+    }
+  }
+}
+
+/**
+ * Create formatting step
+ */
+function createFormattingStep(
+  stepNumber: number,
+  intent: UniversalIntent,
+  dependsOn: string
+): WorkflowStep {
+  return {
+    stepId: 'format',
+    stepNumber,
+    purpose: 'format',
+    models: ['llama-3.1-8b-instant'],  // Fast model for formatting
+    modelStrategy: 'single',
+    dependsOn: [dependsOn],
+    inputFrom: dependsOn,
+    parallel: false,
+    successCriteria: {
+      minimumConfidence: 0.9,
+      requiredFields: ['formattedContent']
+    },
+    maxRetries: 1,
+    timeoutMs: 5000,
+    config: {
+      formatTemplate: getFormatTemplate(intent)
+    }
+  }
+}
+
+/**
+ * Determine if research is needed
+ */
+function shouldIncludeResearch(intent: UniversalIntent, semantics?: SemanticAnalysis): boolean {
+  // Explicit need for research
+  if (intent.capabilities.needsResearch) return true
+
+  // Task type requires research
+  if (intent.taskType === 'research' || intent.taskType === 'analysis') return true
+
+  // Semantic signals for research
+  if (semantics?.temporalContext.recency === 'latest' || semantics?.temporalContext.recency === 'current') {
+    return true
+  }
+
+  // Domain-specific research needs
+  if (intent.domain === 'analytical' && intent.complexity !== 'trivial') return true
+
+  // High factual accuracy requirement
+  if (intent.qualityThresholds.factualAccuracy > 0.85) return true
+
+  return false
+}
+
+/**
+ * Determine if consensus is needed
+ */
+function shouldIncludeConsensus(intent: UniversalIntent): boolean {
+  // Explicit need
+  if (intent.capabilities.needsMultiModelConsensus) return true
+
+  // High complexity requires validation
+  if (intent.complexity === 'complex' || intent.complexity === 'expert') return true
+
+  // Critical domains need consensus
+  if (intent.domain === 'technical' && intent.qualityThresholds.technicalDepth > 0.8) return true
+  if (intent.domain === 'analytical' && intent.qualityThresholds.factualAccuracy > 0.9) return true
+
+  return false
+}
+
+/**
+ * Determine if optimization is needed
+ */
+function shouldIncludeOptimization(intent: UniversalIntent): boolean {
+  // Explicit need
+  if (intent.capabilities.needsOptimization) return true
+
+  // Generation tasks benefit from optimization
+  if (intent.taskType === 'generation') return true
+
+  // Creative tasks need prompt optimization
+  if (intent.domain === 'creative' && intent.deliveryFormat === 'visual') return true
+
+  // Optimization task type
+  if (intent.taskType === 'optimization') return true
+
+  return false
+}
+
+/**
+ * Determine if quality check is needed
+ */
+function shouldIncludeQualityCheck(intent: UniversalIntent): boolean {
+  // Explicit need
+  if (intent.capabilities.needsValidation) return true
+
+  // Complex tasks need validation
+  if (intent.complexity === 'complex' || intent.complexity === 'expert') return true
+
+  // High quality thresholds require checking
+  const avgThreshold = (
+    intent.qualityThresholds.factualAccuracy +
+    intent.qualityThresholds.creativityLevel +
+    intent.qualityThresholds.technicalDepth +
+    intent.qualityThresholds.educationalValue
+  ) / 4
+
+  if (avgThreshold > 0.8) return true
+
+  return false
+}
+
+/**
+ * Build search queries for research
+ */
+function buildSearchQueries(intent: UniversalIntent, semantics?: SemanticAnalysis): string[] {
+  const queries: string[] = []
+
+  // Primary query from intent
+  if (intent.primaryGoal) {
+    queries.push(intent.primaryGoal)
+  }
+
+  // Add domain-specific queries
+  if (intent.domain === 'creative' && intent.deliveryFormat === 'visual') {
+    queries.push(`${intent.primaryGoal} best practices 2025`)
+    queries.push(`AI image generation prompt engineering guide`)
+  } else if (intent.domain === 'technical') {
+    queries.push(`${intent.primaryGoal} documentation`)
+    queries.push(`${intent.primaryGoal} implementation examples`)
+  } else if (intent.domain === 'analytical') {
+    queries.push(`${intent.primaryGoal} research papers`)
+    queries.push(`${intent.primaryGoal} latest studies 2025`)
+  }
+
+  // Add entity-based queries
+  if (semantics?.entities) {
+    const techEntities = semantics.entities
+      .filter(e => e.type === 'technology')
+      .slice(0, 2)
+
+    for (const entity of techEntities) {
+      queries.push(`${entity.text} ${intent.primaryGoal}`)
+    }
+  }
+
+  return queries.slice(0, 5)  // Limit to 5 queries
+}
+
+/**
+ * Select consensus models based on domain
+ */
+function selectConsensusModels(intent: UniversalIntent): string[] {
+  const models: string[] = []
+
+  // Always include versatile model
+  models.push('llama-3.3-70b-versatile')
+
+  // Add domain-specific models
+  switch (intent.domain) {
+    case 'creative':
+      models.push('gemini-2.0-flash')
+      break
+    case 'analytical':
+      models.push('qwen/qwen3-32b')
+      break
+    case 'technical':
+      models.push('openai/gpt-oss-120b')
+      break
+    case 'learning':
+      models.push('gemini-2.0-flash')
+      break
+    case 'hybrid':
+      models.push('gemini-2.0-flash')
+      models.push('qwen/qwen3-32b')
+      break
+  }
+
+  return models.slice(0, 3)  // Max 3 models for consensus
+}
+
+/**
+ * Select execution model based on intent
+ */
+function selectExecutionModel(intent: UniversalIntent): string | null {
+  // Visual generation
+  if (intent.deliveryFormat === 'visual' && intent.taskType === 'generation') {
+    return 'seedream-4'
+  }
+
+  // Code generation/optimization
+  if (intent.deliveryFormat === 'code' || intent.domain === 'technical') {
+    return 'llama-3.3-70b-versatile'
+  }
+
+  // Analytical tasks
+  if (intent.domain === 'analytical' && intent.complexity === 'complex') {
+    return 'qwen/qwen3-32b'
+  }
+
+  // Learning/teaching
+  if (intent.taskType === 'teaching' || intent.domain === 'learning') {
+    return 'llama-3.3-70b-versatile'
+  }
+
+  // Multimodal needs
+  if (intent.capabilities.needsSpecializedTools.includes('vision')) {
+    return 'gemini-2.0-flash'
+  }
+
+  // Default for text generation
+  if (intent.taskType === 'generation') {
+    return 'llama-3.3-70b-versatile'
+  }
+
+  return null  // No specific execution model needed
+}
+
+/**
+ * Get execution validations based on intent
+ */
+function getExecutionValidations(intent: UniversalIntent): ValidationRule[] {
+  const validations: ValidationRule[] = []
+
+  // Output length check
+  if (intent.deliveryFormat === 'text') {
+    validations.push({
+      type: 'output_length',
+      threshold: 100  // Minimum 100 characters
+    })
+  }
+
+  // Confidence check
+  validations.push({
+    type: 'confidence_threshold',
+    threshold: 0.6
+  })
+
+  // Format-specific validations
+  if (intent.deliveryFormat === 'code') {
+    validations.push({
+      type: 'format_check',
+      pattern: '(function|class|def|const|let|var)'
+    })
+  }
+
+  return validations
+}
+
+/**
+ * Get quality rules based on intent
+ */
+function getQualityRules(intent: UniversalIntent): string[] {
+  const rules: string[] = []
+
+  if (intent.qualityThresholds.factualAccuracy > 0.8) {
+    rules.push('factual_accuracy')
+  }
+
+  if (intent.qualityThresholds.technicalDepth > 0.8) {
+    rules.push('technical_correctness')
+  }
+
+  if (intent.qualityThresholds.educationalValue > 0.8) {
+    rules.push('educational_clarity')
+  }
+
+  if (intent.qualityThresholds.creativityLevel > 0.8) {
+    rules.push('creative_originality')
+  }
+
+  return rules
+}
+
+/**
+ * Get format template based on intent
+ */
+function getFormatTemplate(intent: UniversalIntent): string {
+  if (intent.deliveryFormat === 'interactive') {
+    return 'interactive-learning'
+  } else if (intent.domain === 'learning') {
+    return 'educational-structured'
+  } else if (intent.deliveryFormat === 'code') {
+    return 'code-documentation'
+  }
+
+  return 'standard'
+}
+
+/**
+ * Determine which steps can run in parallel
+ */
+function determineParallelization(steps: WorkflowStep[]): boolean[] {
+  return steps.map(step => {
+    // Research and consensus can sometimes run in parallel
+    if (step.purpose === 'research' && step.dependsOn.length === 1) {
+      return true
+    }
+
+    // Parallel consensus models
+    if (step.modelStrategy === 'parallel') {
+      return true
+    }
+
+    // Default to sequential
+    return false
+  })
+}
+
+/**
+ * Create quality gates for workflow
+ */
+function createQualityGates(intent: UniversalIntent, steps: WorkflowStep[]): QualityGate[] {
+  const gates: QualityGate[] = []
+
+  // Gate after research
+  const researchStep = steps.find(s => s.purpose === 'research')
+  if (researchStep) {
+    gates.push({
+      afterStep: researchStep.stepId,
+      validators: ['research_sufficiency', 'source_quality'],
+      threshold: 0.7,
+      onFailure: 're_research'
+    })
+  }
+
+  // Gate after consensus
+  const consensusStep = steps.find(s => s.purpose === 'consensus')
+  if (consensusStep) {
+    gates.push({
+      afterStep: consensusStep.stepId,
+      validators: ['consensus_agreement', 'confidence_level'],
+      threshold: 0.7,
+      onFailure: 'escalate'
+    })
+  }
+
+  // Gate after generation
+  const generateStep = steps.find(s => s.purpose === 'generate')
+  if (generateStep) {
+    gates.push({
+      afterStep: generateStep.stepId,
+      validators: ['output_quality', 'completeness'],
+      threshold: intent.qualityThresholds.factualAccuracy,
+      onFailure: 'retry'
+    })
+  }
+
+  return gates
+}
+
+/**
+ * Create fallback strategies
+ */
+function createFallbackStrategies(intent: UniversalIntent, steps: WorkflowStep[]): FallbackStrategy[] {
+  const strategies: FallbackStrategy[] = []
+
+  // Fallback for research failures
+  const researchStep = steps.find(s => s.purpose === 'research')
+  if (researchStep) {
+    strategies.push({
+      stepId: researchStep.stepId,
+      triggers: ['timeout', 'no_results'],
+      action: 'use_alternative_model',
+      alternativeModels: ['sonar']  // Fallback to standard search
+    })
+  }
+
+  // Fallback for generation failures
+  const generateStep = steps.find(s => s.purpose === 'generate')
+  if (generateStep) {
+    strategies.push({
+      stepId: generateStep.stepId,
+      triggers: ['model_error', 'quality_failure'],
+      action: 'simplify_request'
+    })
+  }
+
+  // General fallback for high ambiguity
+  if (intent.ambiguityLevel > 0.7) {
+    strategies.push({
+      stepId: 'interpret',
+      triggers: ['ambiguity_detected'],
+      action: 'request_clarification'
+    })
+  }
+
+  return strategies
+}
+
+/**
+ * Calculate estimated execution time
+ */
+function calculateEstimatedTime(steps: WorkflowStep[], parallelizable: boolean[]): number {
+  let totalTime = 0
+  let parallelTime = 0
+
+  for (let i = 0; i < steps.length; i++) {
+    if (parallelizable[i]) {
+      parallelTime = Math.max(parallelTime, steps[i].timeoutMs)
+    } else {
+      totalTime += steps[i].timeoutMs
+    }
+  }
+
+  return totalTime + parallelTime
+}
+
+/**
+ * Calculate estimated cost
+ */
+function calculateEstimatedCost(steps: WorkflowStep[]): number {
+  // Simplified cost model (in arbitrary units)
+  const modelCosts: Record<string, number> = {
+    'llama-3.1-8b-instant': 0.1,
+    'llama-3.3-70b-versatile': 1.0,
+    'sonar-pro': 2.0,
+    'sonar': 1.5,
+    'qwen/qwen3-32b': 1.5,
+    'gemini-2.0-flash': 1.2,
+    'seedream-4': 3.0,
+    'openai/gpt-oss-120b': 2.5
+  }
+
+  let totalCost = 0
+
+  for (const step of steps) {
+    for (const model of step.models) {
+      totalCost += modelCosts[model] || 1.0
+    }
+  }
+
+  return totalCost
+}
+
+/**
+ * Extract all required models
+ */
+function extractRequiredModels(steps: WorkflowStep[]): string[] {
+  const models = new Set<string>()
+
+  for (const step of steps) {
+    for (const model of step.models) {
+      models.add(model)
+    }
+  }
+
+  return Array.from(models)
+}
+
+/**
+ * Determine workflow type
+ */
+function determineWorkflowType(intent: UniversalIntent): string {
+  return `${intent.domain}-${intent.taskType}`
+}
+
+// Export for testing
+export const _internal = {
+  shouldIncludeResearch,
+  shouldIncludeConsensus,
+  shouldIncludeOptimization,
+  shouldIncludeQualityCheck,
+  buildSearchQueries,
+  selectConsensusModels,
+  selectExecutionModel,
+  determineParallelization,
+  calculateEstimatedTime,
+  calculateEstimatedCost
+}

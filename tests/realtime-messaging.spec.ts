@@ -186,7 +186,7 @@ test.describe('Real-Time Messaging', () => {
     const channelButtons = await page.locator('button:has-text("AI Video"), button:has-text("Marketing")').count()
 
     if (channelButtons > 0) {
-      await page.click('button:has-text("AI Video"), button:has-text("Marketing")').first()
+      await page.locator('button:has-text("AI Video"), button:has-text("Marketing")').first().click()
       await page.waitForTimeout(1500)
 
       // Switch back to General

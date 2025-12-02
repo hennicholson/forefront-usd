@@ -2,6 +2,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
+import { motion, AnimatePresence } from 'framer-motion'
 import { UserProfile, Experience, Education, Skill, Certification, Project, Award } from '@/types/profile'
 import { QuickFillQuestionnaire } from '@/components/profile/QuickFillQuestionnaire'
 import { LinkedInImport } from '@/components/profile/LinkedInImport'
@@ -9,6 +10,42 @@ import { ProfilePreview } from '@/components/profile/ProfilePreview'
 import { Avatar } from '@/components/common/Avatar'
 import { ImageCropper } from '@/components/profile/ImageCropper'
 import { ExpandableSection } from '@/components/profile/ExpandableSection'
+import { CheckCircle, XCircle, AlertCircle } from 'lucide-react'
+
+// Toast notification component
+interface Toast {
+  id: string
+  message: string
+  type: 'success' | 'error' | 'warning'
+}
+
+const ToastNotification = ({ toast, onRemove }: { toast: Toast; onRemove: () => void }) => {
+  useEffect(() => {
+    const timer = setTimeout(onRemove, 4000)
+    return () => clearTimeout(timer)
+  }, [onRemove])
+
+  const bgColor = toast.type === 'success' ? 'bg-green-500' : toast.type === 'error' ? 'bg-red-500' : 'bg-yellow-500'
+  const Icon = toast.type === 'success' ? CheckCircle : toast.type === 'error' ? XCircle : AlertCircle
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -20, scale: 0.95 }}
+      transition={{ type: "spring", stiffness: 400, damping: 25 }}
+      className={`${bgColor} text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-3 min-w-[280px]`}
+    >
+      <Icon size={20} />
+      <span className="text-sm font-medium" style={{ fontFamily: "'Core Sans A 65 Bold', sans-serif" }}>
+        {toast.message}
+      </span>
+      <button onClick={onRemove} className="ml-auto text-white/80 hover:text-white">
+        ×
+      </button>
+    </motion.div>
+  )
+}
 
 export default function ProfilePage() {
   const { user, isAuthenticated } = useAuth()
@@ -19,6 +56,16 @@ export default function ProfilePage() {
   const [showQuestionnaire, setShowQuestionnaire] = useState(false)
   const [showLinkedInImport, setShowLinkedInImport] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
+  const [toasts, setToasts] = useState<Toast[]>([])
+
+  const showToast = (message: string, type: Toast['type'] = 'success') => {
+    const id = crypto.randomUUID()
+    setToasts(prev => [...prev, { id, message, type }])
+  }
+
+  const removeToast = (id: string) => {
+    setToasts(prev => prev.filter(t => t.id !== id))
+  }
 
   // Active section for main tabs
   const [activeTab, setActiveTab] = useState<'basic' | 'comprehensive' | 'preview'>('basic')
@@ -139,13 +186,13 @@ export default function ProfilePage() {
         // Force re-render by updating window
         window.dispatchEvent(new Event('storage'))
 
-        alert('Profile updated successfully!')
+        showToast('profile updated successfully!')
       } else {
         throw new Error('Failed to update profile')
       }
     } catch (err) {
       console.error('Error saving profile:', err)
-      alert('Failed to save profile. Please try again.')
+      showToast('failed to save profile. please try again.', 'error')
     } finally {
       setSaving(false)
     }
@@ -165,11 +212,11 @@ export default function ProfilePage() {
         const updated = await res.json()
         setProfile(updated)
         setShowQuestionnaire(false)
-        alert('Profile updated successfully!')
+        showToast('profile updated successfully!')
       }
     } catch (err) {
       console.error('Error saving profile:', err)
-      alert('Failed to save profile. Please try again.')
+      showToast('failed to save profile. please try again.', 'error')
     }
   }
 
@@ -195,12 +242,12 @@ export default function ProfilePage() {
     if (!file) return
 
     if (!file.type.startsWith('image/')) {
-      alert('Please select an image file')
+      showToast('please select an image file', 'warning')
       return
     }
 
     if (file.size > 2 * 1024 * 1024) {
-      alert('Image size must be less than 2MB')
+      showToast('image size must be less than 2MB', 'warning')
       return
     }
 
@@ -216,7 +263,7 @@ export default function ProfilePage() {
       reader.readAsDataURL(file)
     } catch (error) {
       console.error('Error uploading image:', error)
-      alert('Failed to upload image')
+      showToast('failed to upload image', 'error')
       setUploadingImage(false)
     }
 
@@ -256,13 +303,13 @@ export default function ProfilePage() {
         // Force re-render by updating window
         window.dispatchEvent(new Event('storage'))
 
-        alert(`${cropperData.type === 'profile' ? 'Profile picture' : 'Banner'} saved successfully!`)
+        showToast(`${cropperData.type === 'profile' ? 'profile picture' : 'banner'} saved successfully!`)
       } else {
         throw new Error('Failed to save image')
       }
     } catch (err) {
       console.error('Error saving image:', err)
-      alert('Failed to save image. Please try again.')
+      showToast('failed to save image. please try again.', 'error')
     } finally {
       setSaving(false)
       setCropperData(null)
@@ -615,7 +662,7 @@ export default function ProfilePage() {
                   <div style={{
                     position: 'relative',
                     width: '100%',
-                    height: '200px',
+                    height: 'clamp(120px, 40vw, 200px)',
                     borderRadius: '12px',
                     border: '2px solid #e0e0e0',
                     overflow: 'hidden',
@@ -830,7 +877,11 @@ export default function ProfilePage() {
                 position: 'sticky',
                 top: 0,
                 background: '#fafafa',
-                zIndex: 10
+                zIndex: 10,
+                overflowX: 'auto',
+                WebkitOverflowScrolling: 'touch',
+                msOverflowStyle: 'none',
+                scrollbarWidth: 'none'
               }}>
                 <div style={{
                   display: 'inline-flex',
@@ -839,7 +890,8 @@ export default function ProfilePage() {
                   border: '2px solid #000',
                   borderRadius: '12px',
                   padding: '4px',
-                  gap: '4px'
+                  gap: '4px',
+                  minWidth: 'max-content'
                 }}>
                   {/* Animated sliding indicator */}
                   <div style={{
@@ -1020,7 +1072,7 @@ export default function ProfilePage() {
 
                   {/* Location & Phone */}
                   {profile && (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: '16px' }}>
                       <div>
                         <label style={labelStyle}>Location</label>
                         <input
@@ -1044,7 +1096,7 @@ export default function ProfilePage() {
 
                   {/* Website & Availability */}
                   {profile && (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: '16px' }}>
                       <div>
                         <label style={labelStyle}>Website</label>
                         <input
@@ -1332,7 +1384,7 @@ export default function ProfilePage() {
                       </button>
 
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))', gap: '12px' }}>
                           <input
                             type="text"
                             value={exp.company}
@@ -1355,7 +1407,7 @@ export default function ProfilePage() {
                           placeholder="Location"
                           style={inputStyle}
                         />
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))', gap: '12px' }}>
                           <input
                             type="text"
                             value={exp.startDate}
@@ -1440,7 +1492,7 @@ export default function ProfilePage() {
                           placeholder="School"
                           style={inputStyle}
                         />
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))', gap: '12px' }}>
                           <input
                             type="text"
                             value={edu.degree || ''}
@@ -1456,7 +1508,7 @@ export default function ProfilePage() {
                             style={inputStyle}
                           />
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))', gap: '12px' }}>
                           <input
                             type="text"
                             value={edu.startDate}
@@ -1600,7 +1652,7 @@ export default function ProfilePage() {
                       </button>
 
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))', gap: '12px' }}>
                           <input
                             type="text"
                             value={cert.name}
@@ -1737,7 +1789,7 @@ export default function ProfilePage() {
                       </button>
 
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))', gap: '12px' }}>
                           <input
                             type="text"
                             value={award.title}
@@ -2154,6 +2206,27 @@ export default function ProfilePage() {
           onCancel={handleCropCancel}
         />
       )}
+
+      {/* Toast Notifications */}
+      <div style={{
+        position: 'fixed',
+        top: '100px',
+        right: '24px',
+        zIndex: 9999,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '12px'
+      }}>
+        <AnimatePresence>
+          {toasts.map(toast => (
+            <ToastNotification
+              key={toast.id}
+              toast={toast}
+              onRemove={() => removeToast(toast.id)}
+            />
+          ))}
+        </AnimatePresence>
+      </div>
     </main>
   )
 }

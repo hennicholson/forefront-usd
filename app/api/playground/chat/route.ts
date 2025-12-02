@@ -32,42 +32,93 @@ export async function POST(request: NextRequest) {
           userId
         })
 
-        // Save to generation history
-        if (userId || context?.userId) {
-          try {
-            const { db } = await import('@/lib/db')
-            const { generationHistory } = await import('@/lib/db/schema')
+        // Check if it's a chained response
+        if ('isChained' in orchestratorResponse && orchestratorResponse.isChained) {
+          // Handle chained response
+          console.log(`[API] Chained response with ${orchestratorResponse.steps.length} steps`)
 
-            await db.insert(generationHistory).values({
-              userId: userId || context?.userId,
-              moduleId: context?.moduleId || null,
-              slideId: context?.slideId || null,
-              type: 'text',
-              model: model,
-              prompt: message,
-              response: orchestratorResponse.content,
-              metadata: {
-                moduleTitle: context?.moduleTitle,
-                slideTitle: context?.currentSlide?.title,
-                highlightedText: highlightedText || null,
-                intent: orchestratorResponse.intent,
-                modelUsed: orchestratorResponse.metadata.modelUsed,
-                executionTime: orchestratorResponse.metadata.executionTime,
-                fallbackUsed: orchestratorResponse.metadata.fallbackUsed,
-                citations: orchestratorResponse.metadata.citations || []
+          // Save each step to generation history
+          if (userId || context?.userId) {
+            try {
+              const { db } = await import('@/lib/db')
+              const { generationHistory } = await import('@/lib/db/schema')
+
+              for (const step of orchestratorResponse.steps) {
+                await db.insert(generationHistory).values({
+                  userId: userId || context?.userId,
+                  moduleId: context?.moduleId || null,
+                  slideId: context?.slideId || null,
+                  type: step.type,
+                  model: step.model,
+                  prompt: step.step === 1 ? message : `[Step ${step.step}] ${step.purpose}`,
+                  response: step.content,
+                  metadata: {
+                    moduleTitle: context?.moduleTitle,
+                    slideTitle: context?.currentSlide?.title,
+                    highlightedText: highlightedText || null,
+                    chainStep: step.step,
+                    chainPurpose: step.purpose,
+                    executionTime: step.executionTime,
+                    ...step.metadata
+                  }
+                })
               }
-            })
-          } catch (err) {
-            console.error('Failed to save to history:', err)
+            } catch (err) {
+              console.error('Failed to save chain to history:', err)
+            }
           }
-        }
 
-        return NextResponse.json({
-          response: orchestratorResponse.content,
-          model: model,
-          type: 'text',
-          metadata: orchestratorResponse.metadata
-        })
+          return NextResponse.json({
+            isChained: true,
+            steps: orchestratorResponse.steps,
+            totalExecutionTime: orchestratorResponse.totalExecutionTime,
+            model: model,
+            metadata: {
+              intent: orchestratorResponse.intent
+            }
+          })
+        } else {
+          // Handle single response
+          const singleResponse = orchestratorResponse as any
+
+          // Save to generation history
+          if (userId || context?.userId) {
+            try {
+              const { db } = await import('@/lib/db')
+              const { generationHistory } = await import('@/lib/db/schema')
+
+              await db.insert(generationHistory).values({
+                userId: userId || context?.userId,
+                moduleId: context?.moduleId || null,
+                slideId: context?.slideId || null,
+                type: singleResponse.metadata.type || 'text',
+                model: model,
+                prompt: message,
+                response: singleResponse.content,
+                metadata: {
+                  moduleTitle: context?.moduleTitle,
+                  slideTitle: context?.currentSlide?.title,
+                  highlightedText: highlightedText || null,
+                  intent: singleResponse.intent,
+                  modelUsed: singleResponse.metadata.modelUsed,
+                  executionTime: singleResponse.metadata.executionTime,
+                  fallbackUsed: singleResponse.metadata.fallbackUsed,
+                  aspectRatio: singleResponse.metadata.aspectRatio,
+                  citations: singleResponse.metadata.citations || []
+                }
+              })
+            } catch (err) {
+              console.error('Failed to save to history:', err)
+            }
+          }
+
+          return NextResponse.json({
+            response: singleResponse.content,
+            model: model,
+            type: singleResponse.metadata.type || 'text',
+            metadata: singleResponse.metadata
+          })
+        }
       } catch (error: any) {
         console.error('Error with Forefront Intelligence:', error)
         return NextResponse.json(
@@ -293,11 +344,17 @@ Be concise, clear, and supportive in your responses.`
           }
         ) as any
 
-        const imageUrl = output && output[0] ? output[0].url() : null
+        // Output is an array of URLs (strings)
+        const replicateUrl = output && output[0] ? String(output[0]) : null
 
-        if (!imageUrl) {
+        if (!replicateUrl) {
           throw new Error('Failed to generate image')
         }
+
+        // Download and save image to local storage
+        const { downloadAndSaveImage } = await import('@/lib/image-storage')
+        const userIdForStorage = userId || context?.userId || 'anonymous'
+        const localImageUrl = await downloadAndSaveImage(replicateUrl, userIdForStorage)
 
         // Save to generation history
         if (userId || context?.userId) {
@@ -313,7 +370,7 @@ Be concise, clear, and supportive in your responses.`
               type: 'image',
               model: 'seedream-4',
               prompt: message,
-              response: imageUrl,
+              response: localImageUrl,  // Save local path instead of Replicate URL
               metadata: { aspectRatio: '4:3' }
             })
           } catch (err) {
@@ -322,7 +379,7 @@ Be concise, clear, and supportive in your responses.`
         }
 
         return NextResponse.json({
-          response: imageUrl,
+          response: localImageUrl,  // Return local path instead of Replicate URL
           model: 'seedream-4',
           type: 'image',
           metadata: { aspectRatio: '4:3' }

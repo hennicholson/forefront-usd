@@ -1,5 +1,6 @@
 'use client'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/contexts/AuthContext'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -13,6 +14,26 @@ import { MarbleBackground } from '@/components/ui/MarbleBackground'
 import { NotificationBanner } from '@/components/notifications/NotificationBanner'
 import { useNotifications } from '@/hooks/useNotifications'
 import { useAblyChatSDK } from '@/hooks/useAblyChatSDK'
+
+// Spring animation presets matching design system
+const springTransition = { type: "spring", stiffness: 400, damping: 17 }
+const springTransitionSoft = { type: "spring", stiffness: 400, damping: 30 }
+
+// Stagger animation for lists
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.05
+    }
+  }
+}
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 10 },
+  show: { opacity: 1, y: 0, transition: springTransitionSoft }
+}
 
 interface Post {
   id: string
@@ -1332,7 +1353,7 @@ export default function NetworkPage() {
   if (!isAuthenticated) {
     return (
       <>
-        <div className="min-h-screen bg-black flex items-center justify-center px-4 relative overflow-hidden">
+        <div className="min-h-[100dvh] bg-black flex items-center justify-center px-4 relative overflow-hidden">
           {/* Background Video */}
           <video
             autoPlay
@@ -1347,25 +1368,89 @@ export default function NetworkPage() {
           {/* Overlay gradient */}
           <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-black/50 to-black/70" />
 
-          <div className="max-w-md w-full bg-zinc-900/50 backdrop-blur-xl border border-zinc-800 rounded-2xl p-8 text-center relative z-10">
-            <Users className="w-16 h-16 mx-auto mb-4 text-white opacity-50" />
-            <h1 className="text-2xl font-bold text-white mb-3">Join the Network</h1>
-            <p className="text-gray-400 mb-6">Connect with other learners and share your journey</p>
-            <div className="flex gap-3">
-              <button
+          {/* Subtle grid pattern */}
+          <div
+            className="absolute inset-0 opacity-[0.02]"
+            style={{
+              backgroundImage: 'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)',
+              backgroundSize: '50px 50px'
+            }}
+          />
+
+          <motion.div
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ ...springTransitionSoft, delay: 0.1 }}
+            className="max-w-md w-full bg-zinc-900/50 backdrop-blur-xl border border-zinc-800/50 rounded-2xl p-8 md:p-10 text-center relative z-10"
+            style={{
+              boxShadow: '0 0 60px rgba(255, 255, 255, 0.03), 0 0 1px rgba(255, 255, 255, 0.1)'
+            }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ ...springTransition, delay: 0.2 }}
+              className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center border border-zinc-700/50"
+            >
+              <Users className="w-10 h-10 text-white opacity-70" />
+            </motion.div>
+            <motion.h1
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ ...springTransitionSoft, delay: 0.3 }}
+              className="text-3xl md:text-4xl font-bold text-white mb-3"
+              style={{
+                fontFamily: "'Core Sans A 65 Bold', sans-serif",
+                letterSpacing: '-1.5px'
+              }}
+            >
+              join the network
+            </motion.h1>
+            <motion.p
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ ...springTransitionSoft, delay: 0.4 }}
+              className="text-zinc-500 mb-8 text-base"
+              style={{ letterSpacing: '0.3px' }}
+            >
+              connect with other learners and share your journey
+            </motion.p>
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ ...springTransitionSoft, delay: 0.5 }}
+              className="flex gap-3"
+            >
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                transition={springTransition}
                 onClick={() => setShowLoginModal(true)}
-                className="flex-1 px-6 py-3 bg-white text-black rounded-lg font-medium hover:bg-gray-200 transition-all"
+                className="flex-1 px-6 py-4 bg-white text-black rounded-xl font-semibold hover:bg-gray-100 transition-colors"
+                style={{
+                  fontFamily: "'Core Sans A 65 Bold', sans-serif",
+                  letterSpacing: '0.3px',
+                  minHeight: '52px'
+                }}
               >
-                Sign In
-              </button>
-              <button
+                sign in
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                transition={springTransition}
                 onClick={() => setShowOnboarding(true)}
-                className="flex-1 px-6 py-3 bg-zinc-800 text-white rounded-lg font-medium hover:bg-zinc-700 transition-all"
+                className="flex-1 px-6 py-4 bg-zinc-800 text-white rounded-xl font-semibold hover:bg-zinc-700 transition-colors border border-zinc-700/50"
+                style={{
+                  fontFamily: "'Core Sans A 65 Bold', sans-serif",
+                  letterSpacing: '0.3px',
+                  minHeight: '52px'
+                }}
               >
-                Sign Up
-              </button>
-            </div>
-          </div>
+                sign up
+              </motion.button>
+            </motion.div>
+          </motion.div>
         </div>
 
         <LoginModal
@@ -1410,107 +1495,151 @@ export default function NetworkPage() {
   }
 
   return (
-    <div className="h-screen overflow-hidden bg-black relative">
+    <div className="h-[100dvh] overflow-hidden bg-black relative">
       <MarbleBackground />
       <NotificationBanner />
+
+      {/* Subtle grid pattern */}
+      <div
+        className="absolute inset-0 opacity-[0.015] pointer-events-none z-0"
+        style={{
+          backgroundImage: 'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)',
+          backgroundSize: '50px 50px'
+        }}
+      />
+
       <div className="max-w-[1800px] mx-auto md:px-4 px-2 relative z-10 h-full md:pt-20 pt-14 pb-4 md:pb-4 flex flex-col">
         <div className="md:grid md:grid-cols-12 gap-4 flex-1 flex flex-col overflow-hidden">
 
           {/* Sidebar - Hidden on mobile unless in sidebar view */}
-          <div className={`${
-            isMobile ? (showMobileSidebar || !showMobileChat ? 'flex' : 'hidden') : 'block'
-          } md:col-span-3 bg-zinc-900/30 backdrop-blur-md border border-zinc-800/50 md:rounded-2xl rounded-xl md:p-4 p-3 flex-col overflow-hidden ${
-            isMobile ? 'h-[calc(100vh-140px)]' : ''
-          }`}>
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={springTransitionSoft}
+            className={`${
+              isMobile ? (showMobileSidebar || !showMobileChat ? 'flex' : 'hidden') : 'block'
+            } md:col-span-3 bg-zinc-900/30 backdrop-blur-md border border-zinc-800/50 md:rounded-2xl rounded-xl md:p-5 p-4 flex-col overflow-hidden ${
+              isMobile ? 'h-[calc(100dvh-140px)]' : ''
+            }`}
+            style={{
+              boxShadow: '0 0 40px rgba(255, 255, 255, 0.02)'
+            }}
+          >
             {/* Tab Switcher - Desktop Only */}
             <div className="hidden md:grid grid-cols-3 gap-2 mb-6">
-              <button
-                onClick={() => setViewMode('channels')}
-                className={`px-3 py-2.5 rounded-lg font-medium text-xs transition-all ${
-                  viewMode === 'channels'
-                    ? 'bg-white text-black'
-                    : 'bg-zinc-800/50 text-gray-400 hover:text-white hover:bg-zinc-800'
-                }`}
-                style={{ minHeight: '44px' }}
-              >
-                <Users className="inline-block w-4 h-4 mr-1" />
-                Channels
-              </button>
-              <button
-                onClick={() => setViewMode('dm')}
-                className={`px-3 py-2.5 rounded-lg font-medium text-xs transition-all ${
-                  viewMode === 'dm'
-                    ? 'bg-white text-black'
-                    : 'bg-zinc-800/50 text-gray-400 hover:text-white hover:bg-zinc-800'
-                }`}
-                style={{ minHeight: '44px' }}
-              >
-                <MessageSquare className="inline-block w-4 h-4 mr-1" />
-                Messages
-              </button>
-              <button
-                onClick={() => setViewMode('notifications')}
-                className={`relative px-3 py-2.5 rounded-lg font-medium text-xs transition-all ${
-                  viewMode === 'notifications'
-                    ? 'bg-white text-black'
-                    : 'bg-zinc-800/50 text-gray-400 hover:text-white hover:bg-zinc-800'
-                }`}
-                style={{ minHeight: '44px' }}
-              >
-                <Bell className="inline-block w-4 h-4 mr-1" />
-                Alerts
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
-              </button>
+              {[
+                { mode: 'channels' as const, icon: Users, label: 'channels' },
+                { mode: 'dm' as const, icon: MessageSquare, label: 'messages' },
+                { mode: 'notifications' as const, icon: Bell, label: 'alerts' }
+              ].map((tab) => (
+                <motion.button
+                  key={tab.mode}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  transition={springTransition}
+                  onClick={() => setViewMode(tab.mode)}
+                  className={`relative px-3 py-2.5 rounded-xl font-medium text-xs transition-colors ${
+                    viewMode === tab.mode
+                      ? 'bg-white text-black'
+                      : 'bg-zinc-800/50 text-zinc-400 hover:text-white hover:bg-zinc-800'
+                  }`}
+                  style={{
+                    minHeight: '44px',
+                    fontFamily: "'Core Sans A 65 Bold', sans-serif",
+                    letterSpacing: '0.3px'
+                  }}
+                >
+                  <tab.icon className="inline-block w-4 h-4 mr-1.5" />
+                  {tab.label}
+                  {tab.mode === 'notifications' && unreadCount > 0 && (
+                    <motion.span
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={springTransition}
+                      className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center"
+                    >
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </motion.span>
+                  )}
+                </motion.button>
+              ))}
             </div>
 
             {/* Search (DM mode only) */}
-            {viewMode === 'dm' && (
-              <div className="flex items-center gap-2 mb-4">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
-                  <Input
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search conversations..."
-                    className="pl-10 bg-zinc-800/50 border-zinc-700 text-white placeholder:text-gray-500"
-                    style={{ minHeight: '44px' }}
-                  />
-                </div>
-                <button
-                  onClick={() => {
-                    setActiveConversation(null)
-                    setInputValue('@')
-                    setShowMentionDropdown(true)
-                    if (isMobile) {
-                      setShowMobileChat(true)
-                      setShowMobileSidebar(false)
-                    }
-                    setTimeout(() => inputRef.current?.focus(), 100)
-                  }}
-                  className="shrink-0 rounded-full p-2.5 bg-white text-black hover:bg-gray-100 transition-all shadow-md"
-                  style={{ minHeight: '44px', minWidth: '44px' }}
-                  title="Start new chat"
+            <AnimatePresence>
+              {viewMode === 'dm' && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={springTransitionSoft}
+                  className="flex items-center gap-2 mb-4"
                 >
-                  <Plus className="w-5 h-5" />
-                </button>
-              </div>
-            )}
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3.5 top-1/2 transform -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                    <Input
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="search conversations..."
+                      className="pl-10 bg-zinc-800/50 border-zinc-700/50 text-white placeholder:text-zinc-500 rounded-xl focus:border-zinc-600 focus:ring-zinc-600"
+                      style={{
+                        minHeight: '48px',
+                        fontFamily: "'Core Sans A 65 Bold', sans-serif",
+                        letterSpacing: '0.3px'
+                      }}
+                    />
+                  </div>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    transition={springTransition}
+                    onClick={() => {
+                      setActiveConversation(null)
+                      setInputValue('@')
+                      setShowMentionDropdown(true)
+                      if (isMobile) {
+                        setShowMobileChat(true)
+                        setShowMobileSidebar(false)
+                      }
+                      setTimeout(() => inputRef.current?.focus(), 100)
+                    }}
+                    className="shrink-0 rounded-xl p-3 bg-white text-black hover:bg-gray-100 transition-colors"
+                    style={{ minHeight: '48px', minWidth: '48px' }}
+                    title="Start new chat"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </motion.button>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Channels List */}
             {viewMode === 'channels' && (
-              <div className="flex-1 overflow-y-auto space-y-1">
-                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">
-                  Channels
+              <motion.div
+                variants={containerVariants}
+                initial="hidden"
+                animate="show"
+                className="flex-1 overflow-y-auto space-y-1 scrollbar-hide"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              >
+                <div
+                  className="text-xs font-semibold text-zinc-500 uppercase mb-3 px-2"
+                  style={{
+                    fontFamily: "'Core Sans A 65 Bold', sans-serif",
+                    letterSpacing: '1px'
+                  }}
+                >
+                  channels
                 </div>
-                {CHANNELS.map((channel) => {
+                {CHANNELS.map((channel, index) => {
                   const IconComponent = CHANNEL_ICONS[channel.id]
                   return (
-                    <button
+                    <motion.button
                       key={channel.id}
+                      variants={itemVariants}
+                      whileHover={{ scale: 1.01, x: 2 }}
+                      whileTap={{ scale: 0.99 }}
+                      transition={springTransition}
                       onClick={() => {
                         setActiveChannel(channel.id)
                         if (isMobile) {
@@ -1518,47 +1647,89 @@ export default function NetworkPage() {
                           setShowMobileSidebar(false)
                         }
                       }}
-                      className={`group w-full text-left px-3 py-2.5 rounded-lg transition-all ${
+                      className={`group w-full text-left px-3 py-3 rounded-xl transition-colors ${
                         activeChannel === channel.id
-                          ? 'bg-zinc-800 text-white'
-                          : 'text-gray-400 hover:bg-zinc-800/50 hover:text-white'
+                          ? 'bg-zinc-800/80 text-white'
+                          : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-white'
                       }`}
-                      style={{ minHeight: '44px' }}
+                      style={{ minHeight: '52px' }}
                     >
                       <div className="flex items-center gap-3">
-                        <IconComponent className={`w-5 h-5 flex-shrink-0 transition-all ${
-                          activeChannel === channel.id ? 'text-white' : 'text-gray-500 group-hover:text-gray-300'
-                        }`} />
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
+                          activeChannel === channel.id ? 'bg-white/10' : 'bg-zinc-800/50 group-hover:bg-zinc-800'
+                        }`}>
+                          <IconComponent className={`w-4.5 h-4.5 flex-shrink-0 transition-colors ${
+                            activeChannel === channel.id ? 'text-white' : 'text-zinc-500 group-hover:text-zinc-300'
+                          }`} />
+                        </div>
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium text-sm">{channel.name}</div>
-                          <div className="text-xs text-gray-500 truncate">{channel.description}</div>
+                          <div
+                            className="font-medium text-sm"
+                            style={{
+                              fontFamily: "'Core Sans A 65 Bold', sans-serif",
+                              letterSpacing: '0.3px'
+                            }}
+                          >
+                            {channel.name}
+                          </div>
+                          <div className="text-xs text-zinc-500 truncate">{channel.description}</div>
                         </div>
                         {channelCounts[channel.id] > 0 && (
-                          <Badge variant="secondary" className="text-xs bg-zinc-700 text-white">
-                            {channelCounts[channel.id]}
-                          </Badge>
+                          <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={springTransition}
+                          >
+                            <Badge variant="secondary" className="text-xs bg-zinc-700/80 text-white rounded-lg px-2 py-0.5">
+                              {channelCounts[channel.id]}
+                            </Badge>
+                          </motion.div>
                         )}
                       </div>
-                    </button>
+                    </motion.button>
                   )
                 })}
-              </div>
+              </motion.div>
             )}
 
             {/* DM List */}
             {viewMode === 'dm' && (
-              <div className="flex-1 overflow-y-auto space-y-1">
-                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">
-                  Direct Messages
+              <motion.div
+                variants={containerVariants}
+                initial="hidden"
+                animate="show"
+                className="flex-1 overflow-y-auto space-y-1 scrollbar-hide"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              >
+                <div
+                  className="text-xs font-semibold text-zinc-500 uppercase mb-3 px-2"
+                  style={{
+                    fontFamily: "'Core Sans A 65 Bold', sans-serif",
+                    letterSpacing: '1px'
+                  }}
+                >
+                  direct messages
                 </div>
                 {filteredConversations.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500 text-sm">
-                    No conversations yet
-                  </div>
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={springTransitionSoft}
+                    className="text-center py-12 text-zinc-500 text-sm"
+                  >
+                    <MessageSquare className="w-10 h-10 mx-auto mb-3 opacity-40" />
+                    <p style={{ fontFamily: "'Core Sans A 65 Bold', sans-serif", letterSpacing: '0.3px' }}>
+                      no conversations yet
+                    </p>
+                  </motion.div>
                 ) : (
                   filteredConversations.map((conv) => (
-                    <button
+                    <motion.button
                       key={conv.userId}
+                      variants={itemVariants}
+                      whileHover={{ scale: 1.01, x: 2 }}
+                      whileTap={{ scale: 0.99 }}
+                      transition={springTransition}
                       onClick={() => {
                         setActiveConversation(conv.userId)
                         if (isMobile) {
@@ -1566,12 +1737,12 @@ export default function NetworkPage() {
                           setShowMobileSidebar(false)
                         }
                       }}
-                      className={`w-full text-left px-3 py-2.5 rounded-lg transition-all ${
+                      className={`w-full text-left px-3 py-3 rounded-xl transition-colors ${
                         activeConversation === conv.userId
-                          ? 'bg-zinc-800 text-white'
-                          : 'text-gray-400 hover:bg-zinc-800/50 hover:text-white'
+                          ? 'bg-zinc-800/80 text-white'
+                          : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-white'
                       }`}
-                      style={{ minHeight: '44px' }}
+                      style={{ minHeight: '64px' }}
                     >
                       <div className="flex items-center gap-3">
                         <div
@@ -1582,18 +1753,21 @@ export default function NetworkPage() {
                             setShowUserModal(true)
                           }}
                         >
-                          <Avatar className="w-10 h-10">
+                          <Avatar className="w-11 h-11 ring-2 ring-zinc-800">
                             <AvatarImage src={conv.userProfileImage || undefined} />
-                            <AvatarFallback>{conv.userName[0]}</AvatarFallback>
+                            <AvatarFallback className="bg-gradient-to-br from-zinc-700 to-zinc-800 text-white">
+                              {conv.userName[0]}
+                            </AvatarFallback>
                           </Avatar>
-                          <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-zinc-900 ${
-                            conv.status === 'online' ? 'bg-green-500' : conv.status === 'dnd' ? 'bg-red-500' : 'bg-gray-500'
+                          <span className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-zinc-900 ${
+                            conv.status === 'online' ? 'bg-green-500' : conv.status === 'dnd' ? 'bg-red-500' : 'bg-zinc-600'
                           }`} />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between mb-1">
                             <span
                               className="font-medium text-sm truncate cursor-pointer hover:underline"
+                              style={{ fontFamily: "'Core Sans A 65 Bold', sans-serif", letterSpacing: '0.3px' }}
                               onClick={(e) => {
                                 e.stopPropagation()
                                 setSelectedUserId(conv.userId)
@@ -1602,48 +1776,81 @@ export default function NetworkPage() {
                             >
                               {conv.userName}
                             </span>
-                            <span className="text-xs text-gray-500">{formatTimestamp(conv.lastMessageTime)}</span>
+                            <span className="text-xs text-zinc-500">{formatTimestamp(conv.lastMessageTime)}</span>
                           </div>
-                          <p className="text-xs text-gray-500 truncate">{conv.lastMessage}</p>
+                          <p className="text-xs text-zinc-500 truncate">{conv.lastMessage}</p>
                         </div>
                         {conv.unreadCount > 0 && (
-                          <Badge variant="secondary" className="text-xs">
-                            {conv.unreadCount}
-                          </Badge>
+                          <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={springTransition}
+                          >
+                            <Badge variant="secondary" className="text-xs bg-white text-black rounded-lg px-2 py-0.5 font-bold">
+                              {conv.unreadCount}
+                            </Badge>
+                          </motion.div>
                         )}
                       </div>
-                    </button>
+                    </motion.button>
                   ))
                 )}
-              </div>
+              </motion.div>
             )}
 
             {/* Notifications List */}
             {viewMode === 'notifications' && (
-              <div className="flex-1 overflow-y-auto">
-                <div className="flex items-center justify-between mb-3 px-2">
-                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Notifications
+              <motion.div
+                variants={containerVariants}
+                initial="hidden"
+                animate="show"
+                className="flex-1 overflow-y-auto scrollbar-hide"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              >
+                <div className="flex items-center justify-between mb-4 px-2">
+                  <div
+                    className="text-xs font-semibold text-zinc-500 uppercase"
+                    style={{
+                      fontFamily: "'Core Sans A 65 Bold', sans-serif",
+                      letterSpacing: '1px'
+                    }}
+                  >
+                    notifications
                   </div>
                   {unreadCount > 0 && (
-                    <button
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      transition={springTransition}
                       onClick={markAllAsRead}
-                      className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                      className="text-xs text-white bg-zinc-800 hover:bg-zinc-700 px-3 py-1.5 rounded-lg transition-colors"
+                      style={{ fontFamily: "'Core Sans A 65 Bold', sans-serif", letterSpacing: '0.3px' }}
                     >
-                      Mark all read
-                    </button>
+                      mark all read
+                    </motion.button>
                   )}
                 </div>
                 {notifications.length === 0 ? (
-                  <div className="text-center py-12 text-gray-500 text-sm">
-                    <Bell className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                    <p>No notifications yet</p>
-                  </div>
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={springTransitionSoft}
+                    className="text-center py-12 text-zinc-500 text-sm"
+                  >
+                    <Bell className="w-10 h-10 mx-auto mb-3 opacity-40" />
+                    <p style={{ fontFamily: "'Core Sans A 65 Bold', sans-serif", letterSpacing: '0.3px' }}>
+                      no notifications yet
+                    </p>
+                  </motion.div>
                 ) : (
                   <div className="space-y-1">
                     {notifications.map((notification) => (
-                      <div
+                      <motion.div
                         key={notification.id}
+                        variants={itemVariants}
+                        whileHover={{ scale: 1.01, x: 2 }}
+                        whileTap={{ scale: 0.99 }}
+                        transition={springTransition}
                         onClick={async () => {
                           await markAsRead(notification.id)
 
@@ -1703,103 +1910,159 @@ export default function NetworkPage() {
                             }
                           }
                         }}
-                        className={`px-3 py-3 rounded-lg cursor-pointer transition-all ${
+                        className={`px-3 py-3.5 rounded-xl cursor-pointer transition-colors ${
                           notification.read
                             ? 'bg-transparent hover:bg-zinc-800/50'
-                            : 'bg-blue-500/10 hover:bg-blue-500/20'
+                            : 'bg-white/5 hover:bg-white/10'
                         }`}
                       >
-                        <div className="flex items-start gap-2">
+                        <div className="flex items-start gap-3">
                           {!notification.read && (
-                            <div className="w-2 h-2 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
+                            <motion.div
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              transition={springTransition}
+                              className="w-2.5 h-2.5 rounded-full bg-white mt-1.5 flex-shrink-0"
+                            />
                           )}
                           <div className="flex-1 min-w-0">
-                            <p className={`text-sm leading-relaxed ${
-                              notification.read ? 'text-gray-400' : 'text-white'
-                            }`}>
+                            <p
+                              className={`text-sm leading-relaxed ${
+                                notification.read ? 'text-zinc-400' : 'text-white'
+                              }`}
+                              style={{ fontFamily: "'Core Sans A 65 Bold', sans-serif", letterSpacing: '0.2px' }}
+                            >
                               {notification.content}
                             </p>
-                            <span className="text-xs text-gray-500 mt-1 block">
+                            <span className="text-xs text-zinc-500 mt-1.5 block">
                               {formatTimestamp(notification.createdAt)}
                             </span>
                           </div>
                         </div>
-                      </div>
+                      </motion.div>
                     ))}
                   </div>
                 )}
-              </div>
+              </motion.div>
             )}
-          </div>
+          </motion.div>
 
           {/* Main Chat Area */}
-          <div className={`${
-            isMobile ? (showMobileChat ? 'flex' : 'hidden') : 'flex'
-          } md:col-span-9 bg-zinc-900/30 backdrop-blur-md border border-zinc-800/50 md:rounded-2xl rounded-xl flex-col overflow-hidden ${
-            isMobile ? 'h-[calc(100vh-96px)] mt-0' : ''
-          }`}>
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ ...springTransitionSoft, delay: 0.1 }}
+            className={`${
+              isMobile ? (showMobileChat ? 'flex' : 'hidden') : 'flex'
+            } md:col-span-9 bg-zinc-900/30 backdrop-blur-md border border-zinc-800/50 md:rounded-2xl rounded-xl flex-col overflow-hidden ${
+              isMobile ? 'h-[calc(100dvh-96px)] mt-0 pb-20' : ''
+            }`}
+            style={{
+              boxShadow: '0 0 40px rgba(255, 255, 255, 0.02)'
+            }}
+          >
             {/* Chat Header */}
-            <div className="border-b border-zinc-800 md:px-6 px-4 md:py-4 py-3 flex items-center gap-3">
+            <div className="border-b border-zinc-800/50 md:px-6 px-4 md:py-5 py-4 flex items-center gap-3">
               {/* Mobile back button */}
               {isMobile && (viewMode === 'channels' || activeConversation) && (
-                <button
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  transition={springTransition}
                   onClick={() => {
                     setShowMobileChat(false)
                     setShowMobileSidebar(true)
                   }}
-                  className="md:hidden p-2 -ml-2 hover:bg-zinc-800 rounded-lg transition-colors"
+                  className="md:hidden p-2.5 -ml-2 hover:bg-zinc-800 rounded-xl transition-colors"
                 >
-                  <ArrowLeft className="w-5 h-5 text-gray-400" />
-                </button>
+                  <ArrowLeft className="w-5 h-5 text-zinc-400" />
+                </motion.button>
               )}
               <div className="flex-1">
-              {/* Ably Connection Status Indicator (for debugging) */}
+              {/* Ably Connection Status Indicator */}
               {viewMode === 'channels' && (
-                <div className="flex items-center gap-2 mb-1">
-                  <div className={`w-2 h-2 rounded-full ${channelReady ? 'bg-green-500' : ablyConnected ? 'bg-yellow-500' : 'bg-red-500'}`} />
-                  <span className="text-xs text-gray-500">
-                    {channelReady ? 'Real-time active' : ablyConnected ? 'Connecting...' : 'Offline'}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="flex items-center gap-2 mb-1.5"
+                >
+                  <motion.div
+                    animate={{
+                      scale: channelReady ? [1, 1.2, 1] : 1,
+                      opacity: channelReady ? 1 : 0.6
+                    }}
+                    transition={{ duration: 2, repeat: channelReady ? Infinity : 0 }}
+                    className={`w-2 h-2 rounded-full ${channelReady ? 'bg-green-500' : ablyConnected ? 'bg-yellow-500' : 'bg-red-500'}`}
+                  />
+                  <span className="text-xs text-zinc-500" style={{ letterSpacing: '0.3px' }}>
+                    {channelReady ? 'real-time active' : ablyConnected ? 'connecting...' : 'offline'}
                   </span>
-                </div>
+                </motion.div>
               )}
               {viewMode === 'channels' ? (
                 <div className="flex items-center gap-3">
                   {(() => {
                     const channel = CHANNELS.find(c => c.id === activeChannel)
                     const IconComponent = channel ? CHANNEL_ICONS[channel.id] : Hash
-                    return <IconComponent className="w-6 h-6 text-gray-400" />
+                    return (
+                      <div className="w-10 h-10 rounded-xl bg-zinc-800/50 flex items-center justify-center">
+                        <IconComponent className="w-5 h-5 text-zinc-400" />
+                      </div>
+                    )
                   })()}
                   <div>
-                    <h2 className="text-lg font-semibold text-white">
+                    <h2
+                      className="text-lg font-semibold text-white"
+                      style={{
+                        fontFamily: "'Core Sans A 65 Bold', sans-serif",
+                        letterSpacing: '-0.5px'
+                      }}
+                    >
                       {CHANNELS.find(c => c.id === activeChannel)?.name}
                     </h2>
-                    <p className="text-sm text-gray-400">
+                    <p className="text-sm text-zinc-500">
                       {CHANNELS.find(c => c.id === activeChannel)?.description}
                     </p>
                   </div>
                 </div>
               ) : activeConversation ? (
-                <div className="flex items-center gap-3 cursor-pointer" onClick={() => {
-                  setSelectedUserId(activeConversation)
-                  setShowUserModal(true)
-                }}>
-                  <Avatar className="w-10 h-10">
+                <motion.div
+                  whileHover={{ x: 2 }}
+                  transition={springTransition}
+                  className="flex items-center gap-3 cursor-pointer"
+                  onClick={() => {
+                    setSelectedUserId(activeConversation)
+                    setShowUserModal(true)
+                  }}
+                >
+                  <Avatar className="w-11 h-11 ring-2 ring-zinc-800">
                     <AvatarImage src={conversations.find(c => c.userId === activeConversation)?.userProfileImage || undefined} />
-                    <AvatarFallback>
+                    <AvatarFallback className="bg-gradient-to-br from-zinc-700 to-zinc-800 text-white">
                       {conversations.find(c => c.userId === activeConversation)?.userName[0]}
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <h2 className="text-lg font-semibold text-white hover:underline">
+                    <h2
+                      className="text-lg font-semibold text-white hover:underline"
+                      style={{
+                        fontFamily: "'Core Sans A 65 Bold', sans-serif",
+                        letterSpacing: '-0.5px'
+                      }}
+                    >
                       {conversations.find(c => c.userId === activeConversation)?.userName}
                     </h2>
-                    <p className="text-sm text-gray-400">
-                      {conversations.find(c => c.userId === activeConversation)?.userHeadline || 'Online'}
+                    <p className="text-sm text-zinc-500">
+                      {conversations.find(c => c.userId === activeConversation)?.userHeadline || 'online'}
                     </p>
                   </div>
-                </div>
+                </motion.div>
               ) : (
-                <div className="text-gray-400">Select a conversation</div>
+                <div
+                  className="text-zinc-500"
+                  style={{ fontFamily: "'Core Sans A 65 Bold', sans-serif", letterSpacing: '0.3px' }}
+                >
+                  select a conversation
+                </div>
               )}
               </div>
             </div>
@@ -1807,46 +2070,64 @@ export default function NetworkPage() {
             {/* Messages Area */}
             <div
               ref={messagesContainerRef}
-              className="flex-1 overflow-y-auto md:px-6 px-4 md:py-6 py-4 space-y-4"
+              className="flex-1 overflow-y-auto md:px-6 px-4 md:py-6 py-4 space-y-3"
               style={{
                 scrollbarWidth: 'none',
                 msOverflowStyle: 'none',
-                minHeight: 0 // Critical for flex child scrolling
+                minHeight: 0
               }}
             >
                 {loading ? (
-                  <div className="space-y-4">
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="space-y-4"
+                  >
                     {/* Friendly startup message */}
-                    <div className="text-center py-2 px-4">
-                      <p className="text-[10px] text-gray-500 leading-tight">
-                        Thank you for your patience. We're a startup working hard to provide a free platform for everyone.
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.2 }}
+                      className="text-center py-3 px-4"
+                    >
+                      <p
+                        className="text-[11px] text-zinc-600 leading-relaxed"
+                        style={{ fontFamily: "'Core Sans A 65 Bold', sans-serif", letterSpacing: '0.3px' }}
+                      >
+                        thank you for your patience. we're building something special.
                       </p>
-                    </div>
+                    </motion.div>
 
                     {viewMode === 'channels' ? (
-                      // Channel skeleton loaders
+                      // Channel skeleton loaders with stagger animation
                       [1, 2, 3, 4, 5].map((i) => (
-                        <div key={i} className="flex gap-3 items-start md:p-4 p-3 animate-pulse">
+                        <motion.div
+                          key={i}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.05 }}
+                          className="flex gap-3 items-start md:p-4 p-3"
+                        >
                           {/* Avatar skeleton */}
-                          <div className="w-10 h-10 rounded-full bg-zinc-800/50 flex-shrink-0" />
-                          <div className="flex-1 space-y-2">
+                          <div className="w-11 h-11 rounded-xl bg-zinc-800/30 flex-shrink-0 animate-pulse" />
+                          <div className="flex-1 space-y-2.5">
                             {/* Name and timestamp skeleton */}
                             <div className="flex items-center gap-2">
-                              <div className="h-4 bg-zinc-800/50 rounded w-24" />
-                              <div className="h-3 bg-zinc-800/50 rounded w-16" />
+                              <div className="h-4 bg-zinc-800/30 rounded-lg w-24 animate-pulse" />
+                              <div className="h-3 bg-zinc-800/20 rounded-lg w-16 animate-pulse" />
                             </div>
                             {/* Message content skeleton */}
-                            <div className="space-y-1.5">
-                              <div className="h-3 bg-zinc-800/50 rounded w-full" />
-                              <div className="h-3 bg-zinc-800/50 rounded w-5/6" />
+                            <div className="space-y-2">
+                              <div className="h-3 bg-zinc-800/30 rounded-lg w-full animate-pulse" />
+                              <div className="h-3 bg-zinc-800/20 rounded-lg w-4/5 animate-pulse" />
                             </div>
                             {/* Action buttons skeleton */}
                             <div className="flex gap-2 mt-3">
-                              <div className="h-8 bg-zinc-800/50 rounded-lg w-16" />
-                              <div className="h-8 bg-zinc-800/50 rounded-lg w-16" />
+                              <div className="h-8 bg-zinc-800/20 rounded-xl w-16 animate-pulse" />
+                              <div className="h-8 bg-zinc-800/20 rounded-xl w-16 animate-pulse" />
                             </div>
                           </div>
-                        </div>
+                        </motion.div>
                       ))
                     ) : (
                       // DM skeleton loaders
@@ -1876,7 +2157,7 @@ export default function NetworkPage() {
                         )
                       })
                     )}
-                  </div>
+                  </motion.div>
                 ) : (
                   <>
                 {viewMode === 'channels' && posts.length === 0 ? (
@@ -2093,68 +2374,119 @@ export default function NetworkPage() {
             </div>
 
             {/* Scroll to Bottom Button */}
-            {showScrollButton && (
-              <button
-                onClick={() => scrollToBottom('smooth')}
-                className="absolute bottom-24 right-6 z-20 bg-white text-black rounded-full p-3 shadow-2xl hover:bg-gray-100 transition-all hover:scale-110 active:scale-95"
-                aria-label="Scroll to bottom"
-              >
-                <ChevronDown className="w-5 h-5" />
-              </button>
-            )}
+            <AnimatePresence>
+              {showScrollButton && (
+                <motion.button
+                  initial={{ opacity: 0, y: 20, scale: 0.8 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 20, scale: 0.8 }}
+                  transition={springTransition}
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => scrollToBottom('smooth')}
+                  className="absolute bottom-28 right-6 z-20 bg-white text-black rounded-xl p-3.5 shadow-2xl hover:bg-gray-100 transition-colors"
+                  style={{ minHeight: '48px', minWidth: '48px' }}
+                  aria-label="Scroll to bottom"
+                >
+                  <ChevronDown className="w-5 h-5" />
+                </motion.button>
+              )}
+            </AnimatePresence>
 
             {/* Input Area */}
-            <div className="md:px-6 px-4 md:py-6 py-4 md:pb-6 pb-4">
+            <div className="md:px-6 px-4 md:py-5 py-4 md:pb-6 pb-4">
               <div className="max-w-4xl mx-auto relative">
                 {/* Mention Autocomplete Dropdown */}
-                {showMentionDropdown && filteredMentionUsers.length > 0 && (
-                  <div className="absolute bottom-full left-0 mb-2 w-full max-w-xs bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl overflow-hidden z-50">
-                    {filteredMentionUsers.map((mentionUser) => (
-                      <button
-                        key={mentionUser.id}
-                        onClick={() => insertMention(mentionUser.name, mentionUser.id)}
-                        className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-zinc-700 transition-all text-left"
-                        style={{ minHeight: '44px' }}
-                      >
-                        <Avatar className="w-8 h-8">
-                          <AvatarImage src={mentionUser.profileImage || undefined} />
-                          <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-500 text-white text-xs">
-                            {mentionUser.name[0]}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-white text-sm">{mentionUser.name}</div>
-                          {mentionUser.headline && (
-                            <div className="text-xs text-gray-400 truncate">{mentionUser.headline}</div>
-                          )}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
+                <AnimatePresence>
+                  {showMentionDropdown && filteredMentionUsers.length > 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      transition={springTransition}
+                      className="absolute bottom-full left-0 mb-2 w-full max-w-xs bg-zinc-900/95 backdrop-blur-xl border border-zinc-700/50 rounded-xl shadow-2xl overflow-hidden z-50"
+                    >
+                      {filteredMentionUsers.map((mentionUser, index) => (
+                        <motion.button
+                          key={mentionUser.id}
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: index * 0.03 }}
+                          onClick={() => insertMention(mentionUser.name, mentionUser.id)}
+                          className="w-full px-4 py-3 flex items-center gap-3 hover:bg-zinc-800/50 transition-colors text-left"
+                          style={{ minHeight: '52px' }}
+                        >
+                          <Avatar className="w-9 h-9 ring-2 ring-zinc-800">
+                            <AvatarImage src={mentionUser.profileImage || undefined} />
+                            <AvatarFallback className="bg-gradient-to-br from-zinc-700 to-zinc-800 text-white text-xs">
+                              {mentionUser.name[0]}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <div
+                              className="font-medium text-white text-sm"
+                              style={{ fontFamily: "'Core Sans A 65 Bold', sans-serif", letterSpacing: '0.3px' }}
+                            >
+                              {mentionUser.name}
+                            </div>
+                            {mentionUser.headline && (
+                              <div className="text-xs text-zinc-500 truncate">{mentionUser.headline}</div>
+                            )}
+                          </div>
+                        </motion.button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 {/* Typing indicator */}
-                {typing && typing.length > 0 && viewMode === 'channels' && (() => {
-                  // Map user IDs to user names from allUsers array
-                  const typingUserNames = typing
-                    .map(userId => {
-                      const user = allUsers.find(u => u.id === userId)
-                      return user?.name || userId
-                    })
-                    .filter(name => name !== user?.id) // Don't show current user typing to themselves
+                <AnimatePresence>
+                  {typing && typing.length > 0 && viewMode === 'channels' && (() => {
+                    const typingUserNames = typing
+                      .map(userId => {
+                        const user = allUsers.find(u => u.id === userId)
+                        return user?.name || userId
+                      })
+                      .filter(name => name !== user?.id)
 
-                  if (typingUserNames.length === 0) return null
+                    if (typingUserNames.length === 0) return null
 
-                  return (
-                    <div className="px-4 py-2 text-sm text-gray-400">
-                      {typingUserNames.length === 1 && `${typingUserNames[0]} is typing...`}
-                      {typingUserNames.length === 2 && `${typingUserNames[0]} and ${typingUserNames[1]} are typing...`}
-                      {typingUserNames.length > 2 && `${typingUserNames.length} people are typing...`}
-                    </div>
-                  )
-                })()}
+                    return (
+                      <motion.div
+                        initial={{ opacity: 0, y: 5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 5 }}
+                        transition={springTransitionSoft}
+                        className="px-4 py-2 text-sm text-zinc-500 flex items-center gap-2"
+                      >
+                        <motion.div
+                          animate={{ scale: [1, 1.2, 1] }}
+                          transition={{ duration: 1, repeat: Infinity }}
+                          className="flex gap-1"
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" style={{ animationDelay: '0.2s' }} />
+                          <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" style={{ animationDelay: '0.4s' }} />
+                        </motion.div>
+                        <span style={{ fontFamily: "'Core Sans A 65 Bold', sans-serif", letterSpacing: '0.3px' }}>
+                          {typingUserNames.length === 1 && `${typingUserNames[0]} is typing...`}
+                          {typingUserNames.length === 2 && `${typingUserNames[0]} and ${typingUserNames[1]} are typing...`}
+                          {typingUserNames.length > 2 && `${typingUserNames.length} people are typing...`}
+                        </span>
+                      </motion.div>
+                    )
+                  })()}
+                </AnimatePresence>
 
-                <div className="flex items-end gap-3 p-4 rounded-2xl bg-zinc-900/50 backdrop-blur-md border border-zinc-700/50 focus-within:border-zinc-600 focus-within:bg-zinc-900/70 transition-all shadow-lg">
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={springTransitionSoft}
+                  className="flex items-end gap-3 p-4 rounded-2xl bg-zinc-900/60 backdrop-blur-xl border border-zinc-700/30 focus-within:border-zinc-600/50 focus-within:bg-zinc-900/80 transition-all"
+                  style={{
+                    boxShadow: '0 0 40px rgba(0, 0, 0, 0.3), 0 0 1px rgba(255, 255, 255, 0.1)'
+                  }}
+                >
                   <textarea
                     ref={inputRef as any}
                     value={inputValue}
@@ -2167,92 +2499,118 @@ export default function NetworkPage() {
                     }}
                     placeholder={
                       viewMode === 'dm' && activeConversation
-                        ? `Message ${conversations.find(c => c.userId === activeConversation)?.userName}...`
+                        ? `message ${conversations.find(c => c.userId === activeConversation)?.userName}...`
                         : viewMode === 'dm'
                         ? '@mention someone to start...'
-                        : `Message #${activeChannel}...`
+                        : `message #${activeChannel}...`
                     }
-                    className="flex-1 bg-transparent border-none text-white placeholder:text-gray-500 focus:outline-none focus:ring-0 resize-none text-base leading-6 py-1 px-1 max-h-40 scrollbar-hide"
+                    className="flex-1 bg-transparent border-none text-white placeholder:text-zinc-500 focus:outline-none focus:ring-0 resize-none text-base leading-6 py-2 px-1 max-h-40 scrollbar-hide"
                     style={{
-                      minHeight: '40px',
+                      minHeight: '44px',
                       scrollbarWidth: 'none',
-                      msOverflowStyle: 'none'
+                      msOverflowStyle: 'none',
+                      fontFamily: "'Core Sans A 65 Bold', sans-serif",
+                      letterSpacing: '0.3px'
                     }}
                     rows={1}
                     disabled={sending}
                   />
-                  <button
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    transition={springTransition}
                     onClick={handleSendMessage}
                     disabled={!inputValue.trim() || sending}
-                    className="shrink-0 rounded-full p-3 bg-white text-black hover:bg-gray-100 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-gray-500 transition-all duration-200 shadow-md"
-                    style={{ minHeight: '44px', minWidth: '44px' }}
+                    className="shrink-0 rounded-xl p-3.5 bg-white text-black hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-500 transition-colors"
+                    style={{ minHeight: '48px', minWidth: '48px' }}
                   >
                     {sending ? (
-                      <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                        className="w-5 h-5 border-2 border-black border-t-transparent rounded-full"
+                      />
                     ) : (
                       <ArrowUp className="w-5 h-5" />
                     )}
-                  </button>
-                </div>
+                  </motion.button>
+                </motion.div>
               </div>
             </div>
-          </div>
+          </motion.div>
         </div>
       </div>
 
       {/* Mobile Bottom Tab Bar */}
       {isMobile && (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur-xl border-t border-zinc-800 z-30">
+        <motion.div
+          initial={{ y: 100 }}
+          animate={{ y: 0 }}
+          transition={springTransitionSoft}
+          className="md:hidden fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur-xl border-t border-zinc-800/50 z-30 safe-area-pb"
+          style={{
+            paddingBottom: 'env(safe-area-inset-bottom, 0px)'
+          }}
+        >
           <div className="grid grid-cols-3 h-20">
-            <button
-              onClick={() => {
-                setViewMode('channels')
-                setShowMobileSidebar(true)
-                setShowMobileChat(false)
-              }}
-              className={`flex flex-col items-center justify-center gap-1 transition-all ${
-                viewMode === 'channels' ? 'text-white' : 'text-gray-400'
-              }`}
-              style={{ minHeight: '44px', minWidth: '44px' }}
-            >
-              <Users className="w-6 h-6" />
-              <span className="text-xs font-medium">Channels</span>
-            </button>
-            <button
-              onClick={() => {
-                setViewMode('dm')
-                setShowMobileSidebar(true)
-                setShowMobileChat(false)
-              }}
-              className={`flex flex-col items-center justify-center gap-1 transition-all ${
-                viewMode === 'dm' ? 'text-white' : 'text-gray-400'
-              }`}
-              style={{ minHeight: '44px', minWidth: '44px' }}
-            >
-              <MessageSquare className="w-6 h-6" />
-              <span className="text-xs font-medium">Messages</span>
-            </button>
-            <button
-              onClick={() => {
-                setViewMode('notifications')
-                setShowMobileSidebar(true)
-                setShowMobileChat(false)
-              }}
-              className={`relative flex flex-col items-center justify-center gap-1 transition-all ${
-                viewMode === 'notifications' ? 'text-white' : 'text-gray-400'
-              }`}
-              style={{ minHeight: '44px', minWidth: '44px' }}
-            >
-              <Bell className="w-6 h-6" />
-              <span className="text-xs font-medium">Alerts</span>
-              {unreadCount > 0 && (
-                <span className="absolute top-2 right-1/4 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                  {unreadCount > 9 ? '9+' : unreadCount}
+            {[
+              { mode: 'channels' as const, icon: Users, label: 'channels' },
+              { mode: 'dm' as const, icon: MessageSquare, label: 'messages' },
+              { mode: 'notifications' as const, icon: Bell, label: 'alerts' }
+            ].map((tab) => (
+              <motion.button
+                key={tab.mode}
+                whileTap={{ scale: 0.95 }}
+                transition={springTransition}
+                onClick={() => {
+                  setViewMode(tab.mode)
+                  setShowMobileSidebar(true)
+                  setShowMobileChat(false)
+                }}
+                className={`relative flex flex-col items-center justify-center gap-1.5 transition-colors ${
+                  viewMode === tab.mode ? 'text-white' : 'text-zinc-500'
+                }`}
+                style={{ minHeight: '60px', minWidth: '60px' }}
+              >
+                <motion.div
+                  animate={{
+                    scale: viewMode === tab.mode ? 1 : 0.9,
+                    opacity: viewMode === tab.mode ? 1 : 0.7
+                  }}
+                  transition={springTransition}
+                >
+                  <tab.icon className="w-6 h-6" />
+                </motion.div>
+                <span
+                  className="text-[11px] font-medium"
+                  style={{
+                    fontFamily: "'Core Sans A 65 Bold', sans-serif",
+                    letterSpacing: '0.3px'
+                  }}
+                >
+                  {tab.label}
                 </span>
-              )}
-            </button>
+                {tab.mode === 'notifications' && unreadCount > 0 && (
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={springTransition}
+                    className="absolute top-2 right-1/4 bg-white text-black text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center"
+                  >
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </motion.span>
+                )}
+                {viewMode === tab.mode && (
+                  <motion.div
+                    layoutId="activeTab"
+                    className="absolute bottom-1 w-1 h-1 rounded-full bg-white"
+                    transition={springTransition}
+                  />
+                )}
+              </motion.button>
+            ))}
           </div>
-        </div>
+        </motion.div>
       )}
 
       {selectedUserId && (
@@ -2267,44 +2625,58 @@ export default function NetworkPage() {
       )}
 
       {/* Reaction Picker Popup */}
-      {showReactionPicker && (
-        <>
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 z-40"
-            onClick={() => setShowReactionPicker(null)}
-          />
-          {/* Picker */}
-          <div
-            className="fixed z-50 bg-zinc-900 border border-zinc-700 rounded-lg shadow-2xl p-2 flex gap-1"
-            style={{
-              left: `${reactionPickerPosition.x}px`,
-              top: `${reactionPickerPosition.y}px`,
-              transform: 'translate(-50%, -100%) translateY(-8px)'
-            }}
-          >
-            {['👍', '❤️', '😂', '🎉', '🔥', '😍', '🤔', '👏', '🙌', '🚀'].map((emoji) => {
-              const post = posts.find(p => p.id === showReactionPicker)
-              if (!post?.ablySerial) return null
+      <AnimatePresence>
+        {showReactionPicker && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-40"
+              onClick={() => setShowReactionPicker(null)}
+            />
+            {/* Picker */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.8, y: 10 }}
+              transition={springTransition}
+              className="fixed z-50 bg-zinc-900/95 backdrop-blur-xl border border-zinc-700/50 rounded-2xl shadow-2xl p-2 flex gap-1"
+              style={{
+                left: `${reactionPickerPosition.x}px`,
+                top: `${reactionPickerPosition.y}px`,
+                transform: 'translate(-50%, -100%) translateY(-8px)'
+              }}
+            >
+              {['👍', '❤️', '😂', '🎉', '🔥', '😍', '🤔', '👏', '🙌', '🚀'].map((emoji, index) => {
+                const post = posts.find(p => p.id === showReactionPicker)
+                if (!post?.ablySerial) return null
 
-              return (
-                <button
-                  key={emoji}
-                  onClick={async () => {
-                    if (sendMessageReaction && post.ablySerial) {
-                      await sendMessageReaction(post.ablySerial, emoji)
-                      setShowReactionPicker(null)
-                    }
-                  }}
-                  className="text-2xl hover:scale-125 transition-transform p-2 rounded hover:bg-zinc-800"
-                >
-                  {emoji}
-                </button>
-              )
-            })}
-          </div>
-        </>
-      )}
+                return (
+                  <motion.button
+                    key={emoji}
+                    initial={{ opacity: 0, scale: 0.5 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: index * 0.02, ...springTransition }}
+                    whileHover={{ scale: 1.3 }}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={async () => {
+                      if (sendMessageReaction && post.ablySerial) {
+                        await sendMessageReaction(post.ablySerial, emoji)
+                        setShowReactionPicker(null)
+                      }
+                    }}
+                    className="text-2xl p-2 rounded-xl hover:bg-zinc-800/50 transition-colors"
+                  >
+                    {emoji}
+                  </motion.button>
+                )
+              })}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

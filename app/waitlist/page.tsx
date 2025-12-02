@@ -35,6 +35,7 @@ export default function WaitlistPage() {
   const [universityMatches, setUniversityMatches] = useState<string[]>([])
   const [showUniversityDropdown, setShowUniversityDropdown] = useState(false)
   const [networkRadius, setNetworkRadius] = useState(180)
+  const [uniqueUniversities, setUniqueUniversities] = useState<string[]>([])
 
   // Comprehensive university database
   const universities = [
@@ -214,6 +215,15 @@ export default function WaitlistPage() {
       .then(data => {
         setWaitlistCount(data.entries?.length || 0)
         setAllMembers(data.entries || [])
+
+        // Extract unique universities from waitlist members
+        const universities = data.entries
+          ?.map((member: any) => member.university)
+          .filter((uni: string | null) => uni && uni.trim() !== '')
+
+        // Get unique universities
+        const unique = [...new Set(universities)] as string[]
+        setUniqueUniversities(unique)
       })
       .catch(() => {})
   }, [currentStep])
@@ -403,24 +413,44 @@ export default function WaitlistPage() {
   const stepConfig = getStepConfig()
 
   return (
-    <main className="relative min-h-screen bg-white">
+    <motion.main
+      className="relative min-h-screen bg-white"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.6 }}
+    >
       <GridBackground />
 
-      <div className="relative z-10 flex items-center justify-center min-h-screen px-4 py-12">
+      <motion.div
+        className="relative z-10 flex items-center justify-center min-h-screen px-4 py-12"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+      >
         <div className="w-full max-w-2xl mx-auto">
           {/* Progress Bar */}
-          <div className="mb-12">
+          <motion.div
+            className="mb-12"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.6 }}
+          >
             <div className="flex justify-between items-center mb-2">
               <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
                 Step {currentStep === 'name' ? 1 : currentStep === 'email' ? 2 : currentStep === 'phone' ? 3 : currentStep === 'school' ? 4 : currentStep === 'proficiency' ? 5 : currentStep === 'upload' ? 6 : currentStep === 'generating' ? 6 : 7} of 7
               </span>
-              <span className="text-xs font-medium text-gray-500">
+              <motion.span
+                className="text-xs font-medium text-gray-500"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.4, duration: 0.4 }}
+              >
                 {waitlistCount > 0 && `${waitlistCount}+ joined`}
-              </span>
+              </motion.span>
             </div>
             <div className="h-1 bg-gray-200 rounded-full overflow-hidden">
               <motion.div
-                className="h-full bg-black"
+                className="h-full bg-gradient-to-r from-black via-gray-800 to-black"
                 initial={{ width: 0 }}
                 animate={{
                   width: currentStep === 'name' ? '14.3%' :
@@ -431,52 +461,76 @@ export default function WaitlistPage() {
                          currentStep === 'upload' ? '85.7%' :
                          '100%'
                 }}
-                transition={{ duration: 0.3 }}
+                transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
               />
             </div>
-          </div>
+          </motion.div>
 
-          {/* Logo with Slam Animation */}
+          {/* Logo - Smooth Fade In */}
           <motion.div
-            className="text-center mb-12"
-            initial={showSlamAnimation ? { scale: 10, opacity: 0 } : { scale: 1, opacity: 1 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{
-              duration: 0.8,
-              ease: [0.34, 1.56, 0.64, 1],
-            }}
-            onAnimationComplete={() => {
-              if (showSlamAnimation) {
-                setShowRattle(true)
-                setTimeout(() => {
-                  setShowSlamAnimation(false)
-                  setShowRattle(false)
-                }, 200)
-              }
-            }}
+            className="text-center mb-12 relative"
+            initial={{ opacity: 0, y: -30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3, duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
           >
-            <motion.h1
-              className="text-4xl sm:text-5xl font-black text-black mb-2"
-              style={{ letterSpacing: '-2px' }}
-              animate={showRattle ? {
-                x: [0, -5, 5, -3, 3, -1, 1, 0],
-                y: [0, -5, 5, -3, 3, -1, 1, 0],
-              } : {}}
+            {/* Ambient glow behind logo */}
+            <motion.div
+              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-pink-500/10 rounded-full blur-3xl"
+              animate={{
+                scale: [1, 1.2, 1],
+                opacity: [0.3, 0.5, 0.3]
+              }}
               transition={{
-                duration: 0.2,
+                duration: 4,
+                repeat: Infinity,
                 ease: "easeInOut"
               }}
+            />
+
+            <motion.h1
+              className="relative text-4xl sm:text-5xl font-black text-black mb-2"
+              style={{ letterSpacing: '-2px' }}
+              initial={{ opacity: 0, letterSpacing: '10px' }}
+              animate={{ opacity: 1, letterSpacing: '-2px' }}
+              transition={{ delay: 0.5, duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
             >
               [forefront]
             </motion.h1>
             <motion.p
               className="text-sm text-gray-500"
-              initial={showSlamAnimation ? { opacity: 0 } : { opacity: 1 }}
+              initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: 0.8, duration: 0.3 }}
+              transition={{ delay: 0.7, duration: 0.6 }}
             >
               Join the future of AI learning
             </motion.p>
+
+            {/* Conversion-focused stats */}
+            <motion.div
+              className="mt-6 flex items-center justify-center gap-6 text-xs"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.9, duration: 0.6 }}
+            >
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                <span className="text-gray-600 font-medium">{waitlistCount > 0 ? `${waitlistCount}` : '0'} students</span>
+              </div>
+              <div className="w-px h-4 bg-gray-300" />
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-gray-600 font-medium">2 min signup</span>
+              </div>
+              <div className="w-px h-4 bg-gray-300" />
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-gray-600 font-medium">100% free</span>
+              </div>
+            </motion.div>
           </motion.div>
 
           <AnimatePresence mode="wait">
@@ -502,8 +556,8 @@ export default function WaitlistPage() {
                         <p className="text-gray-600">{stepConfig.name.subtitle}</p>
                       </div>
 
-                      <div className="space-y-4">
-                        <input
+                      <div className="space-y-4 mb-8">
+                        <motion.input
                           type="text"
                           name="firstName"
                           value={formData.firstName}
@@ -512,8 +566,10 @@ export default function WaitlistPage() {
                           className="w-full px-6 py-4 text-lg bg-white border-2 border-gray-300 rounded-xl focus:outline-none focus:border-black transition-all text-black placeholder-gray-400"
                           placeholder="First name"
                           autoFocus
+                          whileFocus={{ scale: 1.01, borderColor: "#000" }}
+                          transition={{ type: "spring", stiffness: 300 }}
                         />
-                        <input
+                        <motion.input
                           type="text"
                           name="lastName"
                           value={formData.lastName}
@@ -525,16 +581,74 @@ export default function WaitlistPage() {
                           }}
                           className="w-full px-6 py-4 text-lg bg-white border-2 border-gray-300 rounded-xl focus:outline-none focus:border-black transition-all text-black placeholder-gray-400"
                           placeholder="Last name"
+                          whileFocus={{ scale: 1.01, borderColor: "#000" }}
+                          transition={{ type: "spring", stiffness: 300 }}
                         />
                       </div>
 
-                      <button
+                      {/* Value Props */}
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.3, duration: 0.5 }}
+                        className="mb-8 p-6 bg-gradient-to-br from-gray-50 to-white rounded-2xl border border-gray-200"
+                      >
+                        <h3 className="text-sm font-semibold text-gray-900 mb-4 text-center">What you'll get:</h3>
+                        <div className="space-y-3">
+                          <div className="flex items-start gap-3">
+                            <div className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                              <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                              </svg>
+                            </div>
+                            <p className="text-sm text-gray-700">Access to <span className="font-semibold">cutting-edge AI tools</span> for learning</p>
+                          </div>
+                          <div className="flex items-start gap-3">
+                            <div className="w-5 h-5 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                              <svg className="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                              </svg>
+                            </div>
+                            <p className="text-sm text-gray-700"><span className="font-semibold">Free student guide</span> worth $500+</p>
+                          </div>
+                          <div className="flex items-start gap-3">
+                            <div className="w-5 h-5 rounded-full bg-purple-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                              <svg className="w-3 h-3 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                              </svg>
+                            </div>
+                            <p className="text-sm text-gray-700">Join a community of <span className="font-semibold">{waitlistCount > 0 ? waitlistCount : 'ambitious'} students</span></p>
+                          </div>
+                        </div>
+                      </motion.div>
+
+                      {/* Enhanced Continue Button */}
+                      <motion.button
                         onClick={() => setShowVideo(true)}
                         disabled={!formData.firstName || !formData.lastName}
-                        className="w-full py-4 px-8 bg-black hover:bg-gray-800 text-white font-semibold rounded-xl transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-black text-lg"
+                        className="relative w-full py-4 px-8 bg-black text-white font-semibold rounded-xl transition-all disabled:opacity-30 disabled:cursor-not-allowed text-lg overflow-hidden group"
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                       >
-                        Continue →
-                      </button>
+                        {/* Shimmer effect */}
+                        <motion.div
+                          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                          animate={{
+                            x: ['-100%', '200%']
+                          }}
+                          transition={{
+                            duration: 2,
+                            repeat: Infinity,
+                            repeatDelay: 1,
+                            ease: "easeInOut"
+                          }}
+                        />
+
+                        {/* Glow effect on hover */}
+                        <div className="absolute inset-0 bg-gradient-to-r from-blue-500/0 via-purple-500/0 to-pink-500/0 group-hover:from-blue-500/20 group-hover:via-purple-500/20 group-hover:to-pink-500/20 transition-all duration-500" />
+
+                        <span className="relative z-10">Continue →</span>
+                      </motion.button>
                     </motion.div>
                   ) : (
                     <motion.div
@@ -552,13 +666,14 @@ export default function WaitlistPage() {
 
                       {/* Video Player */}
                       <div className="relative w-full aspect-video rounded-2xl overflow-hidden shadow-2xl border-2 border-gray-200 mb-6 bg-gradient-to-br from-gray-100 to-gray-50">
-                        <iframe
+                        <video
                           className="w-full h-full"
-                          src="https://www.youtube.com/embed/xxy8FzT73Is?autoplay=1&mute=0"
-                          title="Forefront Introduction"
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                          allowFullScreen
-                        />
+                          controls
+                          autoPlay
+                        >
+                          <source src="/videos/forefront-waitlist.mp4" type="video/mp4" />
+                          Your browser does not support the video tag.
+                        </video>
                       </div>
 
                       <div className="flex gap-3">
@@ -703,20 +818,30 @@ export default function WaitlistPage() {
                   autoFocus
                 />
 
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => handleNext('email')}
-                    className="px-6 py-4 bg-gray-100 hover:bg-gray-200 text-black font-semibold rounded-xl transition-all"
-                  >
-                    ← Back
-                  </button>
-                  <button
-                    onClick={() => handleNext('school')}
-                    disabled={!formData.phone}
-                    className="flex-1 py-4 px-8 bg-black hover:bg-gray-800 text-white font-semibold rounded-xl transition-all disabled:opacity-30 disabled:cursor-not-allowed text-lg"
-                  >
-                    Continue →
-                  </button>
+                <div className="space-y-3">
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => handleNext('email')}
+                      className="px-6 py-4 bg-gray-100 hover:bg-gray-200 text-black font-semibold rounded-xl transition-all"
+                    >
+                      ← Back
+                    </button>
+                    <button
+                      onClick={() => handleNext('school')}
+                      disabled={!formData.phone}
+                      className="flex-1 py-4 px-8 bg-black hover:bg-gray-800 text-white font-semibold rounded-xl transition-all disabled:opacity-30 disabled:cursor-not-allowed text-lg"
+                    >
+                      Continue →
+                    </button>
+                  </div>
+                  {!formData.phone && (
+                    <button
+                      onClick={() => handleNext('school')}
+                      className="w-full text-sm text-gray-500 hover:text-black transition-all py-2"
+                    >
+                      Skip this step
+                    </button>
+                  )}
                 </div>
               </motion.div>
             )}
@@ -734,6 +859,49 @@ export default function WaitlistPage() {
                   <h2 className="text-3xl font-bold text-black">{stepConfig.school.title}</h2>
                   <p className="text-gray-600">{stepConfig.school.subtitle}</p>
                 </div>
+
+                {/* Animated University Carousel - "Students already using at..." */}
+                {uniqueUniversities.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2, duration: 0.5 }}
+                    className="mb-8 overflow-hidden"
+                  >
+                    <p className="text-xs font-semibold text-gray-500 text-center mb-3 uppercase tracking-wider">
+                      Students already using at
+                    </p>
+                    <div className="relative h-12 overflow-hidden">
+                      {/* Gradient fade edges */}
+                      <div className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-white to-transparent z-10" />
+                      <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-white to-transparent z-10" />
+
+                      {/* Scrolling universities - from actual waitlist */}
+                      <motion.div
+                        className="flex gap-8 items-center absolute"
+                        animate={{
+                          x: [0, -(uniqueUniversities.length * 200)]
+                        }}
+                        transition={{
+                          duration: uniqueUniversities.length * 3,
+                          repeat: Infinity,
+                          ease: "linear"
+                        }}
+                      >
+                        {/* Double the array for seamless loop */}
+                        {[...uniqueUniversities, ...uniqueUniversities].map((uni, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-br from-gray-50 to-white rounded-full border border-gray-200 whitespace-nowrap shadow-sm"
+                          >
+                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                            <span className="text-sm font-medium text-gray-700">{uni}</span>
+                          </div>
+                        ))}
+                      </motion.div>
+                    </div>
+                  </motion.div>
+                )}
 
                 {/* University Autocomplete */}
                 <div className="relative">
@@ -826,23 +994,46 @@ export default function WaitlistPage() {
                   <p className="text-gray-600">{stepConfig.proficiency.subtitle}</p>
                 </div>
 
-                <div className="space-y-6 bg-gray-50 p-8 rounded-2xl">
+                {/* Simple, Clean Slider */}
+                <div className="space-y-6 mb-8">
+                  {/* Current level label */}
                   <div className="text-center">
-                    <div className="inline-block bg-black text-white px-6 py-3 rounded-full text-2xl font-bold mb-6">
+                    <div className="inline-block bg-black text-white px-8 py-3 rounded-full text-xl font-bold">
                       {getProficiencyLabel(formData.aiProficiency)}
                     </div>
                   </div>
 
-                  <input
-                    type="range"
-                    name="aiProficiency"
-                    min="0"
-                    max="100"
-                    value={formData.aiProficiency}
-                    onChange={handleInputChange}
-                    className="w-full h-3 bg-gray-300 rounded-full appearance-none cursor-pointer slider"
-                  />
+                  {/* Clean slider */}
+                  <div className="relative px-2 py-4">
+                    {/* Track */}
+                    <div className="h-2 bg-gray-200 rounded-full">
+                      <div
+                        className="h-full bg-black rounded-full transition-all duration-200"
+                        style={{ width: `${formData.aiProficiency}%` }}
+                      />
+                    </div>
 
+                    {/* Thumb */}
+                    <div
+                      className="absolute top-1/2 -translate-y-1/2 pointer-events-none transition-all duration-200"
+                      style={{ left: `calc(${formData.aiProficiency}% - 12px)` }}
+                    >
+                      <div className="w-6 h-6 bg-black rounded-full border-4 border-white shadow-lg" />
+                    </div>
+
+                    {/* Input slider */}
+                    <input
+                      type="range"
+                      name="aiProficiency"
+                      min="0"
+                      max="100"
+                      value={formData.aiProficiency}
+                      onChange={handleInputChange}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Labels */}
                   <div className="flex justify-between text-sm font-medium text-gray-600">
                     <span>Beginner</span>
                     <span>Expert</span>
@@ -880,41 +1071,151 @@ export default function WaitlistPage() {
                   <p className="text-gray-600">{stepConfig.upload.subtitle}</p>
                 </div>
 
-                {/* Upload Button */}
-                <div className="flex flex-col items-center space-y-4">
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="relative group cursor-pointer"
+                {/* Integrated Upload Button + Sphere */}
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.2, duration: 0.6 }}
+                  className="relative flex items-center justify-center"
+                  style={{ minHeight: '600px' }}
+                >
+                  {/* 3D Sphere Background */}
+                  <div className="absolute inset-0">
+                    <WaitlistSphere
+                      className="w-full h-full"
+                      containerSize={600}
+                    />
+                  </div>
+
+                  {/* Upload Button - Centered & Elevated */}
+                  <motion.div
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ delay: 0.4, type: 'spring', duration: 0.6 }}
+                    className="relative z-10 flex flex-col items-center"
                   >
-                    <div className="w-32 h-32 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center border-4 border-gray-300 group-hover:border-black transition-all">
-                      {imagePreview ? (
-                        <img
-                          src={imagePreview}
-                          alt="Preview"
-                          className="w-full h-full rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="text-center">
-                          <svg className="w-12 h-12 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                          </svg>
-                          <span className="text-sm text-gray-500">Upload</span>
-                        </div>
-                      )}
-                    </div>
-                  </button>
-                  {imagePreview && (
                     <button
-                      onClick={() => {
-                        setImagePreview('')
-                        setImageFile(null)
-                      }}
-                      className="text-sm text-gray-500 hover:text-black"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="relative group cursor-pointer"
                     >
-                      Change photo
+                      {/* Outer glow layers for depth */}
+                      <motion.div
+                        animate={{
+                          scale: [1, 1.15, 1],
+                          opacity: [0.3, 0.6, 0.3]
+                        }}
+                        transition={{
+                          duration: 3,
+                          repeat: Infinity,
+                          ease: "easeInOut"
+                        }}
+                        className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-400/40 via-purple-400/40 to-pink-400/40 blur-2xl"
+                      />
+
+                      <motion.div
+                        animate={{
+                          scale: [1, 1.08, 1],
+                          opacity: [0.4, 0.7, 0.4]
+                        }}
+                        transition={{
+                          duration: 2,
+                          repeat: Infinity,
+                          ease: "easeInOut",
+                          delay: 0.5
+                        }}
+                        className="absolute inset-0 rounded-full bg-gradient-to-br from-white/30 to-black/20 blur-xl"
+                      />
+
+                      {/* Upload button - liquid glass effect */}
+                      <div className="relative w-40 h-40 rounded-full overflow-hidden shadow-2xl group-hover:shadow-black/40 transition-all duration-500">
+                        {/* Gradient background with shimmer */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-white via-white/95 to-gray-100/90" />
+
+                        {/* Glass refraction layer */}
+                        <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/60 to-transparent opacity-50" />
+
+                        {/* Animated shimmer effect */}
+                        <motion.div
+                          animate={{
+                            x: ['-100%', '200%'],
+                            opacity: [0, 0.5, 0]
+                          }}
+                          transition={{
+                            duration: 3,
+                            repeat: Infinity,
+                            ease: "easeInOut",
+                            repeatDelay: 1
+                          }}
+                          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/80 to-transparent skew-x-12"
+                        />
+
+                        {/* Bubble highlights */}
+                        <div className="absolute top-4 right-8 w-6 h-6 rounded-full bg-white/60 blur-sm" />
+                        <div className="absolute top-8 right-12 w-4 h-4 rounded-full bg-white/40 blur-sm" />
+                        <div className="absolute bottom-6 left-6 w-8 h-8 rounded-full bg-white/30 blur-md" />
+
+                        {/* Frosted glass border */}
+                        <div className="absolute inset-0 rounded-full border-[3px] border-white/80 backdrop-blur-xl" />
+
+                        {/* Inner shadow ring */}
+                        <div className="absolute inset-[2px] rounded-full shadow-[inset_0_2px_20px_rgba(0,0,0,0.1)]" />
+
+                        {/* Content layer */}
+                        <div className="relative w-full h-full flex items-center justify-center backdrop-blur-md">
+                          {imagePreview ? (
+                            <img
+                              src={imagePreview}
+                              alt="Preview"
+                              className="w-full h-full rounded-full object-cover"
+                            />
+                          ) : (
+                            <motion.div
+                              className="text-center"
+                              whileHover={{ scale: 1.05 }}
+                              transition={{ type: "spring", stiffness: 400 }}
+                            >
+                              <motion.svg
+                                className="w-16 h-16 mx-auto text-gray-400 group-hover:text-black transition-colors duration-300"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                                animate={{
+                                  y: [0, -3, 0]
+                                }}
+                                transition={{
+                                  duration: 2,
+                                  repeat: Infinity,
+                                  ease: "easeInOut"
+                                }}
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                              </motion.svg>
+                              <span className="text-sm font-semibold text-gray-500 group-hover:text-black transition-colors duration-300">Upload</span>
+                            </motion.div>
+                          )}
+                        </div>
+
+                        {/* Hover state glow */}
+                        <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-500/0 via-purple-500/0 to-pink-500/0 group-hover:from-blue-500/10 group-hover:via-purple-500/10 group-hover:to-pink-500/10 transition-all duration-500" />
+                      </div>
                     </button>
-                  )}
-                </div>
+
+                    {/* Change photo button */}
+                    {imagePreview && (
+                      <motion.button
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        onClick={() => {
+                          setImagePreview('')
+                          setImageFile(null)
+                        }}
+                        className="mt-6 px-6 py-2 bg-white/90 backdrop-blur-md hover:bg-white text-black font-semibold rounded-full shadow-lg transition-all border-2 border-black/10 hover:border-black"
+                      >
+                        Change photo
+                      </motion.button>
+                    )}
+                  </motion.div>
+                </motion.div>
 
                 {/* Hidden file input */}
                 <input
@@ -929,7 +1230,7 @@ export default function WaitlistPage() {
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm text-center"
+                    className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm text-center mt-6"
                   >
                     {error}
                   </motion.div>
@@ -1172,7 +1473,7 @@ export default function WaitlistPage() {
             )}
           </AnimatePresence>
         </div>
-      </div>
+      </motion.div>
 
       <style jsx>{`
         input[type='range']::-webkit-slider-thumb {
@@ -1196,6 +1497,6 @@ export default function WaitlistPage() {
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
       `}</style>
-    </main>
+    </motion.main>
   )
 }

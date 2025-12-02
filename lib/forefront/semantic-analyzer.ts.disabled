@@ -1,0 +1,661 @@
+/**
+ * Semantic Analyzer for Forefront Intelligence V2
+ *
+ * Provides deep semantic understanding of user requests by extracting
+ * entities, actions, constraints, and relationships.
+ */
+
+import { UniversalIntent } from './intent-classifier'
+
+/**
+ * Semantic analysis result with extracted components
+ */
+export interface SemanticAnalysis {
+  // Core components
+  primaryAction: string  // Main verb/action requested
+  primarySubject: string  // Main thing being acted upon
+  secondaryActions: string[]  // Additional actions mentioned
+
+  // Extracted elements
+  entities: EntityExtraction[]  // Named entities, concepts, technologies
+  constraints: Constraint[]  // Limitations, requirements, specifications
+  relationships: Relationship[]  // How entities relate to each other
+
+  // Temporal elements
+  temporalContext: {
+    timeframe?: 'immediate' | 'short-term' | 'long-term'
+    deadline?: string
+    recency?: 'latest' | 'current' | 'historical' | 'any'
+  }
+
+  // Quality indicators
+  specificity: number  // 0-1, how specific vs vague
+  technicalLevel: number  // 0-1, how technical vs casual
+  urgency: number  // 0-1, how urgent the request seems
+
+  // Domain signals
+  domainKeywords: string[]  // Keywords that indicate domain
+  taskIndicators: string[]  // Words that suggest task type
+  complexitySignals: string[]  // Words indicating complexity level
+}
+
+export interface EntityExtraction {
+  text: string
+  type: 'technology' | 'concept' | 'tool' | 'format' | 'metric' | 'person' | 'organization' | 'other'
+  confidence: number
+  relatedTerms?: string[]  // Semantically related terms
+}
+
+export interface Constraint {
+  type: 'requirement' | 'limitation' | 'preference' | 'format'
+  description: string
+  priority: 'must' | 'should' | 'nice-to-have'
+}
+
+export interface Relationship {
+  entity1: string
+  entity2: string
+  relationship: string  // e.g., "uses", "generates", "analyzes"
+}
+
+/**
+ * Analyze user message for semantic components
+ */
+export function analyzeSemantics(message: string): SemanticAnalysis {
+  const lowerMessage = message.toLowerCase()
+
+  // Extract primary action and subject
+  const { primaryAction, primarySubject } = extractActionAndSubject(message)
+
+  // Extract secondary actions
+  const secondaryActions = extractSecondaryActions(message, primaryAction)
+
+  // Extract entities
+  const entities = extractEntities(message)
+
+  // Extract constraints
+  const constraints = extractConstraints(message)
+
+  // Extract relationships
+  const relationships = extractRelationships(message, entities)
+
+  // Analyze temporal context
+  const temporalContext = analyzeTemporalContext(message)
+
+  // Calculate quality indicators
+  const specificity = calculateSpecificity(message, entities)
+  const technicalLevel = calculateTechnicalLevel(message, entities)
+  const urgency = calculateUrgency(message, temporalContext)
+
+  // Extract domain and task signals
+  const domainKeywords = extractDomainKeywords(message)
+  const taskIndicators = extractTaskIndicators(message)
+  const complexitySignals = extractComplexitySignals(message)
+
+  return {
+    primaryAction,
+    primarySubject,
+    secondaryActions,
+    entities,
+    constraints,
+    relationships,
+    temporalContext,
+    specificity,
+    technicalLevel,
+    urgency,
+    domainKeywords,
+    taskIndicators,
+    complexitySignals
+  }
+}
+
+/**
+ * Extract main action and subject from message
+ */
+function extractActionAndSubject(message: string): { primaryAction: string; primarySubject: string } {
+  // Common action patterns
+  const actionPatterns = [
+    /^(create|generate|make|build|design|produce)\s+(.+)/i,
+    /^(analyze|examine|evaluate|assess|review)\s+(.+)/i,
+    /^(optimize|improve|enhance|refine|upgrade)\s+(.+)/i,
+    /^(debug|fix|repair|solve|troubleshoot)\s+(.+)/i,
+    /^(explain|describe|clarify|teach|demonstrate)\s+(.+)/i,
+    /^(research|investigate|explore|find|discover)\s+(.+)/i,
+    /^(write|draft|compose|author)\s+(.+)/i,
+    /^(convert|transform|translate|migrate)\s+(.+)/i
+  ]
+
+  for (const pattern of actionPatterns) {
+    const match = message.match(pattern)
+    if (match) {
+      return {
+        primaryAction: match[1].toLowerCase(),
+        primarySubject: match[2].split(/\s+(and|then|with|using|for)\s+/)[0].trim()
+      }
+    }
+  }
+
+  // Fallback: use first verb-like word
+  const words = message.split(' ')
+  const verbPatterns = ['ing', 'ate', 'ize', 'ify']
+
+  for (let i = 0; i < Math.min(words.length, 5); i++) {
+    const word = words[i].toLowerCase()
+    if (verbPatterns.some(p => word.endsWith(p)) || isCommonVerb(word)) {
+      return {
+        primaryAction: word,
+        primarySubject: words.slice(i + 1).join(' ').substring(0, 50)
+      }
+    }
+  }
+
+  return {
+    primaryAction: 'process',
+    primarySubject: message.substring(0, 50)
+  }
+}
+
+/**
+ * Extract secondary actions from message
+ */
+function extractSecondaryActions(message: string, primaryAction: string): string[] {
+  const actions: string[] = []
+
+  // Common secondary action patterns
+  const patterns = [
+    /and\s+then\s+(\w+)/gi,
+    /also\s+(\w+)/gi,
+    /additionally\s+(\w+)/gi,
+    /after\s+that\s+(\w+)/gi,
+    /finally\s+(\w+)/gi,
+    /,\s+(\w+)\s+/gi
+  ]
+
+  for (const pattern of patterns) {
+    const matches = message.matchAll(pattern)
+    for (const match of matches) {
+      const action = match[1].toLowerCase()
+      if (isCommonVerb(action) && action !== primaryAction) {
+        actions.push(action)
+      }
+    }
+  }
+
+  return [...new Set(actions)].slice(0, 5)  // Unique, max 5
+}
+
+/**
+ * Extract entities from message
+ */
+function extractEntities(message: string): EntityExtraction[] {
+  const entities: EntityExtraction[] = []
+
+  // Technology entities
+  const techPatterns = [
+    { pattern: /\b(python|javascript|typescript|java|c\+\+|rust|go|ruby)\b/gi, type: 'technology' },
+    { pattern: /\b(react|vue|angular|svelte|next\.?js|node\.?js)\b/gi, type: 'technology' },
+    { pattern: /\b(ai|ml|machine learning|deep learning|neural network|llm|gpt|claude)\b/gi, type: 'technology' },
+    { pattern: /\b(docker|kubernetes|aws|azure|gcp|cloud)\b/gi, type: 'technology' },
+    { pattern: /\b(sql|nosql|mongodb|postgresql|redis|database)\b/gi, type: 'technology' },
+    { pattern: /\b(api|rest|graphql|websocket|http)\b/gi, type: 'technology' }
+  ]
+
+  // Concept entities
+  const conceptPatterns = [
+    { pattern: /\b(algorithm|data structure|design pattern|architecture)\b/gi, type: 'concept' },
+    { pattern: /\b(performance|optimization|scalability|efficiency)\b/gi, type: 'concept' },
+    { pattern: /\b(security|authentication|authorization|encryption)\b/gi, type: 'concept' },
+    { pattern: /\b(testing|debugging|profiling|monitoring)\b/gi, type: 'concept' }
+  ]
+
+  // Format entities
+  const formatPatterns = [
+    { pattern: /\b(json|xml|yaml|csv|markdown|html)\b/gi, type: 'format' },
+    { pattern: /\b(pdf|doc|docx|txt|rtf)\b/gi, type: 'format' },
+    { pattern: /\b(jpg|jpeg|png|gif|svg|webp|image)\b/gi, type: 'format' },
+    { pattern: /\b(mp4|avi|mov|video|animation)\b/gi, type: 'format' }
+  ]
+
+  // Extract all patterns
+  const allPatterns = [
+    ...techPatterns.map(p => ({ ...p, type: 'technology' as const })),
+    ...conceptPatterns.map(p => ({ ...p, type: 'concept' as const })),
+    ...formatPatterns.map(p => ({ ...p, type: 'format' as const }))
+  ]
+
+  for (const { pattern, type } of allPatterns) {
+    const matches = message.matchAll(pattern)
+    for (const match of matches) {
+      entities.push({
+        text: match[0].toLowerCase(),
+        type,
+        confidence: 0.9,
+        relatedTerms: getRelatedTerms(match[0].toLowerCase())
+      })
+    }
+  }
+
+  // Extract quoted strings as potential entities
+  const quotedPattern = /["']([^"']+)["']/g
+  const quotedMatches = message.matchAll(quotedPattern)
+  for (const match of quotedMatches) {
+    entities.push({
+      text: match[1],
+      type: 'other',
+      confidence: 0.7
+    })
+  }
+
+  // Deduplicate
+  const seen = new Set<string>()
+  return entities.filter(e => {
+    if (seen.has(e.text)) return false
+    seen.add(e.text)
+    return true
+  })
+}
+
+/**
+ * Extract constraints from message
+ */
+function extractConstraints(message: string): Constraint[] {
+  const constraints: Constraint[] = []
+
+  // Requirement patterns
+  const mustPatterns = [
+    /must\s+(.+?)(?:\.|,|;|$)/gi,
+    /need(?:s)?\s+to\s+(.+?)(?:\.|,|;|$)/gi,
+    /require(?:s|d)?\s+(.+?)(?:\.|,|;|$)/gi,
+    /should\s+(.+?)(?:\.|,|;|$)/gi
+  ]
+
+  for (const pattern of mustPatterns) {
+    const matches = message.matchAll(pattern)
+    for (const match of matches) {
+      constraints.push({
+        type: 'requirement',
+        description: match[1].trim(),
+        priority: pattern.source.includes('must') || pattern.source.includes('require') ? 'must' : 'should'
+      })
+    }
+  }
+
+  // Limitation patterns
+  const limitPatterns = [
+    /without\s+(.+?)(?:\.|,|;|$)/gi,
+    /avoid\s+(.+?)(?:\.|,|;|$)/gi,
+    /don'?t\s+(.+?)(?:\.|,|;|$)/gi,
+    /no\s+(.+?)(?:\.|,|;|$)/gi,
+    /max(?:imum)?\s+(.+?)(?:\.|,|;|$)/gi,
+    /up\s+to\s+(.+?)(?:\.|,|;|$)/gi
+  ]
+
+  for (const pattern of limitPatterns) {
+    const matches = message.matchAll(pattern)
+    for (const match of matches) {
+      constraints.push({
+        type: 'limitation',
+        description: match[1].trim(),
+        priority: 'must'
+      })
+    }
+  }
+
+  // Format constraints
+  if (message.includes('format') || message.includes('style')) {
+    const formatMatch = message.match(/in\s+(.+?)\s+format/i) || message.match(/(.+?)\s+style/i)
+    if (formatMatch) {
+      constraints.push({
+        type: 'format',
+        description: formatMatch[1].trim(),
+        priority: 'should'
+      })
+    }
+  }
+
+  return constraints.slice(0, 10)  // Limit to 10 constraints
+}
+
+/**
+ * Extract relationships between entities
+ */
+function extractRelationships(message: string, entities: EntityExtraction[]): Relationship[] {
+  const relationships: Relationship[] = []
+
+  // Relationship patterns
+  const patterns = [
+    { pattern: /(\w+)\s+uses?\s+(\w+)/gi, relationship: 'uses' },
+    { pattern: /(\w+)\s+generates?\s+(\w+)/gi, relationship: 'generates' },
+    { pattern: /(\w+)\s+creates?\s+(\w+)/gi, relationship: 'creates' },
+    { pattern: /(\w+)\s+analyzes?\s+(\w+)/gi, relationship: 'analyzes' },
+    { pattern: /(\w+)\s+from\s+(\w+)/gi, relationship: 'derives-from' },
+    { pattern: /(\w+)\s+to\s+(\w+)/gi, relationship: 'transforms-to' },
+    { pattern: /(\w+)\s+with\s+(\w+)/gi, relationship: 'combined-with' },
+    { pattern: /(\w+)\s+for\s+(\w+)/gi, relationship: 'intended-for' }
+  ]
+
+  const entityTexts = new Set(entities.map(e => e.text))
+
+  for (const { pattern, relationship } of patterns) {
+    const matches = message.matchAll(pattern)
+    for (const match of matches) {
+      const entity1 = match[1].toLowerCase()
+      const entity2 = match[2].toLowerCase()
+
+      // Only add if at least one is a recognized entity
+      if (entityTexts.has(entity1) || entityTexts.has(entity2)) {
+        relationships.push({
+          entity1,
+          entity2,
+          relationship
+        })
+      }
+    }
+  }
+
+  return relationships.slice(0, 10)  // Limit to 10 relationships
+}
+
+/**
+ * Analyze temporal context
+ */
+function analyzeTemporalContext(message: string): SemanticAnalysis['temporalContext'] {
+  const context: SemanticAnalysis['temporalContext'] = {}
+
+  // Timeframe detection
+  if (/\b(now|immediately|asap|urgent)\b/i.test(message)) {
+    context.timeframe = 'immediate'
+  } else if (/\b(today|tonight|this\s+\w+)\b/i.test(message)) {
+    context.timeframe = 'short-term'
+  } else if (/\b(next\s+\w+|future|eventually|plan)\b/i.test(message)) {
+    context.timeframe = 'long-term'
+  }
+
+  // Deadline detection
+  const deadlineMatch = message.match(/by\s+(.+?)(?:\.|,|;|$)/i) ||
+                       message.match(/before\s+(.+?)(?:\.|,|;|$)/i) ||
+                       message.match(/deadline[:\s]+(.+?)(?:\.|,|;|$)/i)
+  if (deadlineMatch) {
+    context.deadline = deadlineMatch[1].trim()
+  }
+
+  // Recency detection
+  if (/\b(latest|current|recent|newest|up-to-date|today'?s?)\b/i.test(message)) {
+    context.recency = 'latest'
+  } else if (/\b(now|present|existing)\b/i.test(message)) {
+    context.recency = 'current'
+  } else if (/\b(historical|past|previous|old)\b/i.test(message)) {
+    context.recency = 'historical'
+  }
+
+  return context
+}
+
+/**
+ * Calculate specificity score
+ */
+function calculateSpecificity(message: string, entities: EntityExtraction[]): number {
+  let score = 0.3  // Base score
+
+  // More entities = more specific
+  score += Math.min(entities.length * 0.1, 0.3)
+
+  // Quoted strings = specific
+  const quotes = (message.match(/["']/g) || []).length
+  score += Math.min(quotes * 0.05, 0.1)
+
+  // Numbers = specific
+  const numbers = (message.match(/\b\d+\b/g) || []).length
+  score += Math.min(numbers * 0.05, 0.1)
+
+  // Technical entities = specific
+  const techEntities = entities.filter(e => e.type === 'technology').length
+  score += Math.min(techEntities * 0.05, 0.2)
+
+  return Math.min(score, 1.0)
+}
+
+/**
+ * Calculate technical level
+ */
+function calculateTechnicalLevel(message: string, entities: EntityExtraction[]): number {
+  let score = 0.2  // Base score
+
+  // Technical entities increase score
+  const techEntities = entities.filter(e => e.type === 'technology' || e.type === 'concept')
+  score += Math.min(techEntities.length * 0.15, 0.4)
+
+  // Technical keywords
+  const techKeywords = [
+    'algorithm', 'api', 'architecture', 'async', 'backend', 'binary', 'cache',
+    'compile', 'concurrent', 'database', 'debug', 'deploy', 'endpoint', 'framework',
+    'function', 'heap', 'implementation', 'interface', 'latency', 'memory', 'optimize',
+    'performance', 'protocol', 'query', 'recursion', 'refactor', 'repository',
+    'runtime', 'schema', 'stack', 'syntax', 'thread', 'variable'
+  ]
+
+  const techWordCount = techKeywords.filter(kw =>
+    message.toLowerCase().includes(kw)
+  ).length
+
+  score += Math.min(techWordCount * 0.1, 0.4)
+
+  return Math.min(score, 1.0)
+}
+
+/**
+ * Calculate urgency score
+ */
+function calculateUrgency(message: string, temporalContext: SemanticAnalysis['temporalContext']): number {
+  let score = 0.3  // Base score
+
+  // Immediate timeframe = urgent
+  if (temporalContext.timeframe === 'immediate') {
+    score += 0.4
+  } else if (temporalContext.timeframe === 'short-term') {
+    score += 0.2
+  }
+
+  // Has deadline = urgent
+  if (temporalContext.deadline) {
+    score += 0.2
+  }
+
+  // Urgency keywords
+  const urgencyKeywords = ['urgent', 'asap', 'immediately', 'quickly', 'fast', 'now', 'critical']
+  const urgencyCount = urgencyKeywords.filter(kw =>
+    message.toLowerCase().includes(kw)
+  ).length
+
+  score += Math.min(urgencyCount * 0.1, 0.3)
+
+  return Math.min(score, 1.0)
+}
+
+/**
+ * Extract domain keywords
+ */
+function extractDomainKeywords(message: string): string[] {
+  const keywords: string[] = []
+  const lowerMessage = message.toLowerCase()
+
+  const domainMappings = {
+    creative: ['image', 'picture', 'design', 'art', 'draw', 'create', 'generate', 'visual', 'graphic', 'illustration'],
+    analytical: ['analyze', 'data', 'statistics', 'metrics', 'research', 'investigate', 'compare', 'evaluate'],
+    learning: ['explain', 'teach', 'learn', 'understand', 'tutorial', 'guide', 'lesson', 'course', 'education'],
+    technical: ['code', 'program', 'debug', 'api', 'function', 'algorithm', 'database', 'server', 'deploy']
+  }
+
+  for (const [domain, words] of Object.entries(domainMappings)) {
+    for (const word of words) {
+      if (lowerMessage.includes(word)) {
+        keywords.push(word)
+      }
+    }
+  }
+
+  return keywords
+}
+
+/**
+ * Extract task indicators
+ */
+function extractTaskIndicators(message: string): string[] {
+  const indicators: string[] = []
+  const lowerMessage = message.toLowerCase()
+
+  const taskMappings = {
+    generation: ['create', 'generate', 'make', 'build', 'produce', 'write', 'design'],
+    analysis: ['analyze', 'examine', 'evaluate', 'assess', 'review', 'inspect', 'study'],
+    research: ['research', 'find', 'search', 'investigate', 'explore', 'discover', 'lookup'],
+    optimization: ['optimize', 'improve', 'enhance', 'refine', 'upgrade', 'speed up', 'fix'],
+    teaching: ['explain', 'teach', 'describe', 'clarify', 'demonstrate', 'show how', 'help understand']
+  }
+
+  for (const [task, words] of Object.entries(taskMappings)) {
+    for (const word of words) {
+      if (lowerMessage.includes(word)) {
+        indicators.push(word)
+      }
+    }
+  }
+
+  return indicators
+}
+
+/**
+ * Extract complexity signals
+ */
+function extractComplexitySignals(message: string): string[] {
+  const signals: string[] = []
+  const lowerMessage = message.toLowerCase()
+
+  const complexityMappings = {
+    trivial: ['simple', 'basic', 'easy', 'quick', 'straightforward'],
+    moderate: ['standard', 'typical', 'normal', 'regular', 'common'],
+    complex: ['complex', 'advanced', 'detailed', 'comprehensive', 'thorough', 'in-depth'],
+    expert: ['expert', 'professional', 'cutting-edge', 'state-of-the-art', 'research-level']
+  }
+
+  for (const [level, words] of Object.entries(complexityMappings)) {
+    for (const word of words) {
+      if (lowerMessage.includes(word)) {
+        signals.push(word)
+      }
+    }
+  }
+
+  return signals
+}
+
+/**
+ * Check if word is a common verb
+ */
+function isCommonVerb(word: string): boolean {
+  const commonVerbs = [
+    'create', 'make', 'build', 'generate', 'write', 'design', 'develop',
+    'analyze', 'examine', 'evaluate', 'assess', 'review', 'study', 'inspect',
+    'optimize', 'improve', 'enhance', 'refine', 'fix', 'debug', 'solve',
+    'explain', 'describe', 'teach', 'show', 'demonstrate', 'clarify',
+    'find', 'search', 'research', 'investigate', 'explore', 'discover',
+    'convert', 'transform', 'translate', 'migrate', 'update', 'upgrade'
+  ]
+
+  return commonVerbs.includes(word.toLowerCase())
+}
+
+/**
+ * Get semantically related terms
+ */
+function getRelatedTerms(term: string): string[] {
+  const relatedMap: Record<string, string[]> = {
+    'python': ['py', 'pip', 'django', 'flask', 'pandas', 'numpy'],
+    'javascript': ['js', 'node', 'npm', 'react', 'vue', 'angular'],
+    'ai': ['artificial intelligence', 'ml', 'machine learning', 'deep learning', 'neural network'],
+    'database': ['db', 'sql', 'nosql', 'mongodb', 'postgresql', 'mysql'],
+    'api': ['rest', 'graphql', 'endpoint', 'http', 'request', 'response'],
+    'image': ['picture', 'photo', 'visual', 'graphic', 'illustration'],
+    'optimize': ['improve', 'enhance', 'speed up', 'performance', 'efficiency'],
+    'debug': ['fix', 'troubleshoot', 'resolve', 'error', 'bug'],
+    'explain': ['describe', 'clarify', 'teach', 'demonstrate', 'show']
+  }
+
+  return relatedMap[term.toLowerCase()] || []
+}
+
+/**
+ * Enhance intent with semantic analysis
+ */
+export function enhanceIntentWithSemantics(
+  intent: UniversalIntent,
+  semantics: SemanticAnalysis
+): UniversalIntent {
+  // Adjust confidence based on specificity
+  if (semantics.specificity > 0.7) {
+    intent.confidence = Math.min(intent.confidence + 0.1, 1.0)
+  } else if (semantics.specificity < 0.3) {
+    intent.confidence = Math.max(intent.confidence - 0.1, 0.2)
+  }
+
+  // Adjust ambiguity based on specificity
+  intent.ambiguityLevel = 1 - semantics.specificity
+
+  // Add extracted entities
+  if (!intent.extractedEntities) {
+    intent.extractedEntities = []
+  }
+  intent.extractedEntities.push(...semantics.entities.map(e => e.text))
+
+  // Set primary goal if not already set
+  if (!intent.primaryGoal && semantics.primaryAction && semantics.primarySubject) {
+    intent.primaryGoal = `${semantics.primaryAction} ${semantics.primarySubject}`
+  }
+
+  // Adjust quality thresholds based on technical level
+  if (semantics.technicalLevel > 0.7) {
+    intent.qualityThresholds.technicalDepth = Math.min(
+      intent.qualityThresholds.technicalDepth + 0.2,
+      1.0
+    )
+  }
+
+  // Add specialized tools based on entities
+  const toolsNeeded = new Set(intent.capabilities.needsSpecializedTools)
+
+  for (const entity of semantics.entities) {
+    if (entity.type === 'format' && entity.text.match(/jpg|png|gif|image/)) {
+      toolsNeeded.add('image-generator')
+    } else if (entity.type === 'technology' && entity.text.match(/code|debug|function/)) {
+      toolsNeeded.add('code-analyzer')
+    } else if (entity.text.match(/video|mp4|animation/)) {
+      toolsNeeded.add('video-generator')
+    }
+  }
+
+  intent.capabilities.needsSpecializedTools = Array.from(toolsNeeded)
+
+  // Set research need based on temporal context
+  if (semantics.temporalContext.recency === 'latest' || semantics.temporalContext.recency === 'current') {
+    intent.capabilities.needsResearch = true
+  }
+
+  return intent
+}
+
+// Export for testing
+export const _internal = {
+  extractActionAndSubject,
+  extractSecondaryActions,
+  extractEntities,
+  extractConstraints,
+  extractRelationships,
+  analyzeTemporalContext,
+  calculateSpecificity,
+  calculateTechnicalLevel,
+  calculateUrgency,
+  extractDomainKeywords,
+  extractTaskIndicators,
+  extractComplexitySignals,
+  isCommonVerb,
+  getRelatedTerms
+}

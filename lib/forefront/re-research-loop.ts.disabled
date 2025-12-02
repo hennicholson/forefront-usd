@@ -1,0 +1,630 @@
+/**
+ * Re-Research Loop System
+ *
+ * Automatically triggers re-research when quality validation fails.
+ * Implements iterative improvement through targeted research queries.
+ */
+
+import { UniversalIntent } from './intent-classifier'
+import { SemanticAnalysis } from './semantic-analyzer'
+import {
+  QualityValidationResult,
+  validateQuality,
+  QualityValidator,
+  QualityThresholds
+} from './quality-validator'
+import { DynamicWorkflow, WorkflowStep, WorkflowStepType } from './workflow-builder'
+import { ConsensusOrchestrator, ConsensusStrategy } from './consensus'
+import { ModelCapability, getModelForCapability } from '../models'
+
+export interface ReResearchConfig {
+  maxIterations: number
+  improvementThreshold: number
+  targetQualityScore: number
+  enableParallelResearch: boolean
+  enableConsensus: boolean
+  adaptiveStrategy: boolean
+}
+
+export interface ReResearchQuery {
+  id: string
+  type: 'clarification' | 'expansion' | 'verification' | 'alternative' | 'deep_dive'
+  query: string
+  targetValidator: QualityValidator
+  priority: 'high' | 'medium' | 'low'
+  expectedImprovement: number
+}
+
+export interface ReResearchIteration {
+  iterationNumber: number
+  trigger: QualityValidationResult
+  queries: ReResearchQuery[]
+  results: ReResearchResult[]
+  qualityBefore: number
+  qualityAfter: number
+  improvement: number
+  timeSpent: number
+}
+
+export interface ReResearchResult {
+  queryId: string
+  content: string
+  sources: string[]
+  confidence: number
+  validator: QualityValidator
+  impact: 'high' | 'medium' | 'low' | 'none'
+}
+
+export interface ReResearchLoopResult {
+  finalContent: string
+  iterations: ReResearchIteration[]
+  totalIterations: number
+  finalQualityScore: number
+  qualityImprovement: number
+  totalTimeSpent: number
+  successful: boolean
+  terminationReason: 'quality_met' | 'max_iterations' | 'no_improvement' | 'error'
+}
+
+/**
+ * Re-Research Loop Orchestrator
+ */
+export class ReResearchLoopOrchestrator {
+  private consensusOrchestrator: ConsensusOrchestrator
+  private config: ReResearchConfig
+
+  constructor(config?: Partial<ReResearchConfig>) {
+    this.consensusOrchestrator = new ConsensusOrchestrator()
+    this.config = {
+      maxIterations: 3,
+      improvementThreshold: 0.1, // 10% minimum improvement per iteration
+      targetQualityScore: 0.85,
+      enableParallelResearch: true,
+      enableConsensus: true,
+      adaptiveStrategy: true,
+      ...config
+    }
+  }
+
+  /**
+   * Execute re-research loop
+   */
+  async executeReResearchLoop(
+    content: string,
+    intent: UniversalIntent,
+    semantics: SemanticAnalysis,
+    workflow: DynamicWorkflow,
+    initialValidation: QualityValidationResult
+  ): Promise<ReResearchLoopResult> {
+    const startTime = Date.now()
+    const iterations: ReResearchIteration[] = []
+    let currentContent = content
+    let currentValidation = initialValidation
+    let totalIterations = 0
+
+    console.log(`[Re-Research] Starting loop with initial quality: ${initialValidation.overallScore.toFixed(2)}`)
+
+    // Check if re-research is needed
+    if (currentValidation.overallScore >= this.config.targetQualityScore) {
+      return {
+        finalContent: content,
+        iterations: [],
+        totalIterations: 0,
+        finalQualityScore: currentValidation.overallScore,
+        qualityImprovement: 0,
+        totalTimeSpent: 0,
+        successful: true,
+        terminationReason: 'quality_met'
+      }
+    }
+
+    // Main re-research loop
+    while (
+      totalIterations < this.config.maxIterations &&
+      currentValidation.overallScore < this.config.targetQualityScore
+    ) {
+      totalIterations++
+      const iterationStartTime = Date.now()
+
+      console.log(`[Re-Research] Iteration ${totalIterations}`)
+
+      // Generate targeted research queries
+      const queries = this.generateResearchQueries(
+        currentContent,
+        currentValidation,
+        intent,
+        semantics,
+        totalIterations
+      )
+
+      // Execute research queries
+      const results = await this.executeResearchQueries(
+        queries,
+        intent,
+        semantics
+      )
+
+      // Synthesize improvements
+      const improvedContent = await this.synthesizeImprovements(
+        currentContent,
+        results,
+        currentValidation,
+        intent,
+        semantics
+      )
+
+      // Validate improved content
+      const improvedValidation = await validateQuality(
+        improvedContent,
+        intent,
+        semantics
+      )
+
+      // Calculate improvement
+      const improvement = improvedValidation.overallScore - currentValidation.overallScore
+
+      // Record iteration
+      const iteration: ReResearchIteration = {
+        iterationNumber: totalIterations,
+        trigger: currentValidation,
+        queries,
+        results,
+        qualityBefore: currentValidation.overallScore,
+        qualityAfter: improvedValidation.overallScore,
+        improvement,
+        timeSpent: Date.now() - iterationStartTime
+      }
+      iterations.push(iteration)
+
+      console.log(`[Re-Research] Quality improved from ${currentValidation.overallScore.toFixed(2)} to ${improvedValidation.overallScore.toFixed(2)} (${improvement > 0 ? '+' : ''}${(improvement * 100).toFixed(1)}%)`)
+
+      // Check for sufficient improvement
+      if (improvement < this.config.improvementThreshold) {
+        console.log(`[Re-Research] Insufficient improvement, terminating`)
+        return {
+          finalContent: improvedContent,
+          iterations,
+          totalIterations,
+          finalQualityScore: improvedValidation.overallScore,
+          qualityImprovement: improvedValidation.overallScore - initialValidation.overallScore,
+          totalTimeSpent: Date.now() - startTime,
+          successful: improvedValidation.overallScore >= this.config.targetQualityScore,
+          terminationReason: 'no_improvement'
+        }
+      }
+
+      // Update for next iteration
+      currentContent = improvedContent
+      currentValidation = improvedValidation
+
+      // Check if quality target met
+      if (improvedValidation.overallScore >= this.config.targetQualityScore) {
+        console.log(`[Re-Research] Quality target met!`)
+        return {
+          finalContent: improvedContent,
+          iterations,
+          totalIterations,
+          finalQualityScore: improvedValidation.overallScore,
+          qualityImprovement: improvedValidation.overallScore - initialValidation.overallScore,
+          totalTimeSpent: Date.now() - startTime,
+          successful: true,
+          terminationReason: 'quality_met'
+        }
+      }
+    }
+
+    // Max iterations reached
+    console.log(`[Re-Research] Max iterations reached`)
+    return {
+      finalContent: currentContent,
+      iterations,
+      totalIterations,
+      finalQualityScore: currentValidation.overallScore,
+      qualityImprovement: currentValidation.overallScore - initialValidation.overallScore,
+      totalTimeSpent: Date.now() - startTime,
+      successful: currentValidation.overallScore >= this.config.targetQualityScore,
+      terminationReason: 'max_iterations'
+    }
+  }
+
+  /**
+   * Generate targeted research queries based on validation failures
+   */
+  private generateResearchQueries(
+    content: string,
+    validation: QualityValidationResult,
+    intent: UniversalIntent,
+    semantics: SemanticAnalysis,
+    iterationNumber: number
+  ): ReResearchQuery[] {
+    const queries: ReResearchQuery[] = []
+
+    // Sort failed validators by impact
+    const failedValidators = validation.validatorResults
+      .filter(v => v.score < v.threshold)
+      .sort((a, b) => (b.threshold - b.score) - (a.threshold - a.score))
+
+    // Generate queries for each failed validator
+    for (const validatorResult of failedValidators) {
+      const validator = validatorResult.validator
+
+      switch (validator) {
+        case 'factual_accuracy':
+          // Generate fact-checking queries
+          for (const issue of validatorResult.issues) {
+            queries.push({
+              id: `fact_${queries.length}`,
+              type: 'verification',
+              query: `Verify the accuracy of: "${issue}" Provide authoritative sources and correct information if inaccurate.`,
+              targetValidator: validator,
+              priority: 'high',
+              expectedImprovement: 0.15
+            })
+          }
+          break
+
+        case 'research_sufficiency':
+          // Generate expansion queries
+          const missingAreas = this.identifyMissingResearchAreas(content, semantics)
+          for (const area of missingAreas) {
+            queries.push({
+              id: `research_${queries.length}`,
+              type: 'expansion',
+              query: `Research comprehensive information about: ${area} in the context of ${semantics.primarySubject}`,
+              targetValidator: validator,
+              priority: 'high',
+              expectedImprovement: 0.2
+            })
+          }
+          break
+
+        case 'consensus_agreement':
+          // Generate alternative perspective queries
+          queries.push({
+            id: `consensus_${queries.length}`,
+            type: 'alternative',
+            query: `Provide alternative perspectives and approaches for: ${semantics.primaryAction} ${semantics.primarySubject}`,
+            targetValidator: validator,
+            priority: 'medium',
+            expectedImprovement: 0.1
+          })
+          break
+
+        case 'completeness':
+          // Generate deep-dive queries for missing aspects
+          for (const issue of validatorResult.issues) {
+            queries.push({
+              id: `complete_${queries.length}`,
+              type: 'deep_dive',
+              query: `Provide detailed information about: ${issue}`,
+              targetValidator: validator,
+              priority: 'medium',
+              expectedImprovement: 0.15
+            })
+          }
+          break
+
+        case 'technical_correctness':
+          // Generate technical verification queries
+          queries.push({
+            id: `tech_${queries.length}`,
+            type: 'verification',
+            query: `Verify technical accuracy and best practices for: ${content.substring(0, 500)}`,
+            targetValidator: validator,
+            priority: 'high',
+            expectedImprovement: 0.2
+          })
+          break
+
+        case 'creative_quality':
+          // Generate creative enhancement queries
+          queries.push({
+            id: `creative_${queries.length}`,
+            type: 'alternative',
+            query: `Suggest creative enhancements and unique approaches for: ${semantics.primarySubject}`,
+            targetValidator: validator,
+            priority: 'low',
+            expectedImprovement: 0.1
+          })
+          break
+
+        case 'educational_clarity':
+          // Generate clarification queries
+          queries.push({
+            id: `edu_${queries.length}`,
+            type: 'clarification',
+            query: `Provide clear, simple explanations with examples for: ${semantics.primarySubject}`,
+            targetValidator: validator,
+            priority: 'medium',
+            expectedImprovement: 0.15
+          })
+          break
+      }
+    }
+
+    // Adaptive strategy: Focus on high-impact queries in later iterations
+    if (this.config.adaptiveStrategy && iterationNumber > 1) {
+      return queries
+        .filter(q => q.priority === 'high' || q.expectedImprovement > 0.15)
+        .slice(0, 3) // Limit queries in later iterations
+    }
+
+    // Limit total queries
+    return queries.slice(0, 5)
+  }
+
+  /**
+   * Execute research queries
+   */
+  private async executeResearchQueries(
+    queries: ReResearchQuery[],
+    intent: UniversalIntent,
+    semantics: SemanticAnalysis
+  ): Promise<ReResearchResult[]> {
+    console.log(`[Re-Research] Executing ${queries.length} research queries`)
+
+    if (this.config.enableParallelResearch) {
+      // Execute queries in parallel
+      const promises = queries.map(query =>
+        this.executeSingleQuery(query, intent, semantics)
+      )
+      return await Promise.all(promises)
+    } else {
+      // Execute queries sequentially
+      const results: ReResearchResult[] = []
+      for (const query of queries) {
+        const result = await this.executeSingleQuery(query, intent, semantics)
+        results.push(result)
+      }
+      return results
+    }
+  }
+
+  /**
+   * Execute a single research query
+   */
+  private async executeSingleQuery(
+    query: ReResearchQuery,
+    intent: UniversalIntent,
+    semantics: SemanticAnalysis
+  ): Promise<ReResearchResult> {
+    try {
+      let content: string
+      let sources: string[] = []
+      let confidence = 0.5
+
+      // Use consensus if enabled for high-priority queries
+      if (this.config.enableConsensus && query.priority === 'high') {
+        const consensusResult = await this.consensusOrchestrator.executeConsensus(
+          query.query,
+          ConsensusStrategy.PARALLEL_VALIDATION,
+          intent
+        )
+        content = consensusResult.finalResult
+        confidence = consensusResult.confidence
+        sources = consensusResult.insights
+      } else {
+        // Use appropriate model based on query type
+        const model = this.getModelForQueryType(query.type)
+        // Simulate model call (in production, this would call actual model)
+        content = await this.simulateModelCall(model, query.query)
+        confidence = 0.7
+      }
+
+      // Determine impact based on content quality
+      const impact = this.assessImpact(content, query, confidence)
+
+      return {
+        queryId: query.id,
+        content,
+        sources,
+        confidence,
+        validator: query.targetValidator,
+        impact
+      }
+    } catch (error) {
+      console.error(`[Re-Research] Failed to execute query ${query.id}:`, error)
+      return {
+        queryId: query.id,
+        content: '',
+        sources: [],
+        confidence: 0,
+        validator: query.targetValidator,
+        impact: 'none'
+      }
+    }
+  }
+
+  /**
+   * Synthesize improvements from research results
+   */
+  private async synthesizeImprovements(
+    originalContent: string,
+    results: ReResearchResult[],
+    validation: QualityValidationResult,
+    intent: UniversalIntent,
+    semantics: SemanticAnalysis
+  ): Promise<string> {
+    console.log(`[Re-Research] Synthesizing improvements from ${results.length} results`)
+
+    // Filter high-impact results
+    const impactfulResults = results.filter(r =>
+      r.impact === 'high' || r.impact === 'medium'
+    )
+
+    if (impactfulResults.length === 0) {
+      console.log(`[Re-Research] No impactful results, returning original content`)
+      return originalContent
+    }
+
+    // Build improvement prompt
+    const improvementPrompt = this.buildImprovementPrompt(
+      originalContent,
+      impactfulResults,
+      validation,
+      semantics
+    )
+
+    // Use consensus for synthesis if enabled
+    if (this.config.enableConsensus) {
+      const consensusResult = await this.consensusOrchestrator.executeConsensus(
+        improvementPrompt,
+        ConsensusStrategy.SEQUENTIAL_REFINEMENT,
+        intent
+      )
+      return consensusResult.finalResult
+    }
+
+    // Otherwise use single model
+    const model = getModelForCapability(ModelCapability.TEXT_GENERATION)
+    return await this.simulateModelCall(model.id, improvementPrompt)
+  }
+
+  /**
+   * Identify missing research areas
+   */
+  private identifyMissingResearchAreas(
+    content: string,
+    semantics: SemanticAnalysis
+  ): string[] {
+    const areas: string[] = []
+
+    // Check for missing entities
+    for (const entity of semantics.entities) {
+      if (!content.toLowerCase().includes(entity.value.toLowerCase())) {
+        areas.push(`${entity.type}: ${entity.value}`)
+      }
+    }
+
+    // Check for missing constraints
+    for (const constraint of semantics.constraints) {
+      if (!content.includes(constraint.value)) {
+        areas.push(`${constraint.type} constraint: ${constraint.value}`)
+      }
+    }
+
+    // Check for temporal context
+    if (semantics.temporalContext.timeFrame &&
+        !content.match(/\d{4}|\brecent|\bcurrent|\blatest|\bmodern/i)) {
+      areas.push(`Temporal context: ${semantics.temporalContext.timeFrame}`)
+    }
+
+    return areas.slice(0, 3) // Limit to top 3 areas
+  }
+
+  /**
+   * Get appropriate model for query type
+   */
+  private getModelForQueryType(queryType: ReResearchQuery['type']): string {
+    switch (queryType) {
+      case 'verification':
+        return getModelForCapability(ModelCapability.FACTUAL_ACCURACY).id
+      case 'expansion':
+      case 'deep_dive':
+        return getModelForCapability(ModelCapability.RESEARCH).id
+      case 'alternative':
+        return getModelForCapability(ModelCapability.CREATIVE_WRITING).id
+      case 'clarification':
+        return getModelForCapability(ModelCapability.EDUCATION).id
+      default:
+        return getModelForCapability(ModelCapability.TEXT_GENERATION).id
+    }
+  }
+
+  /**
+   * Assess impact of research result
+   */
+  private assessImpact(
+    content: string,
+    query: ReResearchQuery,
+    confidence: number
+  ): 'high' | 'medium' | 'low' | 'none' {
+    // No content means no impact
+    if (!content || content.length < 50) {
+      return 'none'
+    }
+
+    // Low confidence means low impact
+    if (confidence < 0.5) {
+      return 'low'
+    }
+
+    // High priority queries with good confidence have high impact
+    if (query.priority === 'high' && confidence > 0.8) {
+      return 'high'
+    }
+
+    // Verification queries with corrections have high impact
+    if (query.type === 'verification' && content.includes('incorrect') || content.includes('actually')) {
+      return 'high'
+    }
+
+    // Expansion queries with substantial content have medium-high impact
+    if (query.type === 'expansion' && content.length > 500) {
+      return confidence > 0.7 ? 'high' : 'medium'
+    }
+
+    return 'medium'
+  }
+
+  /**
+   * Build improvement prompt
+   */
+  private buildImprovementPrompt(
+    originalContent: string,
+    results: ReResearchResult[],
+    validation: QualityValidationResult,
+    semantics: SemanticAnalysis
+  ): string {
+    const issues = validation.validatorResults
+      .filter(v => v.score < v.threshold)
+      .flatMap(v => v.issues)
+
+    const improvements = results
+      .map(r => `[${r.validator}] ${r.content}`)
+      .join('\n\n')
+
+    return `
+Improve the following content based on research findings and quality issues:
+
+ORIGINAL CONTENT:
+${originalContent}
+
+QUALITY ISSUES TO ADDRESS:
+${issues.join('\n')}
+
+RESEARCH FINDINGS TO INCORPORATE:
+${improvements}
+
+CONTEXT:
+- Primary Subject: ${semantics.primarySubject}
+- Primary Action: ${semantics.primaryAction}
+- Specificity Level: ${semantics.specificity}
+
+REQUIREMENTS:
+1. Maintain the original intent and structure
+2. Incorporate the research findings naturally
+3. Address all quality issues identified
+4. Ensure factual accuracy
+5. Maintain coherent flow and readability
+
+Generate the improved content:
+`
+  }
+
+  /**
+   * Simulate model call (placeholder for actual implementation)
+   */
+  private async simulateModelCall(modelId: string, prompt: string): Promise<string> {
+    // In production, this would call the actual model
+    // For now, return a simulated improvement
+    return `[Improved content based on ${modelId} processing of: ${prompt.substring(0, 100)}...]`
+  }
+}
+
+/**
+ * Create re-research loop orchestrator with default config
+ */
+export function createReResearchLoop(config?: Partial<ReResearchConfig>): ReResearchLoopOrchestrator {
+  return new ReResearchLoopOrchestrator(config)
+}

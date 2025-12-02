@@ -13,11 +13,14 @@ interface MarkdownMessageProps {
 
 export function MarkdownMessage({ content, isDarkMode = true }: MarkdownMessageProps) {
   return (
-    <div className={`prose prose-sm max-w-none ${
-      isDarkMode
-        ? 'prose-invert prose-headings:text-white prose-p:text-zinc-200 prose-strong:text-white prose-code:text-cyan-400 prose-pre:bg-zinc-900 prose-a:text-blue-400'
-        : 'prose-headings:text-zinc-900 prose-p:text-zinc-700 prose-strong:text-zinc-900 prose-code:text-cyan-600 prose-pre:bg-zinc-100 prose-a:text-blue-600'
-    }`}>
+    <div
+      className={`prose prose-sm w-full max-w-full overflow-hidden ${
+        isDarkMode
+          ? 'prose-invert prose-headings:text-white prose-p:text-zinc-200 prose-strong:text-white prose-code:text-cyan-400 prose-pre:bg-zinc-900 prose-a:text-blue-400'
+          : 'prose-headings:text-zinc-900 prose-p:text-zinc-700 prose-strong:text-zinc-900 prose-code:text-cyan-600 prose-pre:bg-zinc-100 prose-a:text-blue-600'
+      }`}
+      style={{ width: '100%' }}
+    >
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeRaw, rehypeSanitize]}
@@ -75,7 +78,7 @@ export function MarkdownMessage({ content, isDarkMode = true }: MarkdownMessageP
               )
             }
             return (
-              <code className={`${className} block`} {...props}>
+              <code className={`${className} block`} style={{ whiteSpace: 'pre', maxWidth: '100%' }} {...props}>
                 {children}
               </code>
             )
@@ -87,6 +90,12 @@ export function MarkdownMessage({ content, isDarkMode = true }: MarkdownMessageP
                   ? 'bg-zinc-900 border border-zinc-800'
                   : 'bg-zinc-100 border border-zinc-200'
               }`}
+              style={{
+                width: '100%',
+                maxWidth: '100%',
+                whiteSpace: 'pre',
+                overflowX: 'auto'
+              }}
               {...props}
             />
           ),

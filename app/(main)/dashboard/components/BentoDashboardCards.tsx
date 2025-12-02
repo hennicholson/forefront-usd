@@ -1,7 +1,13 @@
 'use client'
 
 import Link from 'next/link'
+import { motion } from 'framer-motion'
 import { Badge } from '@/components/ui/badge'
+
+// Shared spring transition for consistent animations
+const cardSpring = { type: "spring", stiffness: 400, damping: 25 }
+const hoverScale = { scale: 1.01 }
+const tapScale = { scale: 0.99 }
 
 interface Module {
   id: string
@@ -45,7 +51,11 @@ export const ProgressStatsCard = ({ completedModules, totalModules, completedSli
   const progressPercent = totalSlides > 0 ? Math.round((completedSlides / totalSlides) * 100) : 0
 
   return (
-    <div className="h-full flex flex-col bg-zinc-900 border-2 border-zinc-800 rounded-2xl p-8 hover:border-white transition-all duration-300 cursor-pointer group">
+    <motion.div
+      whileHover={hoverScale}
+      whileTap={tapScale}
+      transition={cardSpring}
+      className="h-full flex flex-col bg-zinc-900 border-2 border-zinc-800 rounded-2xl p-8 hover:border-white hover:shadow-[0_0_30px_rgba(255,255,255,0.1)] transition-all duration-300 cursor-pointer group">
       <div className="mb-8">
         <div className="text-xs uppercase tracking-widest text-zinc-500 mb-2 font-bold">
           learning stats
@@ -91,7 +101,7 @@ export const ProgressStatsCard = ({ completedModules, totalModules, completedSli
           view details →
         </div>
       </div>
-    </div>
+    </motion.div>
   )
 }
 
@@ -116,9 +126,12 @@ export const ActiveLearningCard = ({ startedModules }: BentoCardProps) => {
 // Card 3: Generation Portfolio Summary
 export const GenerationPortfolioCard = ({ savedGenerations = 0, totalGenerations = 0, onClick }: BentoCardProps & { onClick?: () => void }) => {
   return (
-    <div
+    <motion.div
       onClick={onClick}
-      className="h-full bg-gradient-to-br from-zinc-900 to-zinc-950 border-2 border-zinc-800 rounded-2xl p-6 hover:border-purple-500 transition-all duration-300 cursor-pointer group relative overflow-hidden"
+      whileHover={hoverScale}
+      whileTap={tapScale}
+      transition={cardSpring}
+      className="h-full bg-gradient-to-br from-zinc-900 to-zinc-950 border-2 border-zinc-800 rounded-2xl p-6 hover:border-purple-500 hover:shadow-[0_0_30px_rgba(168,85,247,0.15)] transition-all duration-300 cursor-pointer group relative overflow-hidden"
     >
       {/* Dotted background pattern */}
       <div
@@ -144,7 +157,7 @@ export const GenerationPortfolioCard = ({ savedGenerations = 0, totalGenerations
           view portfolio →
         </div>
       </div>
-    </div>
+    </motion.div>
   )
 }
 
@@ -308,9 +321,12 @@ export const MySubmissionsCard = ({ submissions = [], onClick }: BentoCardProps 
   const total = submissions.length
 
   return (
-    <div
+    <motion.div
       onClick={onClick}
-      className="h-full bg-zinc-900 border-2 border-zinc-800 rounded-2xl p-6 hover:border-yellow-500 transition-all duration-300 cursor-pointer group"
+      whileHover={hoverScale}
+      whileTap={tapScale}
+      transition={cardSpring}
+      className="h-full bg-zinc-900 border-2 border-zinc-800 rounded-2xl p-6 hover:border-yellow-500 hover:shadow-[0_0_30px_rgba(234,179,8,0.1)] transition-all duration-300 cursor-pointer group"
     >
       <div className="text-xs uppercase tracking-wider text-zinc-500 mb-3 font-bold">
         my submissions
@@ -346,7 +362,7 @@ export const MySubmissionsCard = ({ submissions = [], onClick }: BentoCardProps 
       <div className="mt-4 text-xs uppercase tracking-wider text-white font-bold opacity-0 group-hover:opacity-100 transition-opacity">
         {total > 0 ? 'view all →' : 'submit course →'}
       </div>
-    </div>
+    </motion.div>
   )
 }
 
@@ -415,7 +431,11 @@ export const AllModulesGridCard = ({ modules = [], progress = [] }: BentoCardPro
 export const StudentNetworkCard = () => {
   return (
     <Link href="/network">
-      <div className="h-full bg-zinc-900 border-2 border-zinc-800 rounded-2xl p-6 hover:border-cyan-500 transition-all duration-300 cursor-pointer group">
+      <motion.div
+        whileHover={hoverScale}
+        whileTap={tapScale}
+        transition={cardSpring}
+        className="h-full bg-zinc-900 border-2 border-zinc-800 rounded-2xl p-6 hover:border-cyan-500 hover:shadow-[0_0_30px_rgba(6,182,212,0.1)] transition-all duration-300 cursor-pointer group">
         <div className="text-xs uppercase tracking-wider text-zinc-500 mb-3 font-bold">
           connect & learn
         </div>
@@ -424,7 +444,7 @@ export const StudentNetworkCard = () => {
         <div className="text-xs uppercase tracking-wider text-cyan-400 font-bold opacity-0 group-hover:opacity-100 transition-opacity">
           explore →
         </div>
-      </div>
+      </motion.div>
     </Link>
   )
 }
@@ -433,7 +453,12 @@ export const StudentNetworkCard = () => {
 export const AIWorkflowsCard = () => {
   return (
     <Link href="/workflows">
-      <div className="h-full bg-zinc-900 border-2 border-zinc-800 rounded-2xl p-6 hover:border-indigo-500 transition-all duration-300 cursor-pointer group">
+      <motion.div
+        whileHover={hoverScale}
+        whileTap={tapScale}
+        transition={cardSpring}
+        className="h-full bg-zinc-900 border-2 border-zinc-800 rounded-2xl p-6 hover:border-indigo-500 hover:shadow-[0_0_30px_rgba(99,102,241,0.1)] transition-all duration-300 cursor-pointer group"
+      >
         <div className="text-xs uppercase tracking-wider text-zinc-500 mb-3 font-bold">
           visual guides
         </div>
@@ -442,7 +467,7 @@ export const AIWorkflowsCard = () => {
         <div className="text-xs uppercase tracking-wider text-indigo-400 font-bold opacity-0 group-hover:opacity-100 transition-opacity">
           explore →
         </div>
-      </div>
+      </motion.div>
     </Link>
   )
 }
@@ -451,7 +476,12 @@ export const AIWorkflowsCard = () => {
 export const SubmitCourseCard = () => {
   return (
     <Link href="/submit">
-      <div className="h-full bg-zinc-900 border-2 border-zinc-800 rounded-2xl p-6 hover:border-pink-500 transition-all duration-300 cursor-pointer group">
+      <motion.div
+        whileHover={hoverScale}
+        whileTap={tapScale}
+        transition={cardSpring}
+        className="h-full bg-zinc-900 border-2 border-zinc-800 rounded-2xl p-6 hover:border-pink-500 hover:shadow-[0_0_30px_rgba(236,72,153,0.1)] transition-all duration-300 cursor-pointer group"
+      >
         <div className="text-xs uppercase tracking-wider text-zinc-500 mb-3 font-bold">
           share knowledge
         </div>
@@ -460,7 +490,7 @@ export const SubmitCourseCard = () => {
         <div className="text-xs uppercase tracking-wider text-pink-400 font-bold opacity-0 group-hover:opacity-100 transition-opacity">
           submit →
         </div>
-      </div>
+      </motion.div>
     </Link>
   )
 }
@@ -468,9 +498,12 @@ export const SubmitCourseCard = () => {
 // Card 13: Newsletter
 export const NewsletterCard = ({ onClick }: { onClick?: () => void }) => {
   return (
-    <div
+    <motion.div
       onClick={onClick}
-      className="h-full bg-gradient-to-br from-purple-900/20 to-pink-900/20 border-2 border-zinc-800 rounded-2xl p-6 hover:border-purple-500 transition-all duration-300 cursor-pointer group relative overflow-hidden"
+      whileHover={hoverScale}
+      whileTap={tapScale}
+      transition={cardSpring}
+      className="h-full bg-gradient-to-br from-purple-900/20 to-pink-900/20 border-2 border-zinc-800 rounded-2xl p-6 hover:border-purple-500 hover:shadow-[0_0_30px_rgba(168,85,247,0.15)] transition-all duration-300 cursor-pointer group relative overflow-hidden"
     >
       {/* Animated gradient background */}
       <div
@@ -506,6 +539,6 @@ export const NewsletterCard = ({ onClick }: { onClick?: () => void }) => {
           }
         }
       `}</style>
-    </div>
+    </motion.div>
   )
 }

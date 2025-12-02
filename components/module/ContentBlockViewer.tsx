@@ -88,9 +88,9 @@ export function ContentBlockViewer({ blocks, theme = 'dark' }: ContentBlockViewe
             </div>
             <pre style={{
               margin: 0,
-              padding: '20px',
+              padding: 'clamp(12px, 3vw, 20px)',
               fontFamily: 'monospace',
-              fontSize: '14px',
+              fontSize: 'clamp(12px, 2.5vw, 14px)',
               lineHeight: 1.8,
               color: c.codeText,
               overflowX: 'auto'
@@ -237,7 +237,7 @@ export function ContentBlockViewer({ blocks, theme = 'dark' }: ContentBlockViewe
             background: c.blockBg,
             border: `2px solid ${c.accent}`,
             borderRadius: '16px',
-            padding: '24px',
+            padding: 'clamp(16px, 4vw, 24px)',
             position: 'relative',
             overflow: 'hidden'
           }}>
@@ -246,8 +246,8 @@ export function ContentBlockViewer({ blocks, theme = 'dark' }: ContentBlockViewe
               position: 'absolute',
               top: 0,
               right: 0,
-              width: '80px',
-              height: '80px',
+              width: 'clamp(48px, 12vw, 80px)',
+              height: 'clamp(48px, 12vw, 80px)',
               background: c.accent,
               opacity: 0.05,
               borderRadius: '0 0 0 100%'
@@ -326,12 +326,12 @@ export function ContentBlockViewer({ blocks, theme = 'dark' }: ContentBlockViewe
                 {chartConfig.title || 'Chart'}
               </div>
               <div style={{
-                padding: '32px',
+                padding: 'clamp(16px, 4vw, 32px)',
                 color: c.text
               }}>
                 {/* Bar Chart */}
                 {chartConfig.type === 'bar' && (
-                  <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around', height: '250px', gap: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around', height: 'clamp(180px, 35vw, 250px)', gap: 'clamp(8px, 2vw, 16px)' }}>
                     {chartConfig.dataRows.map((row: any, i: number) => {
                       const height = ((parseFloat(row.value) || 0) / maxValue) * 100
                       return (
@@ -372,8 +372,8 @@ export function ContentBlockViewer({ blocks, theme = 'dark' }: ContentBlockViewe
                 {chartConfig.type === 'pie' && (
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '24px' }}>
                     <div style={{
-                      width: '240px',
-                      height: '240px',
+                      width: 'min(240px, 70vw)',
+                      height: 'min(240px, 70vw)',
                       borderRadius: '50%',
                       background: `conic-gradient(${chartConfig.dataRows.map((row: any, i: number) => {
                         const total = chartConfig.dataRows.reduce((sum: number, r: any) => sum + (parseFloat(r.value) || 0), 0)
@@ -477,8 +477,8 @@ export function ContentBlockViewer({ blocks, theme = 'dark' }: ContentBlockViewe
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '24px' }}>
                     <div style={{ position: 'relative' }}>
                       <div style={{
-                        width: '240px',
-                        height: '240px',
+                        width: 'min(240px, 70vw)',
+                        height: 'min(240px, 70vw)',
                         borderRadius: '50%',
                         background: `conic-gradient(${chartConfig.dataRows.map((row: any, i: number) => {
                           const total = chartConfig.dataRows.reduce((sum: number, r: any) => sum + (parseFloat(r.value) || 0), 0)
@@ -494,8 +494,8 @@ export function ContentBlockViewer({ blocks, theme = 'dark' }: ContentBlockViewe
                         top: '50%',
                         left: '50%',
                         transform: 'translate(-50%, -50%)',
-                        width: '140px',
-                        height: '140px',
+                        width: 'min(140px, 42vw)',
+                        height: 'min(140px, 42vw)',
                         borderRadius: '50%',
                         background: c.blockBg
                       }} />

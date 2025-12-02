@@ -25,19 +25,24 @@ export async function POST(request: NextRequest) {
       }
     ) as any
 
-    // The output is an array of file objects with .url() method
-    const imageUrl = output && output[0] ? output[0].url() : null
+    // Output is an array of URLs (strings)
+    const replicateUrl = output && output[0] ? String(output[0]) : null
 
-    if (!imageUrl) {
+    if (!replicateUrl) {
       return NextResponse.json(
         { error: 'Failed to generate image' },
         { status: 500 }
       )
     }
 
+    // Download and save image to local storage
+    const { downloadAndSaveImage } = await import('@/lib/image-storage')
+    const userIdForStorage = userId || 'anonymous'
+    const localImageUrl = await downloadAndSaveImage(replicateUrl, userIdForStorage)
+
     return NextResponse.json({
       success: true,
-      imageUrl: imageUrl,
+      imageUrl: localImageUrl,  // Return local path instead of Replicate URL
       model: 'seedream-4',
       prompt: prompt,
       metadata: {

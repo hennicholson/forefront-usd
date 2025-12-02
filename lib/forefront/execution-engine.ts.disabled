@@ -1,0 +1,739 @@
+/**
+ * Workflow Execution Engine
+ *
+ * Executes dynamic workflows with parallel/sequential processing,
+ * quality gates, and fallback strategies.
+ */
+
+import { UniversalIntent } from './intent-classifier'
+import { SemanticAnalysis } from './semantic-analyzer'
+import {
+  DynamicWorkflow,
+  WorkflowStep,
+  QualityGate,
+  FallbackStrategy
+} from './workflow-builder'
+import { ConsensusOrchestrator, ConsensusStrategy } from './consensus'
+import { validateQuality, QualityValidationResult } from './quality-validator'
+import { createReResearchLoop, ReResearchLoopResult } from './re-research-loop'
+import { ModelCapability, getModelForCapability, ModelInfo } from '../models'
+
+export interface StepExecutionResult {
+  stepId: string
+  stepType: WorkflowStepType
+  status: 'success' | 'failed' | 'skipped' | 'retried'
+  output: any
+  metadata: {
+    model?: string
+    duration: number
+    retries?: number
+    fallbackUsed?: boolean
+    qualityScore?: number
+  }
+  errors?: string[]
+}
+
+export interface WorkflowExecutionResult {
+  workflowId: string
+  status: 'completed' | 'failed' | 'partial'
+  steps: StepExecutionResult[]
+  finalOutput: any
+  qualityScore: number
+  totalDuration: number
+  reResearchPerformed: boolean
+  reResearchIterations?: number
+  metadata: {
+    parallelSteps: number
+    sequentialSteps: number
+    failedSteps: number
+    skippedSteps: number
+    qualityGatesPassed: number
+    qualityGatesFailed: number
+  }
+}
+
+export interface ExecutionContext {
+  intent: UniversalIntent
+  semantics: SemanticAnalysis
+  workflow: DynamicWorkflow
+  intermediateResults: Map<string, any>
+  qualityScores: Map<string, number>
+  startTime: number
+}
+
+/**
+ * Workflow Execution Engine
+ */
+export class WorkflowExecutionEngine {
+  private consensusOrchestrator: ConsensusOrchestrator
+  private reResearchLoop = createReResearchLoop()
+  private maxRetries = 3
+  private parallelExecutionLimit = 5
+
+  constructor() {
+    this.consensusOrchestrator = new ConsensusOrchestrator()
+  }
+
+  /**
+   * Execute a complete workflow
+   */
+  async execute(
+    workflow: DynamicWorkflow,
+    intent: UniversalIntent,
+    semantics: SemanticAnalysis,
+    input: string
+  ): Promise<WorkflowExecutionResult> {
+    const startTime = Date.now()
+    const context: ExecutionContext = {
+      intent,
+      semantics,
+      workflow,
+      intermediateResults: new Map(),
+      qualityScores: new Map(),
+      startTime
+    }
+
+    console.log(`[Execution] Starting workflow ${workflow.workflowId} with ${workflow.steps.length} steps`)
+
+    const stepResults: StepExecutionResult[] = []
+    let qualityGatesPassed = 0
+    let qualityGatesFailed = 0
+
+    // Group steps by execution order
+    const stepGroups = this.groupStepsByDependencies(workflow.steps)
+
+    // Execute step groups
+    for (const group of stepGroups) {
+      console.log(`[Execution] Processing group with ${group.length} steps`)
+
+      if (group.length === 1) {
+        // Execute single step
+        const result = await this.executeStep(group[0], input, context)
+        stepResults.push(result)
+
+        if (result.status === 'failed') {
+          // Try fallback strategy
+          const fallbackResult = await this.executeFallbackStrategy(
+            group[0],
+            workflow.fallbackStrategies,
+            input,
+            context
+          )
+          if (fallbackResult) {
+            stepResults.push(fallbackResult)
+          }
+        }
+      } else {
+        // Execute parallel steps
+        const parallelResults = await this.executeParallelSteps(group, input, context)
+        stepResults.push(...parallelResults)
+      }
+
+      // Check quality gates after each group
+      for (const gate of workflow.qualityGates) {
+        if (this.shouldCheckQualityGate(gate, stepResults)) {
+          const passed = await this.checkQualityGate(gate, context)
+          if (passed) {
+            qualityGatesPassed++
+          } else {
+            qualityGatesFailed++
+            console.log(`[Execution] Quality gate ${gate.id} failed`)
+          }
+        }
+      }
+    }
+
+    // Synthesize final output
+    const finalOutput = await this.synthesizeFinalOutput(
+      stepResults,
+      context
+    )
+
+    // Validate final quality
+    const finalValidation = await validateQuality(
+      finalOutput,
+      intent,
+      semantics
+    )
+
+    // Execute re-research if needed
+    let reResearchResult: ReResearchLoopResult | null = null
+    if (finalValidation.needsReResearch && intent.capabilities.needsValidation) {
+      console.log(`[Execution] Triggering re-research loop`)
+      reResearchResult = await this.reResearchLoop.executeReResearchLoop(
+        finalOutput,
+        intent,
+        semantics,
+        workflow,
+        finalValidation
+      )
+    }
+
+    // Calculate metadata
+    const metadata = {
+      parallelSteps: stepResults.filter(s => s.metadata.duration < 1000).length, // Approximate
+      sequentialSteps: stepResults.filter(s => s.metadata.duration >= 1000).length,
+      failedSteps: stepResults.filter(s => s.status === 'failed').length,
+      skippedSteps: stepResults.filter(s => s.status === 'skipped').length,
+      qualityGatesPassed,
+      qualityGatesFailed
+    }
+
+    // Determine overall status
+    const status = this.determineOverallStatus(stepResults, finalValidation)
+
+    return {
+      workflowId: workflow.workflowId,
+      status,
+      steps: stepResults,
+      finalOutput: reResearchResult?.finalContent || finalOutput,
+      qualityScore: reResearchResult?.finalQualityScore || finalValidation.overallScore,
+      totalDuration: Date.now() - startTime,
+      reResearchPerformed: reResearchResult !== null,
+      reResearchIterations: reResearchResult?.totalIterations,
+      metadata
+    }
+  }
+
+  /**
+   * Execute a single workflow step
+   */
+  private async executeStep(
+    step: WorkflowStep,
+    input: string,
+    context: ExecutionContext
+  ): Promise<StepExecutionResult> {
+    const startTime = Date.now()
+    console.log(`[Execution] Executing step ${step.id} (${step.type})`)
+
+    try {
+      let output: any
+      let model: string | undefined
+
+      switch (step.type) {
+        case 'research':
+          const researchResult = await this.executeResearchStep(step, input, context)
+          output = researchResult.output
+          model = researchResult.model
+          break
+
+        case 'analysis':
+          const analysisResult = await this.executeAnalysisStep(step, input, context)
+          output = analysisResult.output
+          model = analysisResult.model
+          break
+
+        case 'generation':
+          const generationResult = await this.executeGenerationStep(step, input, context)
+          output = generationResult.output
+          model = generationResult.model
+          break
+
+        case 'optimization':
+          const optimizationResult = await this.executeOptimizationStep(step, input, context)
+          output = optimizationResult.output
+          model = optimizationResult.model
+          break
+
+        case 'validation':
+          const validationResult = await this.executeValidationStep(step, input, context)
+          output = validationResult.output
+          model = validationResult.model
+          break
+
+        case 'consensus':
+          output = await this.executeConsensusStep(step, input, context)
+          model = 'consensus_ensemble'
+          break
+
+        case 'synthesis':
+          output = await this.executeSynthesisStep(step, context)
+          model = getModelForCapability(ModelCapability.TEXT_GENERATION).id
+          break
+
+        case 'transformation':
+          const transformResult = await this.executeTransformationStep(step, input, context)
+          output = transformResult.output
+          model = transformResult.model
+          break
+
+        default:
+          throw new Error(`Unknown step type: ${step.type}`)
+      }
+
+      // Store intermediate result
+      context.intermediateResults.set(step.id, output)
+
+      return {
+        stepId: step.id,
+        stepType: step.type,
+        status: 'success',
+        output,
+        metadata: {
+          model,
+          duration: Date.now() - startTime
+        }
+      }
+    } catch (error) {
+      console.error(`[Execution] Step ${step.id} failed:`, error)
+      return {
+        stepId: step.id,
+        stepType: step.type,
+        status: 'failed',
+        output: null,
+        metadata: {
+          duration: Date.now() - startTime
+        },
+        errors: [error?.toString() || 'Unknown error']
+      }
+    }
+  }
+
+  /**
+   * Execute research step
+   */
+  private async executeResearchStep(
+    step: WorkflowStep,
+    input: string,
+    context: ExecutionContext
+  ): Promise<{ output: string; model: string }> {
+    const model = step.modelRequirements?.preferredModel ||
+                  getModelForCapability(ModelCapability.RESEARCH).id
+
+    // Simulate research execution
+    const researchPrompt = `
+Research the following topic comprehensively:
+${input}
+
+Focus areas:
+${step.parameters?.focusAreas?.join(', ') || 'General research'}
+
+Requirements:
+- Provide factual, up-to-date information
+- Include multiple perspectives
+- Cite sources when possible
+`
+
+    const output = await this.simulateModelExecution(model, researchPrompt)
+    return { output, model }
+  }
+
+  /**
+   * Execute analysis step
+   */
+  private async executeAnalysisStep(
+    step: WorkflowStep,
+    input: string,
+    context: ExecutionContext
+  ): Promise<{ output: string; model: string }> {
+    const model = step.modelRequirements?.preferredModel ||
+                  getModelForCapability(ModelCapability.DATA_ANALYSIS).id
+
+    // Get previous research if available
+    const previousResearch = this.getPreviousStepOutput('research', context)
+
+    const analysisPrompt = `
+Analyze the following:
+${input}
+
+${previousResearch ? `Context from research:\n${previousResearch}` : ''}
+
+Analysis type: ${step.parameters?.analysisType || 'comprehensive'}
+
+Provide detailed insights and patterns.
+`
+
+    const output = await this.simulateModelExecution(model, analysisPrompt)
+    return { output, model }
+  }
+
+  /**
+   * Execute generation step
+   */
+  private async executeGenerationStep(
+    step: WorkflowStep,
+    input: string,
+    context: ExecutionContext
+  ): Promise<{ output: string; model: string }> {
+    const capability = this.getGenerationCapability(context.intent)
+    const model = step.modelRequirements?.preferredModel ||
+                  getModelForCapability(capability).id
+
+    const generationPrompt = `
+Generate content based on:
+${input}
+
+Type: ${context.intent.domain}
+Format: ${context.intent.deliveryFormat}
+Quality Level: ${context.intent.qualityThresholds.creativityLevel}
+`
+
+    const output = await this.simulateModelExecution(model, generationPrompt)
+    return { output, model }
+  }
+
+  /**
+   * Execute optimization step
+   */
+  private async executeOptimizationStep(
+    step: WorkflowStep,
+    input: string,
+    context: ExecutionContext
+  ): Promise<{ output: string; model: string }> {
+    const model = step.modelRequirements?.preferredModel ||
+                  getModelForCapability(ModelCapability.CODE_GENERATION).id
+
+    const optimizationPrompt = `
+Optimize the following:
+${input}
+
+Optimization goals:
+- Performance
+- Quality
+- Clarity
+- Efficiency
+`
+
+    const output = await this.simulateModelExecution(model, optimizationPrompt)
+    return { output, model }
+  }
+
+  /**
+   * Execute validation step
+   */
+  private async executeValidationStep(
+    step: WorkflowStep,
+    input: string,
+    context: ExecutionContext
+  ): Promise<{ output: any; model: string }> {
+    const validation = await validateQuality(
+      input,
+      context.intent,
+      context.semantics
+    )
+
+    context.qualityScores.set(step.id, validation.overallScore)
+
+    return {
+      output: validation,
+      model: 'quality_validator'
+    }
+  }
+
+  /**
+   * Execute consensus step
+   */
+  private async executeConsensusStep(
+    step: WorkflowStep,
+    input: string,
+    context: ExecutionContext
+  ): Promise<string> {
+    const strategy = (step.parameters?.consensusStrategy as ConsensusStrategy) ||
+                     ConsensusStrategy.PARALLEL_VALIDATION
+
+    const result = await this.consensusOrchestrator.executeConsensus(
+      input,
+      strategy,
+      context.intent
+    )
+
+    context.qualityScores.set(step.id, result.confidence)
+    return result.finalResult
+  }
+
+  /**
+   * Execute synthesis step
+   */
+  private async executeSynthesisStep(
+    step: WorkflowStep,
+    context: ExecutionContext
+  ): Promise<string> {
+    const sources = step.dependencies?.map(dep =>
+      context.intermediateResults.get(dep)
+    ).filter(Boolean)
+
+    if (sources.length === 0) {
+      throw new Error('No sources for synthesis')
+    }
+
+    const synthesisPrompt = `
+Synthesize the following sources into a coherent output:
+
+${sources.map((s, i) => `Source ${i + 1}:\n${s}`).join('\n\n')}
+
+Create a unified, high-quality result.
+`
+
+    const model = getModelForCapability(ModelCapability.TEXT_GENERATION).id
+    return await this.simulateModelExecution(model, synthesisPrompt)
+  }
+
+  /**
+   * Execute transformation step
+   */
+  private async executeTransformationStep(
+    step: WorkflowStep,
+    input: string,
+    context: ExecutionContext
+  ): Promise<{ output: string; model: string }> {
+    const fromFormat = step.parameters?.fromFormat || 'text'
+    const toFormat = step.parameters?.toFormat || context.intent.deliveryFormat
+
+    const model = getModelForCapability(ModelCapability.TEXT_GENERATION).id
+
+    const transformPrompt = `
+Transform the following content from ${fromFormat} to ${toFormat}:
+${input}
+`
+
+    const output = await this.simulateModelExecution(model, transformPrompt)
+    return { output, model }
+  }
+
+  /**
+   * Execute parallel steps
+   */
+  private async executeParallelSteps(
+    steps: WorkflowStep[],
+    input: string,
+    context: ExecutionContext
+  ): Promise<StepExecutionResult[]> {
+    console.log(`[Execution] Executing ${steps.length} steps in parallel`)
+
+    // Limit parallel execution
+    const batches: WorkflowStep[][] = []
+    for (let i = 0; i < steps.length; i += this.parallelExecutionLimit) {
+      batches.push(steps.slice(i, i + this.parallelExecutionLimit))
+    }
+
+    const results: StepExecutionResult[] = []
+    for (const batch of batches) {
+      const batchPromises = batch.map(step =>
+        this.executeStep(step, input, context)
+      )
+      const batchResults = await Promise.all(batchPromises)
+      results.push(...batchResults)
+    }
+
+    return results
+  }
+
+  /**
+   * Execute fallback strategy
+   */
+  private async executeFallbackStrategy(
+    failedStep: WorkflowStep,
+    strategies: FallbackStrategy[],
+    input: string,
+    context: ExecutionContext
+  ): Promise<StepExecutionResult | null> {
+    const strategy = strategies.find(s => s.triggerStepId === failedStep.id)
+    if (!strategy) return null
+
+    console.log(`[Execution] Executing fallback strategy for step ${failedStep.id}`)
+
+    switch (strategy.action) {
+      case 'retry':
+        // Retry with same parameters
+        return await this.executeStep(failedStep, input, context)
+
+      case 'skip':
+        // Skip the step
+        return {
+          stepId: failedStep.id,
+          stepType: failedStep.type,
+          status: 'skipped',
+          output: null,
+          metadata: {
+            duration: 0,
+            fallbackUsed: true
+          }
+        }
+
+      case 'use_alternative':
+        // Use alternative model
+        if (strategy.alternativeModel) {
+          const alternativeStep = {
+            ...failedStep,
+            modelRequirements: {
+              ...failedStep.modelRequirements,
+              preferredModel: strategy.alternativeModel
+            }
+          }
+          const result = await this.executeStep(alternativeStep, input, context)
+          result.metadata.fallbackUsed = true
+          return result
+        }
+        return null
+
+      case 'simplify':
+        // Simplify the input and retry
+        const simplifiedInput = input.substring(0, Math.floor(input.length / 2))
+        const result = await this.executeStep(failedStep, simplifiedInput, context)
+        result.metadata.fallbackUsed = true
+        return result
+
+      default:
+        return null
+    }
+  }
+
+  /**
+   * Group steps by dependencies for execution order
+   */
+  private groupStepsByDependencies(steps: WorkflowStep[]): WorkflowStep[][] {
+    const groups: WorkflowStep[][] = []
+    const processed = new Set<string>()
+
+    while (processed.size < steps.length) {
+      const group: WorkflowStep[] = []
+
+      for (const step of steps) {
+        if (processed.has(step.id)) continue
+
+        const dependenciesMet = !step.dependencies ||
+          step.dependencies.every(dep => processed.has(dep))
+
+        if (dependenciesMet) {
+          group.push(step)
+        }
+      }
+
+      if (group.length === 0) {
+        // Circular dependency or error
+        console.error('[Execution] Circular dependency detected')
+        break
+      }
+
+      groups.push(group)
+      group.forEach(step => processed.add(step.id))
+    }
+
+    return groups
+  }
+
+  /**
+   * Check if quality gate should be evaluated
+   */
+  private shouldCheckQualityGate(
+    gate: QualityGate,
+    completedSteps: StepExecutionResult[]
+  ): boolean {
+    const completedIds = new Set(completedSteps.map(s => s.stepId))
+    return gate.stepId === 'final' || completedIds.has(gate.stepId)
+  }
+
+  /**
+   * Check quality gate
+   */
+  private async checkQualityGate(
+    gate: QualityGate,
+    context: ExecutionContext
+  ): Promise<boolean> {
+    const score = context.qualityScores.get(gate.stepId) || 0
+    return score >= gate.threshold
+  }
+
+  /**
+   * Synthesize final output from step results
+   */
+  private async synthesizeFinalOutput(
+    steps: StepExecutionResult[],
+    context: ExecutionContext
+  ): Promise<string> {
+    const successfulSteps = steps.filter(s => s.status === 'success')
+
+    if (successfulSteps.length === 0) {
+      return 'Workflow execution failed - no successful steps'
+    }
+
+    // Find the last generation or synthesis step
+    const outputStep = [...successfulSteps].reverse().find(s =>
+      s.stepType === 'generation' ||
+      s.stepType === 'synthesis' ||
+      s.stepType === 'transformation'
+    )
+
+    if (outputStep?.output) {
+      return typeof outputStep.output === 'string'
+        ? outputStep.output
+        : JSON.stringify(outputStep.output)
+    }
+
+    // Fallback: concatenate all outputs
+    return successfulSteps
+      .map(s => typeof s.output === 'string' ? s.output : JSON.stringify(s.output))
+      .join('\n\n')
+  }
+
+  /**
+   * Get previous step output by type
+   */
+  private getPreviousStepOutput(
+    stepType: WorkflowStepType,
+    context: ExecutionContext
+  ): string | null {
+    const step = context.workflow.steps.find(s => s.type === stepType)
+    if (step) {
+      return context.intermediateResults.get(step.id) || null
+    }
+    return null
+  }
+
+  /**
+   * Get appropriate generation capability
+   */
+  private getGenerationCapability(intent: UniversalIntent): ModelCapability {
+    switch (intent.deliveryFormat) {
+      case 'visual':
+        return ModelCapability.IMAGE_GENERATION
+      case 'code':
+        return ModelCapability.CODE_GENERATION
+      case 'multimedia':
+        return ModelCapability.VIDEO_GENERATION
+      default:
+        return ModelCapability.TEXT_GENERATION
+    }
+  }
+
+  /**
+   * Determine overall workflow status
+   */
+  private determineOverallStatus(
+    steps: StepExecutionResult[],
+    validation: QualityValidationResult
+  ): 'completed' | 'failed' | 'partial' {
+    const failedCritical = steps.some(s =>
+      s.status === 'failed' && s.stepType !== 'validation'
+    )
+
+    if (failedCritical) {
+      return 'failed'
+    }
+
+    const successRate = steps.filter(s => s.status === 'success').length / steps.length
+
+    if (successRate === 1 && validation.overallScore >= 0.7) {
+      return 'completed'
+    } else if (successRate >= 0.5) {
+      return 'partial'
+    } else {
+      return 'failed'
+    }
+  }
+
+  /**
+   * Simulate model execution (placeholder)
+   */
+  private async simulateModelExecution(modelId: string, prompt: string): Promise<string> {
+    // In production, this would call the actual model
+    return `[${modelId} output for: ${prompt.substring(0, 100)}...]`
+  }
+}
+
+/**
+ * Create execution engine instance
+ */
+export function createExecutionEngine(): WorkflowExecutionEngine {
+  return new WorkflowExecutionEngine()
+}

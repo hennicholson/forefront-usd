@@ -1,0 +1,900 @@
+/**
+ * Quality Validation System for Forefront Intelligence V2
+ *
+ * Automatically validates output quality and triggers re-research
+ * when quality thresholds are not met.
+ */
+
+import { UniversalIntent } from './intent-classifier'
+import { groqClient } from '@/lib/groq/client'
+import { ConsensusOrchestrator, ConsensusResult } from './consensus'
+
+/**
+ * Validation result for a single check
+ */
+export interface ValidationResult {
+  validator: string
+  passed: boolean
+  score: number  // 0-1
+  threshold: number
+  issues: string[]
+  suggestions: string[]
+  metadata?: any
+}
+
+/**
+ * Complete validation report
+ */
+export interface ValidationReport {
+  passed: boolean
+  overallScore: number
+  results: ValidationResult[]
+  failedValidators: string[]
+  requiresReResearch: boolean
+  reResearchQueries?: string[]
+  improvementSuggestions: string[]
+}
+
+/**
+ * Quality validator definition
+ */
+export interface QualityValidator {
+  name: string
+  description: string
+  domain?: string[]  // Which domains this validator applies to
+  evaluator: (output: any, context: ValidationContext) => Promise<ValidationResult>
+  threshold: number
+  onFailure: 'retry' | 're_research' | 'escalate_models' | 'continue' | 'human_review'
+  priority: 'critical' | 'high' | 'medium' | 'low'
+}
+
+/**
+ * Context for validation
+ */
+export interface ValidationContext {
+  intent: UniversalIntent
+  originalRequest: string
+  stepId?: string
+  stepPurpose?: string
+  citations?: any[]
+  searchResults?: any[]
+  consensusResult?: ConsensusResult
+  executionTime?: number
+  modelUsed?: string
+}
+
+/**
+ * Domain-specific quality thresholds
+ */
+const DOMAIN_THRESHOLDS = {
+  creative: {
+    originality: 0.7,
+    coherence: 0.8,
+    detail: 0.7
+  },
+  analytical: {
+    factualAccuracy: 0.9,
+    completeness: 0.85,
+    logicalConsistency: 0.9
+  },
+  technical: {
+    correctness: 0.95,
+    completeness: 0.9,
+    bestPractices: 0.8
+  },
+  learning: {
+    clarity: 0.9,
+    accuracy: 0.95,
+    pedagogicalValue: 0.85
+  },
+  hybrid: {
+    balance: 0.8,
+    integration: 0.75,
+    overallQuality: 0.8
+  }
+}
+
+/**
+ * Core quality validators
+ */
+export const QUALITY_VALIDATORS: QualityValidator[] = [
+  {
+    name: 'factual_accuracy',
+    description: 'Verifies factual correctness of claims',
+    domain: ['analytical', 'technical', 'learning'],
+    evaluator: async (output: string, context: ValidationContext) => {
+      return await validateFactualAccuracy(output, context)
+    },
+    threshold: 0.85,
+    onFailure: 're_research',
+    priority: 'critical'
+  },
+
+  {
+    name: 'research_sufficiency',
+    description: 'Checks if research gathered enough information',
+    domain: ['analytical', 'hybrid'],
+    evaluator: async (output: any, context: ValidationContext) => {
+      return await validateResearchSufficiency(output, context)
+    },
+    threshold: 0.7,
+    onFailure: 're_research',
+    priority: 'high'
+  },
+
+  {
+    name: 'consensus_agreement',
+    description: 'Validates inter-model agreement level',
+    evaluator: async (output: any, context: ValidationContext) => {
+      return await validateConsensusAgreement(output, context)
+    },
+    threshold: 0.7,
+    onFailure: 'escalate_models',
+    priority: 'high'
+  },
+
+  {
+    name: 'completeness',
+    description: 'Ensures response fully addresses the request',
+    evaluator: async (output: string, context: ValidationContext) => {
+      return await validateCompleteness(output, context)
+    },
+    threshold: 0.8,
+    onFailure: 'retry',
+    priority: 'medium'
+  },
+
+  {
+    name: 'technical_correctness',
+    description: 'Validates technical accuracy and best practices',
+    domain: ['technical'],
+    evaluator: async (output: string, context: ValidationContext) => {
+      return await validateTechnicalCorrectness(output, context)
+    },
+    threshold: 0.9,
+    onFailure: 'escalate_models',
+    priority: 'critical'
+  },
+
+  {
+    name: 'creative_quality',
+    description: 'Assesses creativity and originality',
+    domain: ['creative'],
+    evaluator: async (output: string, context: ValidationContext) => {
+      return await validateCreativeQuality(output, context)
+    },
+    threshold: 0.7,
+    onFailure: 'retry',
+    priority: 'medium'
+  },
+
+  {
+    name: 'educational_clarity',
+    description: 'Validates pedagogical quality and clarity',
+    domain: ['learning'],
+    evaluator: async (output: string, context: ValidationContext) => {
+      return await validateEducationalClarity(output, context)
+    },
+    threshold: 0.85,
+    onFailure: 'retry',
+    priority: 'high'
+  },
+
+  {
+    name: 'output_format',
+    description: 'Ensures output matches expected format',
+    evaluator: async (output: any, context: ValidationContext) => {
+      return await validateOutputFormat(output, context)
+    },
+    threshold: 0.9,
+    onFailure: 'retry',
+    priority: 'low'
+  }
+]
+
+/**
+ * Main quality validation orchestrator
+ */
+export class QualityValidationOrchestrator {
+  private consensusOrchestrator: ConsensusOrchestrator
+
+  constructor() {
+    this.consensusOrchestrator = new ConsensusOrchestrator()
+  }
+
+  /**
+   * Validate output quality
+   */
+  async validateOutput(
+    output: any,
+    context: ValidationContext
+  ): Promise<ValidationReport> {
+    console.log(`[Quality] Validating output for ${context.intent.domain} domain`)
+
+    // Select relevant validators
+    const validators = this.selectValidators(context.intent)
+
+    // Run all validators in parallel
+    const validationPromises = validators.map(validator =>
+      this.runValidator(validator, output, context)
+    )
+
+    const results = await Promise.all(validationPromises)
+
+    // Calculate overall score
+    const overallScore = this.calculateOverallScore(results, validators)
+
+    // Identify failed validators
+    const failedValidators = results
+      .filter(r => !r.passed)
+      .map(r => r.validator)
+
+    // Check if re-research is needed
+    const requiresReResearch = results.some(r =>
+      !r.passed && validators.find(v => v.name === r.validator)?.onFailure === 're_research'
+    )
+
+    // Generate re-research queries if needed
+    const reResearchQueries = requiresReResearch ?
+      await this.generateReResearchQueries(output, context, results) :
+      undefined
+
+    // Collect improvement suggestions
+    const improvementSuggestions = results
+      .flatMap(r => r.suggestions)
+      .filter((s, i, arr) => arr.indexOf(s) === i)  // Unique
+
+    console.log(`[Quality] Validation complete: score=${overallScore.toFixed(2)}, passed=${failedValidators.length === 0}`)
+
+    return {
+      passed: failedValidators.length === 0,
+      overallScore,
+      results,
+      failedValidators,
+      requiresReResearch,
+      reResearchQueries,
+      improvementSuggestions
+    }
+  }
+
+  /**
+   * Select validators based on intent
+   */
+  private selectValidators(intent: UniversalIntent): QualityValidator[] {
+    return QUALITY_VALIDATORS.filter(validator => {
+      // Check domain match
+      if (validator.domain && !validator.domain.includes(intent.domain)) {
+        return false
+      }
+
+      // Check if validator is relevant based on intent
+      if (validator.name === 'research_sufficiency' && !intent.capabilities.needsResearch) {
+        return false
+      }
+
+      if (validator.name === 'consensus_agreement' && !intent.capabilities.needsMultiModelConsensus) {
+        return false
+      }
+
+      return true
+    })
+  }
+
+  /**
+   * Run a single validator
+   */
+  private async runValidator(
+    validator: QualityValidator,
+    output: any,
+    context: ValidationContext
+  ): Promise<ValidationResult> {
+    try {
+      const result = await validator.evaluator(output, context)
+
+      // Override threshold based on intent if needed
+      const adjustedThreshold = this.adjustThreshold(validator, context.intent)
+
+      return {
+        ...result,
+        threshold: adjustedThreshold,
+        passed: result.score >= adjustedThreshold
+      }
+    } catch (error) {
+      console.error(`[Quality] Validator ${validator.name} failed:`, error)
+
+      return {
+        validator: validator.name,
+        passed: false,
+        score: 0,
+        threshold: validator.threshold,
+        issues: [`Validator error: ${error}`],
+        suggestions: []
+      }
+    }
+  }
+
+  /**
+   * Adjust threshold based on intent quality requirements
+   */
+  private adjustThreshold(validator: QualityValidator, intent: UniversalIntent): number {
+    let threshold = validator.threshold
+
+    // Adjust based on intent quality requirements
+    if (validator.name === 'factual_accuracy') {
+      threshold = Math.max(threshold, intent.qualityThresholds.factualAccuracy)
+    } else if (validator.name === 'creative_quality') {
+      threshold = Math.max(threshold, intent.qualityThresholds.creativityLevel)
+    } else if (validator.name === 'technical_correctness') {
+      threshold = Math.max(threshold, intent.qualityThresholds.technicalDepth)
+    } else if (validator.name === 'educational_clarity') {
+      threshold = Math.max(threshold, intent.qualityThresholds.educationalValue)
+    }
+
+    // Increase threshold for expert complexity
+    if (intent.complexity === 'expert') {
+      threshold = Math.min(threshold + 0.1, 1.0)
+    }
+
+    return threshold
+  }
+
+  /**
+   * Calculate overall quality score
+   */
+  private calculateOverallScore(
+    results: ValidationResult[],
+    validators: QualityValidator[]
+  ): number {
+    if (results.length === 0) return 0
+
+    // Weight scores by priority
+    const priorityWeights = {
+      critical: 3.0,
+      high: 2.0,
+      medium: 1.0,
+      low: 0.5
+    }
+
+    let weightedSum = 0
+    let totalWeight = 0
+
+    for (let i = 0; i < results.length; i++) {
+      const validator = validators.find(v => v.name === results[i].validator)
+      const weight = priorityWeights[validator?.priority || 'medium']
+
+      weightedSum += results[i].score * weight
+      totalWeight += weight
+    }
+
+    return totalWeight > 0 ? weightedSum / totalWeight : 0
+  }
+
+  /**
+   * Generate re-research queries
+   */
+  private async generateReResearchQueries(
+    output: any,
+    context: ValidationContext,
+    results: ValidationResult[]
+  ): Promise<string[]> {
+    const failedResults = results.filter(r => !r.passed)
+    const issues = failedResults.flatMap(r => r.issues).join('\n')
+
+    const prompt = `Based on quality validation failures, generate additional research queries.
+
+Original request: "${context.originalRequest}"
+Current output issues:
+${issues}
+
+Generate 2-3 specific search queries that would help address these quality issues.
+Focus on finding:
+1. Authoritative sources for missing information
+2. Recent updates or corrections
+3. Best practices or official documentation
+
+Return only the queries, one per line.`
+
+    try {
+      const response = await groqClient.chat({
+        model: 'llama-3.1-8b-instant',
+        messages: [
+          { role: 'system', content: 'You are a research query generator.' },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.3,
+        maxTokens: 200
+      }) as any
+
+      const queries = response.choices[0].message.content
+        .split('\n')
+        .filter((q: string) => q.trim().length > 0)
+        .slice(0, 3)
+
+      return queries
+    } catch (error) {
+      console.error('[Quality] Failed to generate re-research queries:', error)
+      return [`${context.originalRequest} authoritative sources`]
+    }
+  }
+}
+
+/**
+ * Validate factual accuracy
+ */
+async function validateFactualAccuracy(
+  output: string,
+  context: ValidationContext
+): Promise<ValidationResult> {
+  const prompt = `Evaluate the factual accuracy of this response.
+
+Original request: "${context.originalRequest}"
+Response to evaluate: "${output}"
+
+Check for:
+1. Factual errors or inaccuracies
+2. Outdated information
+3. Unverified claims
+4. Logical inconsistencies
+
+Provide a JSON response with:
+- score: 0-1 (factual accuracy score)
+- issues: Array of specific factual problems found
+- suggestions: Array of how to improve accuracy`
+
+  try {
+    const response = await groqClient.chat({
+      model: 'qwen/qwen3-32b',  // Good at reasoning and fact-checking
+      messages: [
+        { role: 'system', content: 'You are a fact-checker. Return only valid JSON.' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.0,
+      maxTokens: 500
+    }) as any
+
+    const result = JSON.parse(response.choices[0].message.content)
+
+    return {
+      validator: 'factual_accuracy',
+      passed: result.score >= 0.85,
+      score: result.score || 0.5,
+      threshold: 0.85,
+      issues: result.issues || [],
+      suggestions: result.suggestions || []
+    }
+  } catch (error) {
+    return {
+      validator: 'factual_accuracy',
+      passed: false,
+      score: 0.5,
+      threshold: 0.85,
+      issues: ['Could not validate accuracy'],
+      suggestions: []
+    }
+  }
+}
+
+/**
+ * Validate research sufficiency
+ */
+async function validateResearchSufficiency(
+  output: any,
+  context: ValidationContext
+): Promise<ValidationResult> {
+  const citationCount = context.citations?.length || 0
+  const searchResultCount = context.searchResults?.length || 0
+  const totalSources = citationCount + searchResultCount
+
+  // Calculate coverage breadth
+  let coverageBreadth = 0.5
+  if (context.searchResults) {
+    const uniqueDomains = new Set(
+      context.searchResults.map((r: any) => new URL(r.url || 'http://example.com').hostname)
+    )
+    coverageBreadth = Math.min(uniqueDomains.size / 5, 1.0)  // 5+ unique domains = full score
+  }
+
+  const score = (Math.min(totalSources / 5, 1.0) * 0.6) + (coverageBreadth * 0.4)
+
+  const issues: string[] = []
+  const suggestions: string[] = []
+
+  if (totalSources < 3) {
+    issues.push(`Only ${totalSources} sources found, minimum 3 recommended`)
+    suggestions.push('Expand search queries to find more sources')
+  }
+
+  if (coverageBreadth < 0.6) {
+    issues.push('Limited source diversity')
+    suggestions.push('Search across more domains for comprehensive coverage')
+  }
+
+  // Check for authoritative sources
+  const hasAuthoritativeSources = context.searchResults?.some((r: any) =>
+    r.url?.includes('official') || r.url?.includes('docs') || r.url?.includes('.edu')
+  )
+
+  if (!hasAuthoritativeSources) {
+    issues.push('No authoritative or official sources found')
+    suggestions.push('Include official documentation or academic sources')
+  }
+
+  return {
+    validator: 'research_sufficiency',
+    passed: score >= 0.7,
+    score,
+    threshold: 0.7,
+    issues,
+    suggestions,
+    metadata: {
+      citationCount,
+      searchResultCount,
+      coverageBreadth
+    }
+  }
+}
+
+/**
+ * Validate consensus agreement
+ */
+async function validateConsensusAgreement(
+  output: any,
+  context: ValidationContext
+): Promise<ValidationResult> {
+  if (!context.consensusResult) {
+    return {
+      validator: 'consensus_agreement',
+      passed: true,
+      score: 1.0,
+      threshold: 0.7,
+      issues: [],
+      suggestions: []
+    }
+  }
+
+  const { agreement, dissenting } = context.consensusResult
+  const score = agreement
+
+  const issues: string[] = []
+  const suggestions: string[] = []
+
+  if (agreement < 0.7) {
+    issues.push(`Low inter-model agreement: ${(agreement * 100).toFixed(0)}%`)
+    suggestions.push('Consider using debate resolution for better consensus')
+  }
+
+  if (dissenting.length > 3) {
+    issues.push(`${dissenting.length} dissenting points found`)
+    suggestions.push('Review dissenting points and reconcile differences')
+  }
+
+  return {
+    validator: 'consensus_agreement',
+    passed: score >= 0.7,
+    score,
+    threshold: 0.7,
+    issues,
+    suggestions,
+    metadata: {
+      agreement,
+      dissentingCount: dissenting.length
+    }
+  }
+}
+
+/**
+ * Validate completeness
+ */
+async function validateCompleteness(
+  output: string,
+  context: ValidationContext
+): Promise<ValidationResult> {
+  const prompt = `Evaluate if this response completely addresses the request.
+
+Original request: "${context.originalRequest}"
+Response: "${output}"
+
+Check if the response:
+1. Addresses all parts of the request
+2. Provides sufficient detail
+3. Includes all requested elements
+4. Is appropriately comprehensive
+
+Return JSON with:
+- score: 0-1 (completeness score)
+- issues: Array of what's missing or incomplete
+- suggestions: Array of how to improve completeness`
+
+  try {
+    const response = await groqClient.chat({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        { role: 'system', content: 'You are a completeness evaluator. Return only valid JSON.' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.0,
+      maxTokens: 500
+    }) as any
+
+    const result = JSON.parse(response.choices[0].message.content)
+
+    return {
+      validator: 'completeness',
+      passed: result.score >= 0.8,
+      score: result.score || 0.5,
+      threshold: 0.8,
+      issues: result.issues || [],
+      suggestions: result.suggestions || []
+    }
+  } catch (error) {
+    // Fallback: simple length and keyword check
+    const hasMinLength = output.length > 100
+    const score = hasMinLength ? 0.7 : 0.3
+
+    return {
+      validator: 'completeness',
+      passed: score >= 0.8,
+      score,
+      threshold: 0.8,
+      issues: hasMinLength ? [] : ['Response too brief'],
+      suggestions: hasMinLength ? [] : ['Provide more detail']
+    }
+  }
+}
+
+/**
+ * Validate technical correctness
+ */
+async function validateTechnicalCorrectness(
+  output: string,
+  context: ValidationContext
+): Promise<ValidationResult> {
+  // Look for code blocks
+  const hasCode = /```[\s\S]*```/.test(output)
+
+  if (!hasCode) {
+    // No code to validate
+    return {
+      validator: 'technical_correctness',
+      passed: true,
+      score: 1.0,
+      threshold: 0.9,
+      issues: [],
+      suggestions: []
+    }
+  }
+
+  const prompt = `Evaluate the technical correctness of this code/technical content.
+
+Content: "${output}"
+
+Check for:
+1. Syntax errors
+2. Logic errors
+3. Best practices violations
+4. Security issues
+5. Performance problems
+
+Return JSON with:
+- score: 0-1 (correctness score)
+- issues: Array of technical problems
+- suggestions: Array of improvements`
+
+  try {
+    const response = await groqClient.chat({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        { role: 'system', content: 'You are a technical reviewer. Return only valid JSON.' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.0,
+      maxTokens: 500
+    }) as any
+
+    const result = JSON.parse(response.choices[0].message.content)
+
+    return {
+      validator: 'technical_correctness',
+      passed: result.score >= 0.9,
+      score: result.score || 0.5,
+      threshold: 0.9,
+      issues: result.issues || [],
+      suggestions: result.suggestions || []
+    }
+  } catch (error) {
+    return {
+      validator: 'technical_correctness',
+      passed: false,
+      score: 0.5,
+      threshold: 0.9,
+      issues: ['Could not validate technical correctness'],
+      suggestions: []
+    }
+  }
+}
+
+/**
+ * Validate creative quality
+ */
+async function validateCreativeQuality(
+  output: string,
+  context: ValidationContext
+): Promise<ValidationResult> {
+  const prompt = `Evaluate the creative quality of this content.
+
+Original request: "${context.originalRequest}"
+Creative output: "${output}"
+
+Assess:
+1. Originality and uniqueness
+2. Creativity and imagination
+3. Coherence and flow
+4. Engagement and impact
+5. Appropriate style and tone
+
+Return JSON with:
+- score: 0-1 (creative quality score)
+- issues: Array of creative weaknesses
+- suggestions: Array of creative improvements`
+
+  try {
+    const response = await groqClient.chat({
+      model: 'gemini-2.0-flash',  // Good at creative evaluation
+      messages: [
+        { role: 'system', content: 'You are a creative quality evaluator. Return only valid JSON.' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.3,
+      maxTokens: 500
+    }) as any
+
+    const result = JSON.parse(response.choices[0].message.content)
+
+    return {
+      validator: 'creative_quality',
+      passed: result.score >= 0.7,
+      score: result.score || 0.5,
+      threshold: 0.7,
+      issues: result.issues || [],
+      suggestions: result.suggestions || []
+    }
+  } catch (error) {
+    // Fallback: basic checks
+    const hasDetail = output.length > 200
+    const hasVariety = new Set(output.split(' ')).size > 50
+
+    const score = (hasDetail ? 0.4 : 0) + (hasVariety ? 0.4 : 0)
+
+    return {
+      validator: 'creative_quality',
+      passed: score >= 0.7,
+      score,
+      threshold: 0.7,
+      issues: score < 0.7 ? ['Limited creativity detected'] : [],
+      suggestions: score < 0.7 ? ['Add more creative elements'] : []
+    }
+  }
+}
+
+/**
+ * Validate educational clarity
+ */
+async function validateEducationalClarity(
+  output: string,
+  context: ValidationContext
+): Promise<ValidationResult> {
+  const prompt = `Evaluate the educational quality and clarity of this content.
+
+Content: "${output}"
+
+Assess:
+1. Clarity of explanation
+2. Logical progression
+3. Use of examples
+4. Appropriate complexity level
+5. Learning value
+
+Return JSON with:
+- score: 0-1 (educational quality score)
+- issues: Array of clarity problems
+- suggestions: Array of improvements`
+
+  try {
+    const response = await groqClient.chat({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        { role: 'system', content: 'You are an educational content evaluator. Return only valid JSON.' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.0,
+      maxTokens: 500
+    }) as any
+
+    const result = JSON.parse(response.choices[0].message.content)
+
+    return {
+      validator: 'educational_clarity',
+      passed: result.score >= 0.85,
+      score: result.score || 0.5,
+      threshold: 0.85,
+      issues: result.issues || [],
+      suggestions: result.suggestions || []
+    }
+  } catch (error) {
+    // Fallback: check for educational elements
+    const hasExamples = /example|for instance|such as/i.test(output)
+    const hasStructure = /first|second|finally|step \d/i.test(output)
+    const hasClearLanguage = !/jargon|complicated|confusing/i.test(output)
+
+    const score = (hasExamples ? 0.3 : 0) + (hasStructure ? 0.3 : 0) + (hasClearLanguage ? 0.3 : 0)
+
+    return {
+      validator: 'educational_clarity',
+      passed: score >= 0.85,
+      score,
+      threshold: 0.85,
+      issues: score < 0.85 ? ['Could improve educational clarity'] : [],
+      suggestions: score < 0.85 ? ['Add examples and clearer structure'] : []
+    }
+  }
+}
+
+/**
+ * Validate output format
+ */
+async function validateOutputFormat(
+  output: any,
+  context: ValidationContext
+): Promise<ValidationResult> {
+  const expectedFormat = context.intent.deliveryFormat
+  let score = 1.0
+  const issues: string[] = []
+  const suggestions: string[] = []
+
+  // Check format based on expected delivery
+  switch (expectedFormat) {
+    case 'visual':
+      if (typeof output === 'string' && !output.startsWith('http') && !output.startsWith('/')) {
+        score = 0
+        issues.push('Expected image URL but got text')
+        suggestions.push('Generate image URL or path')
+      }
+      break
+
+    case 'code':
+      if (typeof output === 'string' && !output.includes('```') && !output.match(/function|class|def|const/)) {
+        score = 0.5
+        issues.push('Code not properly formatted')
+        suggestions.push('Use code blocks with syntax highlighting')
+      }
+      break
+
+    case 'interactive':
+      if (typeof output === 'string' && !output.includes('##') && !output.includes('*')) {
+        score = 0.7
+        issues.push('Missing interactive formatting')
+        suggestions.push('Add sections, bullet points, and interactive elements')
+      }
+      break
+
+    case 'multimedia':
+      if (typeof output === 'string' && !output.includes('http') && !output.includes('![')) {
+        score = 0.5
+        issues.push('No multimedia elements detected')
+        suggestions.push('Include images, videos, or other media')
+      }
+      break
+  }
+
+  return {
+    validator: 'output_format',
+    passed: score >= 0.9,
+    score,
+    threshold: 0.9,
+    issues,
+    suggestions
+  }
+}
+
+// Export singleton instance
+export const qualityValidator = new QualityValidationOrchestrator()

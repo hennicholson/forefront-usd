@@ -1,0 +1,585 @@
+/**
+ * Universal Intent Classifier for Forefront Intelligence V2
+ *
+ * This module provides deep semantic understanding of user requests
+ * across multiple dimensions to enable dynamic workflow construction.
+ */
+
+import { groqClient } from '@/lib/groq/client'
+
+/**
+ * Multi-dimensional intent representation for universal orchestration
+ */
+export interface UniversalIntent {
+  // Primary classification dimensions
+  domain: 'creative' | 'analytical' | 'learning' | 'technical' | 'hybrid'
+  taskType: 'generation' | 'analysis' | 'research' | 'optimization' | 'teaching'
+  complexity: 'trivial' | 'moderate' | 'complex' | 'expert'
+
+  // Required capabilities
+  capabilities: {
+    needsResearch: boolean
+    needsMultiModelConsensus: boolean
+    needsOptimization: boolean
+    needsValidation: boolean
+    needsSpecializedTools: string[]
+  }
+
+  // Quality requirements (0-1 scale)
+  qualityThresholds: {
+    factualAccuracy: number
+    creativityLevel: number
+    technicalDepth: number
+    educationalValue: number
+  }
+
+  // Output specifications
+  deliveryFormat: 'visual' | 'code' | 'text' | 'interactive' | 'multimedia'
+
+  // Confidence metrics
+  confidence: number  // Overall classification confidence
+  ambiguityLevel: number  // 0 = clear, 1 = very ambiguous
+
+  // Additional metadata
+  suggestedModels?: string[]  // Recommended models for this intent
+  estimatedTime?: number  // Estimated execution time in ms
+  rawIntent?: string  // Original user message for debugging
+  extractedEntities?: string[]  // Key entities/concepts detected
+  primaryGoal?: string  // Single sentence describing main goal
+}
+
+/**
+ * Context for intent classification
+ */
+export interface ClassificationContext {
+  conversationHistory?: Array<{ role: string; content: string }>
+  moduleTitle?: string
+  currentSlide?: {
+    title: string
+    content: string
+    type?: string
+  }
+  highlightedText?: string
+  userId?: string
+  previousIntents?: UniversalIntent[]  // For learning user patterns
+}
+
+/**
+ * Main function to classify user intent with deep semantic understanding
+ */
+export async function classifyUniversalIntent(
+  message: string,
+  context?: ClassificationContext
+): Promise<UniversalIntent> {
+  try {
+    // Build prompts
+    const systemPrompt = buildUniversalClassifierPrompt()
+    const userPrompt = buildContextualPrompt(message, context)
+
+    // Use powerful model for semantic understanding
+    const response = await groqClient.chat({
+      model: 'llama-3.3-70b-versatile',  // Use 70B for deep understanding
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: 0.0,  // Deterministic for consistency
+      maxTokens: 800,
+      stream: false
+    }) as any
+
+    const content = response.choices?.[0]?.message?.content || '{}'
+    const intent = parseIntentJSON(content)
+
+    // Post-processing
+    intent.rawIntent = message
+    intent.qualityThresholds = calculateQualityThresholds(intent)
+    intent.suggestedModels = suggestModelsForIntent(intent)
+    intent.estimatedTime = estimateExecutionTime(intent)
+
+    // Validate intent structure
+    validateIntent(intent)
+
+    // Log for debugging
+    console.log('[Intent Classifier] Classification complete:', {
+      domain: intent.domain,
+      taskType: intent.taskType,
+      complexity: intent.complexity,
+      confidence: intent.confidence,
+      ambiguity: intent.ambiguityLevel
+    })
+
+    return intent
+  } catch (error) {
+    console.error('[Intent Classifier] Classification error:', error)
+
+    // Fallback to simple intent
+    return createFallbackIntent(message)
+  }
+}
+
+/**
+ * Build the comprehensive system prompt for intent classification
+ */
+function buildUniversalClassifierPrompt(): string {
+  return `You are a universal intent classifier for Forefront Intelligence, a meta-model orchestration system.
+
+Your task: Analyze the user's request and classify it across multiple dimensions to enable dynamic workflow construction.
+
+CLASSIFICATION DIMENSIONS:
+
+1. DOMAIN - What type of task is this?
+   • creative: Art, design, content generation, creative writing
+   • analytical: Research, data analysis, evaluation, investigation
+   • learning: Education, explanation, tutoring, knowledge transfer
+   • technical: Code, engineering, problem-solving, debugging
+   • hybrid: Combination of multiple domains
+
+2. TASK TYPE - What action is needed?
+   • generation: Create something new (image, text, code, etc.)
+   • analysis: Examine and understand existing things
+   • research: Gather information from various sources
+   • optimization: Improve or refine existing things
+   • teaching: Explain, educate, or transfer knowledge
+
+3. COMPLEXITY - How difficult is this task?
+   • trivial: Simple, single-step, straightforward
+   • moderate: Multi-step but well-defined, some expertise needed
+   • complex: Requires deep expertise, multiple stages, nuanced approach
+   • expert: Cutting-edge, highly specialized, frontier knowledge
+
+4. CAPABILITIES - What does this require? (all boolean)
+   • needsResearch: Requires web search, documentation lookup, or external info
+   • needsMultiModelConsensus: Benefits from multiple models validating/improving output
+   • needsOptimization: Needs refinement of input/prompt/approach
+   • needsValidation: Requires quality checks, fact-checking, or verification
+   • needsSpecializedTools: List specific tools needed (e.g., ["image-generator", "code-executor"])
+
+5. DELIVERY FORMAT - How should output be presented?
+   • visual: Images, diagrams, visualizations, graphics
+   • code: Programming code, scripts, technical syntax
+   • text: Written content, documents, prose
+   • interactive: Learning modules, step-by-step guides, Q&A
+   • multimedia: Video, audio, mixed media, combinations
+
+6. CONFIDENCE & AMBIGUITY
+   • confidence: Your confidence in this classification (0.0-1.0)
+   • ambiguityLevel: How unclear/ambiguous is the request (0.0=clear, 1.0=very unclear)
+
+7. EXTRACTED ENTITIES (optional)
+   • extractedEntities: Key concepts, technologies, or topics mentioned
+   • primaryGoal: One sentence describing the user's main objective
+
+IMPORTANT CONSIDERATIONS:
+
+- For CREATIVE tasks: High creativity, lower factual accuracy needed
+- For ANALYTICAL tasks: High factual accuracy, research often needed
+- For LEARNING tasks: High educational value, clear explanations needed
+- For TECHNICAL tasks: High technical depth, validation crucial
+- For HYBRID tasks: Balance multiple quality dimensions
+
+- Simple requests can still benefit from consensus if quality matters
+- Research is needed for: current events, facts, documentation, best practices
+- Optimization is needed for: prompts, code, creative content, approaches
+- Validation is crucial for: facts, code, technical content, learning material
+
+Return ONLY valid JSON with this exact structure:
+{
+  "domain": "creative|analytical|learning|technical|hybrid",
+  "taskType": "generation|analysis|research|optimization|teaching",
+  "complexity": "trivial|moderate|complex|expert",
+  "capabilities": {
+    "needsResearch": boolean,
+    "needsMultiModelConsensus": boolean,
+    "needsOptimization": boolean,
+    "needsValidation": boolean,
+    "needsSpecializedTools": ["tool1", "tool2"] or []
+  },
+  "deliveryFormat": "visual|code|text|interactive|multimedia",
+  "confidence": 0.0-1.0,
+  "ambiguityLevel": 0.0-1.0,
+  "extractedEntities": ["entity1", "entity2"] or [],
+  "primaryGoal": "One sentence describing main goal"
+}
+
+EXAMPLES:
+
+Input: "Generate an image of a cyberpunk city at night"
+Output: {"domain":"creative","taskType":"generation","complexity":"moderate","capabilities":{"needsResearch":false,"needsMultiModelConsensus":false,"needsOptimization":true,"needsValidation":false,"needsSpecializedTools":["image-generator"]},"deliveryFormat":"visual","confidence":0.95,"ambiguityLevel":0.1,"extractedEntities":["cyberpunk","city","night"],"primaryGoal":"Create a visual representation of a futuristic city with cyberpunk aesthetics"}
+
+Input: "Research the latest developments in quantum computing and explain them simply"
+Output: {"domain":"hybrid","taskType":"research","complexity":"complex","capabilities":{"needsResearch":true,"needsMultiModelConsensus":true,"needsOptimization":false,"needsValidation":true,"needsSpecializedTools":[]},"deliveryFormat":"text","confidence":0.9,"ambiguityLevel":0.2,"extractedEntities":["quantum computing","latest developments"],"primaryGoal":"Gather recent quantum computing advances and present them in accessible language"}
+
+Input: "Debug this Python function and optimize its performance"
+Output: {"domain":"technical","taskType":"optimization","complexity":"moderate","capabilities":{"needsResearch":false,"needsMultiModelConsensus":true,"needsOptimization":true,"needsValidation":true,"needsSpecializedTools":["code-analyzer","performance-profiler"]},"deliveryFormat":"code","confidence":0.85,"ambiguityLevel":0.3,"extractedEntities":["Python","debugging","performance"],"primaryGoal":"Fix bugs and improve execution speed of provided Python code"}
+
+Be precise and thoughtful in your classification. Consider all dimensions carefully.`
+}
+
+/**
+ * Build contextual prompt with user message and context
+ */
+function buildContextualPrompt(message: string, context?: ClassificationContext): string {
+  let prompt = `User Request: "${message}"`
+
+  if (context?.highlightedText) {
+    prompt += `\n\nHighlighted Context: "${context.highlightedText}"`
+  }
+
+  if (context?.moduleTitle) {
+    prompt += `\n\nLearning Module: "${context.moduleTitle}"`
+    if (context.currentSlide?.title) {
+      prompt += ` - Current Topic: "${context.currentSlide.title}"`
+    }
+  }
+
+  if (context?.conversationHistory && context.conversationHistory.length > 0) {
+    const recentContext = context.conversationHistory
+      .slice(-3)
+      .map(msg => `${msg.role}: ${msg.content.substring(0, 150)}...`)
+      .join('\n')
+    prompt += `\n\nRecent Conversation:\n${recentContext}`
+  }
+
+  prompt += `\n\nClassify this request according to the dimensions specified. Return only JSON.`
+
+  return prompt
+}
+
+/**
+ * Parse and validate JSON response from LLM
+ */
+function parseIntentJSON(content: string): UniversalIntent {
+  try {
+    // Extract JSON from response (handle markdown code blocks)
+    const jsonMatch = content.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) {
+      throw new Error('No JSON found in response')
+    }
+
+    const json = JSON.parse(jsonMatch[0])
+
+    // Ensure all required fields exist with defaults
+    return {
+      domain: json.domain || 'technical',
+      taskType: json.taskType || 'analysis',
+      complexity: json.complexity || 'moderate',
+      capabilities: {
+        needsResearch: json.capabilities?.needsResearch || false,
+        needsMultiModelConsensus: json.capabilities?.needsMultiModelConsensus || false,
+        needsOptimization: json.capabilities?.needsOptimization || false,
+        needsValidation: json.capabilities?.needsValidation || false,
+        needsSpecializedTools: json.capabilities?.needsSpecializedTools || []
+      },
+      deliveryFormat: json.deliveryFormat || 'text',
+      confidence: typeof json.confidence === 'number' ? json.confidence : 0.5,
+      ambiguityLevel: typeof json.ambiguityLevel === 'number' ? json.ambiguityLevel : 0.3,
+      extractedEntities: json.extractedEntities || [],
+      primaryGoal: json.primaryGoal || '',
+      qualityThresholds: {
+        factualAccuracy: 0.8,
+        creativityLevel: 0.5,
+        technicalDepth: 0.5,
+        educationalValue: 0.6
+      }
+    }
+  } catch (error) {
+    console.error('[Intent Classifier] Failed to parse JSON:', error)
+    throw error
+  }
+}
+
+/**
+ * Calculate quality thresholds based on domain and task type
+ */
+function calculateQualityThresholds(intent: UniversalIntent): {
+  factualAccuracy: number
+  creativityLevel: number
+  technicalDepth: number
+  educationalValue: number
+} {
+  // Base thresholds
+  const thresholds = {
+    factualAccuracy: 0.8,
+    creativityLevel: 0.5,
+    technicalDepth: 0.5,
+    educationalValue: 0.6
+  }
+
+  // Adjust based on domain
+  switch (intent.domain) {
+    case 'analytical':
+      thresholds.factualAccuracy = 0.95
+      thresholds.technicalDepth = 0.8
+      break
+    case 'creative':
+      thresholds.creativityLevel = 0.9
+      thresholds.factualAccuracy = 0.5  // Less critical for creative tasks
+      break
+    case 'learning':
+      thresholds.educationalValue = 0.95
+      thresholds.factualAccuracy = 0.9
+      break
+    case 'technical':
+      thresholds.technicalDepth = 0.9
+      thresholds.factualAccuracy = 0.95
+      break
+    case 'hybrid':
+      // Balanced thresholds for hybrid tasks
+      thresholds.factualAccuracy = 0.85
+      thresholds.creativityLevel = 0.7
+      thresholds.technicalDepth = 0.7
+      thresholds.educationalValue = 0.8
+      break
+  }
+
+  // Adjust based on complexity
+  if (intent.complexity === 'expert' || intent.complexity === 'complex') {
+    thresholds.factualAccuracy = Math.min(thresholds.factualAccuracy + 0.1, 1.0)
+    thresholds.technicalDepth = Math.min(thresholds.technicalDepth + 0.2, 1.0)
+  } else if (intent.complexity === 'trivial') {
+    // Lower thresholds for simple tasks
+    thresholds.factualAccuracy = Math.max(thresholds.factualAccuracy - 0.1, 0.5)
+    thresholds.technicalDepth = Math.max(thresholds.technicalDepth - 0.2, 0.3)
+  }
+
+  // Special adjustments for specific task types
+  if (intent.taskType === 'research') {
+    thresholds.factualAccuracy = Math.max(thresholds.factualAccuracy, 0.9)
+  } else if (intent.taskType === 'generation' && intent.domain === 'creative') {
+    thresholds.creativityLevel = Math.max(thresholds.creativityLevel, 0.85)
+  } else if (intent.taskType === 'teaching') {
+    thresholds.educationalValue = Math.max(thresholds.educationalValue, 0.9)
+  }
+
+  return thresholds
+}
+
+/**
+ * Suggest optimal models based on intent
+ */
+function suggestModelsForIntent(intent: UniversalIntent): string[] {
+  const models: string[] = []
+
+  // Primary model based on domain and task
+  if (intent.capabilities.needsResearch) {
+    models.push('sonar-pro')
+  }
+
+  if (intent.domain === 'creative' && intent.deliveryFormat === 'visual') {
+    models.push('seedream-4')
+  } else if (intent.domain === 'technical' || intent.taskType === 'optimization') {
+    models.push('llama-3.3-70b-versatile')
+  } else if (intent.domain === 'analytical' && intent.complexity === 'complex') {
+    models.push('qwen/qwen3-32b')
+  } else if (intent.deliveryFormat === 'multimedia' || intent.capabilities.needsSpecializedTools.includes('vision')) {
+    models.push('gemini-2.0-flash')
+  }
+
+  // Consensus models if needed
+  if (intent.capabilities.needsMultiModelConsensus) {
+    if (!models.includes('llama-3.3-70b-versatile')) {
+      models.push('llama-3.3-70b-versatile')
+    }
+    if (!models.includes('gemini-2.0-flash')) {
+      models.push('gemini-2.0-flash')
+    }
+  }
+
+  // Fast model for simple tasks
+  if (intent.complexity === 'trivial' && models.length === 0) {
+    models.push('llama-3.1-8b-instant')
+  }
+
+  // Default if no specific model identified
+  if (models.length === 0) {
+    models.push('llama-3.3-70b-versatile')
+  }
+
+  return [...new Set(models)]  // Remove duplicates
+}
+
+/**
+ * Estimate execution time based on intent complexity
+ */
+function estimateExecutionTime(intent: UniversalIntent): number {
+  let baseTime = 2000  // 2 seconds base
+
+  // Adjust for complexity
+  switch (intent.complexity) {
+    case 'trivial':
+      baseTime = 1000
+      break
+    case 'moderate':
+      baseTime = 5000
+      break
+    case 'complex':
+      baseTime = 10000
+      break
+    case 'expert':
+      baseTime = 20000
+      break
+  }
+
+  // Add time for capabilities
+  if (intent.capabilities.needsResearch) {
+    baseTime += 8000  // Research takes time
+  }
+  if (intent.capabilities.needsMultiModelConsensus) {
+    baseTime += 5000  // Consensus adds overhead
+  }
+  if (intent.capabilities.needsOptimization) {
+    baseTime += 3000  // Optimization iterations
+  }
+  if (intent.capabilities.needsValidation) {
+    baseTime += 2000  // Validation checks
+  }
+
+  // Special cases
+  if (intent.deliveryFormat === 'visual' && intent.capabilities.needsSpecializedTools.includes('image-generator')) {
+    baseTime += 10000  // Image generation is slow
+  }
+
+  return baseTime
+}
+
+/**
+ * Validate intent structure and log warnings
+ */
+function validateIntent(intent: UniversalIntent): void {
+  // Check for logical inconsistencies
+  if (intent.confidence < 0.5) {
+    console.warn('[Intent Classifier] Low confidence classification:', intent.confidence)
+  }
+
+  if (intent.ambiguityLevel > 0.7) {
+    console.warn('[Intent Classifier] High ambiguity detected:', intent.ambiguityLevel)
+  }
+
+  if (intent.domain === 'creative' && intent.qualityThresholds.factualAccuracy > 0.8) {
+    console.warn('[Intent Classifier] Creative task with high factual accuracy requirement')
+  }
+
+  if (intent.complexity === 'trivial' && intent.capabilities.needsMultiModelConsensus) {
+    console.warn('[Intent Classifier] Trivial task requesting consensus - may be over-engineered')
+  }
+
+  // Validate specialized tools
+  const validTools = [
+    'image-generator',
+    'video-generator',
+    'code-analyzer',
+    'code-executor',
+    'performance-profiler',
+    'fact-checker',
+    'plagiarism-detector',
+    'grammar-checker',
+    'translation',
+    'speech-synthesis',
+    'vision'
+  ]
+
+  for (const tool of intent.capabilities.needsSpecializedTools) {
+    if (!validTools.includes(tool)) {
+      console.warn(`[Intent Classifier] Unknown specialized tool requested: ${tool}`)
+    }
+  }
+}
+
+/**
+ * Create fallback intent for error cases
+ */
+function createFallbackIntent(message: string): UniversalIntent {
+  console.warn('[Intent Classifier] Using fallback intent')
+
+  // Simple heuristics for fallback
+  const lowerMessage = message.toLowerCase()
+
+  let domain: UniversalIntent['domain'] = 'technical'
+  let taskType: UniversalIntent['taskType'] = 'analysis'
+  let deliveryFormat: UniversalIntent['deliveryFormat'] = 'text'
+
+  if (lowerMessage.includes('image') || lowerMessage.includes('picture') || lowerMessage.includes('draw')) {
+    domain = 'creative'
+    taskType = 'generation'
+    deliveryFormat = 'visual'
+  } else if (lowerMessage.includes('explain') || lowerMessage.includes('teach') || lowerMessage.includes('learn')) {
+    domain = 'learning'
+    taskType = 'teaching'
+  } else if (lowerMessage.includes('research') || lowerMessage.includes('find') || lowerMessage.includes('search')) {
+    domain = 'analytical'
+    taskType = 'research'
+  } else if (lowerMessage.includes('code') || lowerMessage.includes('debug') || lowerMessage.includes('function')) {
+    domain = 'technical'
+    deliveryFormat = 'code'
+  }
+
+  return {
+    domain,
+    taskType,
+    complexity: 'moderate',
+    capabilities: {
+      needsResearch: taskType === 'research',
+      needsMultiModelConsensus: false,
+      needsOptimization: domain === 'creative',
+      needsValidation: domain === 'analytical' || domain === 'technical',
+      needsSpecializedTools: deliveryFormat === 'visual' ? ['image-generator'] : []
+    },
+    qualityThresholds: {
+      factualAccuracy: 0.8,
+      creativityLevel: 0.5,
+      technicalDepth: 0.5,
+      educationalValue: 0.6
+    },
+    deliveryFormat,
+    confidence: 0.3,  // Low confidence for fallback
+    ambiguityLevel: 0.8,  // High ambiguity since we're guessing
+    rawIntent: message,
+    extractedEntities: [],
+    primaryGoal: 'Process user request with general-purpose approach'
+  }
+}
+
+/**
+ * Detect if the request needs clarification
+ */
+export function needsClarification(intent: UniversalIntent): boolean {
+  return intent.ambiguityLevel > 0.7 || intent.confidence < 0.4
+}
+
+/**
+ * Generate clarifying questions for ambiguous requests
+ */
+export function generateClarifyingQuestions(intent: UniversalIntent): string[] {
+  const questions: string[] = []
+
+  if (intent.ambiguityLevel > 0.7) {
+    questions.push('Could you provide more details about what you\'re trying to achieve?')
+  }
+
+  if (intent.domain === 'hybrid') {
+    questions.push('What is the primary focus - creative output, analysis, or learning?')
+  }
+
+  if (intent.deliveryFormat === 'multimedia' || intent.deliveryFormat === 'interactive') {
+    questions.push('What format would you prefer for the output?')
+  }
+
+  if (intent.capabilities.needsSpecializedTools.length === 0 && intent.taskType === 'generation') {
+    questions.push('What type of content would you like me to generate?')
+  }
+
+  return questions
+}
+
+// Export for testing
+export const _internal = {
+  buildUniversalClassifierPrompt,
+  buildContextualPrompt,
+  parseIntentJSON,
+  calculateQualityThresholds,
+  suggestModelsForIntent,
+  estimateExecutionTime,
+  validateIntent,
+  createFallbackIntent
+}

@@ -94,6 +94,33 @@ export function GenerationPortfolio({ userId }: { userId: string }) {
     setTimeout(() => setCopiedId(null), 2000)
   }
 
+  // Extract image URL from response content (handles both new and old format)
+  const getImageUrl = (gen: Generation): string => {
+    if (!gen.response) return ''
+
+    // If response is already a clean URL, return it
+    if (gen.response.startsWith('http') || gen.response.startsWith('/generations/')) {
+      return gen.response
+    }
+
+    // Otherwise, try to extract URL from text (for old saved generations)
+    const lines = gen.response.split('\n').filter(l => l.trim())
+    const imageLine = lines.find(l => {
+      const trimmed = l.trim()
+      const cleaned = trimmed.replace(/^\*\s*/, '').replace(/^Image file path:\s*/i, '').trim()
+      return cleaned.startsWith('http') || cleaned.startsWith('/generations/')
+    })
+
+    if (imageLine) {
+      return imageLine.trim()
+        .replace(/^\*\s*/, '')
+        .replace(/^Image file path:\s*/i, '')
+        .trim()
+    }
+
+    return gen.response
+  }
+
   const models = Array.from(new Set(generations.map(g => g.model)))
 
   const filteredGenerations = generations.filter(gen => {
@@ -313,23 +340,55 @@ export function GenerationPortfolio({ userId }: { userId: string }) {
                 </div>
 
                 {/* Media Preview */}
-                {gen.type === 'image' && gen.response && (
-                  <div className="mb-4 rounded-lg overflow-hidden border border-zinc-800">
-                    <img
-                      src={gen.response}
-                      alt="Generated content"
-                      className="w-full h-48 object-cover"
-                    />
-                  </div>
-                )}
+                {gen.type === 'image' && gen.response && (() => {
+                  const imageUrl = getImageUrl(gen)
+                  return (
+                    <div className="mb-4 rounded-lg overflow-hidden border border-zinc-800 relative group/media">
+                      <img
+                        src={imageUrl}
+                        alt="Generated content"
+                        className="w-full h-48 object-cover"
+                        onError={(e) => {
+                          console.error('[Portfolio] Image load error:', imageUrl)
+                          // Hide broken images
+                          e.currentTarget.style.display = 'none'
+                        }}
+                      />
+                      {/* Download button overlay */}
+                      <a
+                        href={imageUrl}
+                        download={`generation-${gen.id}.jpg`}
+                      className="absolute bottom-2 right-2 px-3 py-1.5 bg-black/80 hover:bg-black text-white text-xs font-semibold uppercase tracking-wider rounded-lg opacity-0 group-hover/media:opacity-100 transition-opacity flex items-center gap-1.5"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                      Download
+                    </a>
+                    </div>
+                  )
+                })()}
 
                 {gen.type === 'video' && gen.response && (
-                  <div className="mb-4 rounded-lg overflow-hidden border border-zinc-800">
+                  <div className="mb-4 rounded-lg overflow-hidden border border-zinc-800 relative group/media">
                     <video
                       src={gen.response}
                       controls
                       className="w-full h-48 object-cover"
                     />
+                    {/* Download button overlay */}
+                    <a
+                      href={gen.response}
+                      download={`generation-${gen.id}.mp4`}
+                      className="absolute bottom-2 right-2 px-3 py-1.5 bg-black/80 hover:bg-black text-white text-xs font-semibold uppercase tracking-wider rounded-lg opacity-0 group-hover/media:opacity-100 transition-opacity flex items-center gap-1.5"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                      Download
+                    </a>
                   </div>
                 )}
 

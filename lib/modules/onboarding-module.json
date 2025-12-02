@@ -1,0 +1,465 @@
+{
+  "moduleId": "module-getting-started",
+  "slug": "getting-started",
+  "title": "Getting Started with Forefront",
+  "description": "Learn how to navigate modules and unlock the full power of AI-assisted learning. This 5-minute tutorial will show you everything you need to know.",
+  "instructor": {
+    "name": "Forefront Team",
+    "photo": "https://api.dicebear.com/7.x/bottts/svg?seed=forefront",
+    "year": "Team",
+    "major": "Education Technology"
+  },
+  "duration": "5 min",
+  "skillLevel": "Beginner",
+  "introVideo": "",
+  "displayOrder": -1,
+  "learningObjectives": [
+    "Navigate between slides using the sidebar",
+    "Use the AI Playground to ask questions about course material",
+    "Take and organize notes for each slide",
+    "Highlight text and send it directly to AI for explanation",
+    "Track your progress and complete knowledge checks",
+    "Customize your learning environment with themes and controls"
+  ],
+  "keyTakeaways": [
+    "The sidebar shows all lessons and tracks your progress",
+    "AI Playground (✨ icon) provides instant help on any topic",
+    "Notes panel (💬 icon) saves your thoughts automatically",
+    "Highlight any text and ask AI about it",
+    "Knowledge checks help reinforce learning",
+    "Customize your view with dark mode and fullscreen"
+  ],
+  "slides": [
+    {
+      "id": "slide-1",
+      "title": "Welcome to Forefront!",
+      "description": "Your AI-Powered Learning Platform",
+      "type": "intro",
+      "duration": "30 sec",
+      "blocks": [
+        {
+          "id": "block-1-1",
+          "type": "text",
+          "data": {
+            "tag": "h1",
+            "text": "Welcome to Forefront! 🚀"
+          }
+        },
+        {
+          "id": "block-1-2",
+          "type": "text",
+          "data": {
+            "tag": "p",
+            "text": "You're about to experience a new way of learning - one that combines interactive lessons with AI-powered assistance to help you master any skill."
+          }
+        },
+        {
+          "id": "block-1-3",
+          "type": "note",
+          "data": {
+            "text": "<strong>💡 What makes Forefront different?</strong><br><br>• <strong>AI Assistance:</strong> Get instant answers to your questions<br>• <strong>Interactive Content:</strong> Learn by doing, not just watching<br>• <strong>Smart Notes:</strong> Organize your thoughts as you learn<br>• <strong>Progress Tracking:</strong> See how far you've come",
+            "type": "info"
+          }
+        },
+        {
+          "id": "block-1-4",
+          "type": "text",
+          "data": {
+            "tag": "p",
+            "text": "This quick tour will show you everything you need to know. Let's get started!"
+          }
+        }
+      ]
+    },
+    {
+      "id": "slide-2",
+      "title": "Sidebar Navigation",
+      "description": "Track your progress and jump between lessons",
+      "type": "lesson",
+      "duration": "45 sec",
+      "blocks": [
+        {
+          "id": "block-2-1",
+          "type": "text",
+          "data": {
+            "tag": "h2",
+            "text": "📚 Your Progress Tracker"
+          }
+        },
+        {
+          "id": "block-2-2",
+          "type": "text",
+          "data": {
+            "tag": "p",
+            "text": "Look to the left - that's your sidebar! It shows all the lessons in this module and tracks your progress automatically."
+          }
+        },
+        {
+          "id": "block-2-3",
+          "type": "note",
+          "data": {
+            "text": "<strong>Understanding the Icons:</strong><br><br>✅ <strong>Green checkmark:</strong> You've completed this lesson<br>⭕ <strong>Gray circle:</strong> Not started yet<br>🔒 <strong>Lock icon:</strong> Complete previous slides to unlock",
+            "type": "info"
+          }
+        },
+        {
+          "id": "block-2-4",
+          "type": "text",
+          "data": {
+            "tag": "p",
+            "text": "You can click on any unlocked slide to jump directly to it. Your progress is saved automatically, so you can always pick up where you left off!"
+          }
+        },
+        {
+          "id": "block-2-5",
+          "type": "note",
+          "data": {
+            "text": "<strong>💡 Pro Tip:</strong> Use the sidebar to review completed lessons anytime. It's perfect for refreshing your memory before moving forward!",
+            "type": "tip"
+          }
+        }
+      ]
+    },
+    {
+      "id": "slide-3",
+      "title": "AI Playground",
+      "description": "Your personal AI tutor, always ready to help",
+      "type": "lesson",
+      "duration": "1 min",
+      "blocks": [
+        {
+          "id": "block-3-1",
+          "type": "text",
+          "data": {
+            "tag": "h2",
+            "text": "✨ Meet Your AI Assistant"
+          }
+        },
+        {
+          "id": "block-3-2",
+          "type": "text",
+          "data": {
+            "tag": "p",
+            "text": "This is where the magic happens! Look at the top-right corner and find the sparkle icon (✨). Click it to open your AI Playground."
+          }
+        },
+        {
+          "id": "block-3-3",
+          "type": "note",
+          "data": {
+            "text": "<strong>What can you ask?</strong><br><br>• \"Explain this concept in simple terms\"<br>• \"Give me a real-world example\"<br>• \"What are the key points from this slide?\"<br>• \"How does this relate to [previous topic]?\"<br>• \"Quiz me on what I just learned\"",
+            "type": "info"
+          }
+        },
+        {
+          "id": "block-3-4",
+          "type": "text",
+          "data": {
+            "tag": "h3",
+            "text": "Try It Now!"
+          }
+        },
+        {
+          "id": "block-3-5",
+          "type": "text",
+          "data": {
+            "tag": "p",
+            "text": "Open the AI Playground and try asking: <strong>\"What's the best way to use AI while learning?\"</strong>"
+          }
+        },
+        {
+          "id": "block-3-6",
+          "type": "note",
+          "data": {
+            "text": "<strong>💡 Smart Context:</strong> Your AI assistant knows what module you're in and what slide you're viewing. It can reference the content you're learning to give more relevant answers!",
+            "type": "tip"
+          }
+        }
+      ]
+    },
+    {
+      "id": "slide-4",
+      "title": "Notes Panel",
+      "description": "Capture your thoughts and organize your learning",
+      "type": "lesson",
+      "duration": "45 sec",
+      "blocks": [
+        {
+          "id": "block-4-1",
+          "type": "text",
+          "data": {
+            "tag": "h2",
+            "text": "💬 Take Smart Notes"
+          }
+        },
+        {
+          "id": "block-4-2",
+          "type": "text",
+          "data": {
+            "tag": "p",
+            "text": "See the message icon (💬) in the top-right? Click it to open your personal notes panel. Every slide has its own dedicated note space!"
+          }
+        },
+        {
+          "id": "block-4-3",
+          "type": "note",
+          "data": {
+            "text": "<strong>Notes Features:</strong><br><br>📝 <strong>Auto-save:</strong> Your notes are saved instantly<br>🗂️ <strong>Organized:</strong> Each slide has its own note<br>☁️ <strong>Synced:</strong> Access from any device<br>📋 <strong>Searchable:</strong> Find notes from your dashboard",
+            "type": "info"
+          }
+        },
+        {
+          "id": "block-4-4",
+          "type": "text",
+          "data": {
+            "tag": "h3",
+            "text": "Try It Now!"
+          }
+        },
+        {
+          "id": "block-4-5",
+          "type": "text",
+          "data": {
+            "tag": "p",
+            "text": "Open the notes panel and write down one thing you've learned so far. Maybe something like: \"The AI assistant knows what I'm learning and can help explain concepts.\""
+          }
+        },
+        {
+          "id": "block-4-6",
+          "type": "note",
+          "data": {
+            "text": "<strong>💡 Best Practice:</strong> Take notes as you learn! Write down key concepts, questions, or \"aha\" moments. You'll thank yourself later when reviewing.",
+            "type": "tip"
+          }
+        }
+      ]
+    },
+    {
+      "id": "slide-5",
+      "title": "Text Highlighting",
+      "description": "Turn any text into an AI conversation",
+      "type": "lesson",
+      "duration": "30 sec",
+      "blocks": [
+        {
+          "id": "block-5-1",
+          "type": "text",
+          "data": {
+            "tag": "h2",
+            "text": "🎯 Highlight to Learn"
+          }
+        },
+        {
+          "id": "block-5-2",
+          "type": "text",
+          "data": {
+            "tag": "p",
+            "text": "Here's a powerful feature: <strong>you can highlight any text on the screen and send it directly to the AI for explanation!</strong>"
+          }
+        },
+        {
+          "id": "block-5-3",
+          "type": "text",
+          "data": {
+            "tag": "h3",
+            "text": "How It Works:"
+          }
+        },
+        {
+          "id": "block-5-4",
+          "type": "text",
+          "data": {
+            "tag": "p",
+            "text": "1️⃣ Select any text with your cursor (try selecting this sentence!)<br>2️⃣ A menu will appear with options<br>3️⃣ Click to send the highlighted text to your AI assistant<br>4️⃣ The AI Playground opens with your text ready to discuss"
+          }
+        },
+        {
+          "id": "block-5-5",
+          "type": "note",
+          "data": {
+            "text": "<strong>💡 Use Cases:</strong><br><br>• Highlight confusing terms for definitions<br>• Select code examples for explanations<br>• Mark key concepts to dive deeper<br>• Copy important passages to discuss later",
+            "type": "tip"
+          }
+        },
+        {
+          "id": "block-5-6",
+          "type": "text",
+          "data": {
+            "tag": "p",
+            "text": "This feature turns passive reading into active learning. Whenever something catches your attention, highlight it and explore further!"
+          }
+        }
+      ]
+    },
+    {
+      "id": "slide-6",
+      "title": "Knowledge Checks",
+      "description": "Test your understanding and reinforce learning",
+      "type": "quiz",
+      "duration": "1 min",
+      "blocks": [
+        {
+          "id": "block-6-1",
+          "type": "text",
+          "data": {
+            "tag": "h2",
+            "text": "🎓 Knowledge Checks"
+          }
+        },
+        {
+          "id": "block-6-2",
+          "type": "text",
+          "data": {
+            "tag": "p",
+            "text": "Throughout your learning journey, you'll encounter interactive quizzes like this one. They help reinforce what you've learned and identify areas to review."
+          }
+        },
+        {
+          "id": "block-6-3",
+          "type": "knowledgeCheck",
+          "data": {
+            "question": "What icon do you click to open the AI Playground?",
+            "options": [
+              "💬 Message icon",
+              "✨ Sparkles icon",
+              "🏠 Home icon",
+              "⚙️ Settings icon"
+            ],
+            "correctIndex": 1,
+            "explanation": "That's right! The sparkle (✨) icon in the top-right corner opens your AI Playground. The message icon (💬) opens your notes panel."
+          }
+        },
+        {
+          "id": "block-6-4",
+          "type": "note",
+          "data": {
+            "text": "<strong>💡 Learning Tip:</strong> Don't worry if you get a question wrong! Each answer includes an explanation to help you understand the concept better. It's all part of the learning process.",
+            "type": "tip"
+          }
+        }
+      ]
+    },
+    {
+      "id": "slide-7",
+      "title": "Module Controls",
+      "description": "Customize your learning environment",
+      "type": "lesson",
+      "duration": "30 sec",
+      "blocks": [
+        {
+          "id": "block-7-1",
+          "type": "text",
+          "data": {
+            "tag": "h2",
+            "text": "⚙️ Personalize Your Experience"
+          }
+        },
+        {
+          "id": "block-7-2",
+          "type": "text",
+          "data": {
+            "tag": "p",
+            "text": "The header bar has several controls to customize your learning experience. Let's explore them!"
+          }
+        },
+        {
+          "id": "block-7-3",
+          "type": "note",
+          "data": {
+            "text": "<strong>Header Controls:</strong><br><br>🏠 <strong>Home:</strong> Return to dashboard<br>☰ <strong>Menu:</strong> Toggle sidebar visibility<br>✨ <strong>AI:</strong> Open AI Playground<br>💬 <strong>Notes:</strong> Open notes panel<br>🌙 <strong>Theme:</strong> Switch dark/light mode<br>⛶ <strong>Fullscreen:</strong> Distraction-free learning",
+            "type": "info"
+          }
+        },
+        {
+          "id": "block-7-4",
+          "type": "text",
+          "data": {
+            "tag": "h3",
+            "text": "Progress Bar"
+          }
+        },
+        {
+          "id": "block-7-5",
+          "type": "text",
+          "data": {
+            "tag": "p",
+            "text": "Notice the progress bar in the header? It shows how much of the module you've completed. Watch it grow as you learn!"
+          }
+        },
+        {
+          "id": "block-7-6",
+          "type": "note",
+          "data": {
+            "text": "<strong>💡 Pro Tip:</strong> Try fullscreen mode (⛶) for deep focus sessions. Everything else disappears except the lesson content and controls. Perfect for when you need to concentrate!",
+            "type": "tip"
+          }
+        }
+      ]
+    },
+    {
+      "id": "slide-8",
+      "title": "You're Ready!",
+      "description": "Start your learning journey",
+      "type": "summary",
+      "duration": "30 sec",
+      "blocks": [
+        {
+          "id": "block-8-1",
+          "type": "text",
+          "data": {
+            "tag": "h1",
+            "text": "🎉 You're All Set!"
+          }
+        },
+        {
+          "id": "block-8-2",
+          "type": "text",
+          "data": {
+            "tag": "p",
+            "text": "Congratulations! You now know how to use all the key features of Forefront modules. You're ready to start learning anything you want!"
+          }
+        },
+        {
+          "id": "block-8-3",
+          "type": "note",
+          "data": {
+            "text": "<strong>🎯 Quick Recap:</strong><br><br>✅ Navigate with the sidebar<br>✅ Ask AI questions with the ✨ icon<br>✅ Take notes with the 💬 icon<br>✅ Highlight text to explore concepts<br>✅ Complete knowledge checks<br>✅ Customize with themes and fullscreen",
+            "type": "success"
+          }
+        },
+        {
+          "id": "block-8-4",
+          "type": "text",
+          "data": {
+            "tag": "h2",
+            "text": "What's Next?"
+          }
+        },
+        {
+          "id": "block-8-5",
+          "type": "text",
+          "data": {
+            "tag": "p",
+            "text": "Head back to the modules page and pick a topic that interests you. Whether it's coding, AI, marketing, or design - you now have all the tools you need to master it."
+          }
+        },
+        {
+          "id": "block-8-6",
+          "type": "note",
+          "data": {
+            "text": "<strong>💡 Remember:</strong> Learning is a journey, not a race. Take your time, ask questions, and don't be afraid to review material. Your AI assistant is always here to help!",
+            "type": "tip"
+          }
+        },
+        {
+          "id": "block-8-7",
+          "type": "text",
+          "data": {
+            "tag": "p",
+            "text": "<strong>Happy learning! 🚀</strong>"
+          }
+        }
+      ]
+    }
+  ]
+}

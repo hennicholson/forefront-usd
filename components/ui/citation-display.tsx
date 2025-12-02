@@ -7,19 +7,24 @@ import type { PerplexitySearchResult } from '@/lib/perplexity/types'
 
 interface CitationDisplayProps {
   citations?: string[]
-  searchResults?: PerplexitySearchResult[]
+  searchResults?: PerplexitySearchResult[] | any
   isDarkMode?: boolean
 }
 
 export function CitationDisplay({ citations = [], searchResults = [], isDarkMode = true }: CitationDisplayProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
-  if (citations.length === 0 && searchResults.length === 0) {
+  // Handle searchResults being either an array or Perplexity response object
+  const resultsArray = Array.isArray(searchResults)
+    ? searchResults
+    : searchResults?.search_results || []
+
+  if (citations.length === 0 && resultsArray.length === 0) {
     return null
   }
 
   const displayCitations = citations.slice(0, 5)
-  const displayResults = searchResults.slice(0, 5)
+  const displayResults = resultsArray.slice(0, 5)
 
   return (
     <div className={`mt-4 border rounded-lg ${
@@ -86,7 +91,7 @@ export function CitationDisplay({ citations = [], searchResults = [], isDarkMode
               ))}
 
               {/* Search Results with Snippets */}
-              {displayResults.map((result, index) => (
+              {displayResults.map((result: any, index: number) => (
                 <a
                   key={index}
                   href={result.url}

@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { LoginModal } from '@/components/auth/LoginModal'
 import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow'
 import { useRouter } from 'next/navigation'
+import { motion, AnimatePresence } from 'framer-motion'
 
 export function Header() {
   const { user, isAuthenticated, logout, signup } = useAuth()
@@ -17,21 +18,25 @@ export function Header() {
   return (
     <>
       {/* Mobile Menu Backdrop */}
-      {showMobileMenu && (
-        <div
-          onClick={() => setShowMobileMenu(false)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0, 0, 0, 0.6)',
-            backdropFilter: 'blur(4px)',
-            WebkitBackdropFilter: 'blur(4px)',
-            zIndex: 999,
-            transition: 'opacity 0.3s ease',
-            opacity: showMobileMenu ? 1 : 0
-          }}
-        />
-      )}
+      <AnimatePresence>
+        {showMobileMenu && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={() => setShowMobileMenu(false)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0, 0, 0, 0.6)',
+              backdropFilter: 'blur(4px)',
+              WebkitBackdropFilter: 'blur(4px)',
+              zIndex: 998
+            }}
+          />
+        )}
+      </AnimatePresence>
 
       <header style={{
         position: 'fixed',
@@ -95,6 +100,25 @@ export function Header() {
               }}
             >
               Modules
+            </Link>
+            <Link
+              href="/chat"
+              style={{
+                fontSize: '0.95rem',
+                color: '#e0e0e0',
+                textDecoration: 'none',
+                fontWeight: 500,
+                transition: 'color 0.3s ease',
+                position: 'relative'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = '#fff'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = '#e0e0e0'
+              }}
+            >
+              Chat
             </Link>
             <Link
               href="/network"
@@ -166,25 +190,26 @@ export function Header() {
                   [{user?.name}]
                 </button>
 
-                <div style={{
-                  position: 'absolute',
-                  top: 'calc(100% - 4px)',
-                  right: 0,
-                  paddingTop: '12px',
-                  opacity: showUserMenu ? 1 : 0,
-                  transform: showUserMenu ? 'translateY(0)' : 'translateY(-10px)',
-                  pointerEvents: showUserMenu ? 'auto' : 'none',
-                  transition: 'opacity 0.25s ease, transform 0.25s ease'
-                }}>
-                  <div style={{
-                    background: 'rgba(26, 26, 26, 0.95)',
-                    backdropFilter: 'blur(20px)',
-                    WebkitBackdropFilter: 'blur(20px)',
-                    borderRadius: '16px',
-                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1)',
-                    minWidth: '220px',
-                    overflow: 'hidden'
-                  }}>
+                <AnimatePresence>
+                  {showUserMenu && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                      transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                      style={{
+                        position: 'absolute',
+                        top: 'calc(100% + 8px)',
+                        right: 0,
+                        background: 'rgba(26, 26, 26, 0.95)',
+                        backdropFilter: 'blur(20px)',
+                        WebkitBackdropFilter: 'blur(20px)',
+                        borderRadius: '16px',
+                        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1)',
+                        minWidth: '220px',
+                        overflow: 'hidden'
+                      }}
+                    >
                   <Link
                     href="/dashboard"
                     onClick={() => setShowUserMenu(false)}
@@ -324,8 +349,9 @@ export function Header() {
                   >
                     sign out
                   </button>
-                  </div>
-                </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             ) : (
               <button
@@ -395,7 +421,8 @@ export function Header() {
             pointerEvents: showMobileMenu ? 'auto' : 'none',
             visibility: showMobileMenu ? 'visible' : 'hidden',
             transition: 'opacity 0.3s ease, transform 0.3s ease',
-            overflow: 'hidden'
+            overflow: 'hidden',
+            zIndex: 1000
           }}>
             {/* Liquid Glass Layers for Mobile Menu */}
             <div style={{
@@ -442,6 +469,21 @@ export function Header() {
                 }}
               >
                 Modules
+              </Link>
+              <Link
+                href="/chat"
+                onClick={() => setShowMobileMenu(false)}
+                style={{
+                  fontSize: '16px',
+                  color: '#e0e0e0',
+                  textDecoration: 'none',
+                  fontWeight: 500,
+                  padding: '12px 0',
+                  borderBottom: '1px solid #333',
+                  transition: 'color 0.3s ease'
+                }}
+              >
+                Chat
               </Link>
               <Link
                 href="/network"
@@ -588,6 +630,14 @@ export function Header() {
       </header>
 
       <style jsx>{`
+        @media (max-width: 1024px) {
+          header {
+            padding: 12px 24px !important;
+          }
+          .desktop-nav {
+            gap: 20px !important;
+          }
+        }
 
         @media (max-width: 768px) {
           header {

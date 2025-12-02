@@ -1,0 +1,866 @@
+/**
+ * Multi-Model Consensus System for Forefront Intelligence V2
+ *
+ * Enables multiple AI models to collaborate, validate, and improve outputs
+ * through various consensus strategies.
+ */
+
+import { groqClient } from '@/lib/groq/client'
+import { perplexityClient } from '@/lib/perplexity/client'
+import { GoogleGenAI } from '@google/genai'
+import { UniversalIntent } from './intent-classifier'
+
+/**
+ * Model output with metadata
+ */
+export interface ModelOutput {
+  model: string
+  output: string
+  confidence: number
+  executionTime: number
+  metadata?: any
+}
+
+/**
+ * Consensus result from multiple models
+ */
+export interface ConsensusResult {
+  strategy: ConsensusStrategy['type']
+  agreement: number  // 0-1 score of how much models agree
+  synthesizedOutput: string  // Final merged output
+  modelOutputs: ModelOutput[]
+  dissenting: string[]  // Points where models disagreed
+  confidence: number  // Overall confidence in consensus
+  metadata?: {
+    iterations?: number
+    votingResults?: any
+    improvements?: string[]
+    executionTime?: number
+    rounds?: number
+  }
+}
+
+/**
+ * Consensus strategy configuration
+ */
+export interface ConsensusStrategy {
+  type: 'parallel_validation' | 'sequential_refinement' | 'debate_resolution' | 'weighted_voting'
+  models: string[]
+  votingMechanism?: 'majority' | 'weighted' | 'unanimous'
+  confidenceThreshold: number
+  maxIterations?: number
+  evaluationCriteria?: string
+}
+
+/**
+ * Model capabilities for weighted voting
+ */
+const MODEL_CAPABILITIES: Record<string, {
+  strengths: string[]
+  weight: number
+  domains: string[]
+}> = {
+  'llama-3.3-70b-versatile': {
+    strengths: ['coding', 'general', 'reasoning'],
+    weight: 1.0,
+    domains: ['technical', 'analytical']
+  },
+  'gemini-2.0-flash': {
+    strengths: ['multimodal', 'long-context', 'creative'],
+    weight: 1.0,
+    domains: ['creative', 'learning']
+  },
+  'qwen/qwen3-32b': {
+    strengths: ['reasoning', 'analysis', 'technical'],
+    weight: 1.2,
+    domains: ['analytical', 'technical']
+  },
+  'openai/gpt-oss-120b': {
+    strengths: ['coding', 'technical', 'comprehensive'],
+    weight: 1.1,
+    domains: ['technical']
+  },
+  'sonar-pro': {
+    strengths: ['research', 'factual', 'current'],
+    weight: 1.3,
+    domains: ['analytical']
+  }
+}
+
+/**
+ * Main consensus orchestrator
+ */
+export class ConsensusOrchestrator {
+  private geminiClient: GoogleGenAI
+
+  constructor() {
+    this.geminiClient = new GoogleGenAI({
+      apiKey: process.env.GEMINI_API_KEY!
+    })
+  }
+
+  /**
+   * Execute consensus with specified strategy
+   */
+  async executeConsensus(
+    input: string,
+    strategy: ConsensusStrategy,
+    intent?: UniversalIntent
+  ): Promise<ConsensusResult> {
+    console.log(`[Consensus] Executing ${strategy.type} with ${strategy.models.length} models`)
+
+    switch (strategy.type) {
+      case 'parallel_validation':
+        return await this.parallelValidation(input, strategy, intent)
+
+      case 'sequential_refinement':
+        return await this.sequentialRefinement(input, strategy, intent)
+
+      case 'debate_resolution':
+        return await this.debateResolution(input, strategy, intent)
+
+      case 'weighted_voting':
+        return await this.weightedVoting(input, strategy, intent)
+
+      default:
+        throw new Error(`Unknown consensus strategy: ${strategy.type}`)
+    }
+  }
+
+  /**
+   * Parallel validation - all models evaluate simultaneously
+   */
+  private async parallelValidation(
+    input: string,
+    strategy: ConsensusStrategy,
+    intent?: UniversalIntent
+  ): Promise<ConsensusResult> {
+    const startTime = Date.now()
+
+    // Build evaluation prompt
+    const evaluationPrompt = this.buildEvaluationPrompt(input, strategy, intent)
+
+    // Execute all models in parallel
+    const modelPromises = strategy.models.map(async model => {
+      const start = Date.now()
+      const output = await this.callModel(model, evaluationPrompt)
+      return {
+        model,
+        output,
+        confidence: this.extractConfidence(output),
+        executionTime: Date.now() - start
+      }
+    })
+
+    const modelOutputs = await Promise.all(modelPromises)
+
+    // Calculate agreement score
+    const agreement = this.calculateAgreementScore(modelOutputs)
+
+    // Synthesize outputs
+    const synthesized = await this.synthesizeOutputs(modelOutputs, input, intent)
+
+    // Find dissenting points
+    const dissenting = this.findDissentingPoints(modelOutputs)
+
+    // Calculate overall confidence
+    const confidence = this.calculateOverallConfidence(modelOutputs, agreement)
+
+    console.log(`[Consensus] Parallel validation complete: agreement=${agreement.toFixed(2)}, confidence=${confidence.toFixed(2)}`)
+
+    return {
+      strategy: 'parallel_validation',
+      agreement,
+      synthesizedOutput: synthesized,
+      modelOutputs,
+      dissenting,
+      confidence,
+      metadata: {
+        executionTime: Date.now() - startTime
+      }
+    }
+  }
+
+  /**
+   * Sequential refinement - each model improves the previous
+   */
+  private async sequentialRefinement(
+    input: string,
+    strategy: ConsensusStrategy,
+    intent?: UniversalIntent
+  ): Promise<ConsensusResult> {
+    const startTime = Date.now()
+    const modelOutputs: ModelOutput[] = []
+    let currentOutput = input
+    let iterations = 0
+    const maxIterations = strategy.maxIterations || 3
+    const improvements: string[] = []
+
+    for (const model of strategy.models) {
+      if (iterations >= maxIterations) break
+      iterations++
+
+      const refinementPrompt = `
+You are part of a collaborative AI system. Another model has provided an initial response.
+Your task is to review and improve it while maintaining accuracy.
+
+Original request: "${input}"
+Current response: "${currentOutput}"
+
+Please improve this response by:
+1. Correcting any errors or inaccuracies
+2. Adding missing important information
+3. Improving clarity and structure
+4. Enhancing the quality while maintaining the core message
+
+Provide your improved version and briefly note what you changed.`
+
+      const start = Date.now()
+      const refined = await this.callModel(model, refinementPrompt)
+
+      // Extract improvement notes
+      const improvementMatch = refined.match(/Changes?:?\s*([\s\S]+?)(?:\n\n|$)/)
+      if (improvementMatch) {
+        improvements.push(`${model}: ${improvementMatch[1]}`)
+      }
+
+      modelOutputs.push({
+        model,
+        output: refined,
+        confidence: this.extractConfidence(refined),
+        executionTime: Date.now() - start
+      })
+
+      currentOutput = refined
+    }
+
+    // Calculate metrics
+    const agreement = this.calculateProgressiveImprovement(modelOutputs)
+    const confidence = modelOutputs[modelOutputs.length - 1].confidence
+
+    console.log(`[Consensus] Sequential refinement complete: ${iterations} iterations, confidence=${confidence.toFixed(2)}`)
+
+    return {
+      strategy: 'sequential_refinement',
+      agreement,
+      synthesizedOutput: currentOutput,
+      modelOutputs,
+      dissenting: [],
+      confidence,
+      metadata: {
+        iterations,
+        improvements,
+        executionTime: Date.now() - startTime
+      }
+    }
+  }
+
+  /**
+   * Debate resolution - models critique and improve each other
+   */
+  private async debateResolution(
+    input: string,
+    strategy: ConsensusStrategy,
+    intent?: UniversalIntent
+  ): Promise<ConsensusResult> {
+    const startTime = Date.now()
+    const rounds = strategy.maxIterations || 2
+    let modelOutputs: ModelOutput[] = []
+
+    console.log(`[Consensus] Starting debate resolution with ${strategy.models.length} models, ${rounds} rounds`)
+
+    // Round 1: Initial outputs
+    const initialPrompt = `Provide your best response to: "${input}"
+Be thorough and accurate. You'll have a chance to critique other responses later.`
+
+    const initialOutputs = await Promise.all(
+      strategy.models.map(async model => {
+        const start = Date.now()
+        const output = await this.callModel(model, initialPrompt)
+        return {
+          model,
+          output,
+          confidence: this.extractConfidence(output),
+          executionTime: Date.now() - start
+        }
+      })
+    )
+
+    modelOutputs = [...initialOutputs]
+
+    // Debate rounds
+    for (let round = 0; round < rounds; round++) {
+      console.log(`[Consensus] Debate round ${round + 1}/${rounds}`)
+
+      const debateOutputs: ModelOutput[] = []
+
+      for (let i = 0; i < strategy.models.length; i++) {
+        const model = strategy.models[i]
+        const otherOutputs = modelOutputs.filter((_, idx) => idx !== i)
+
+        const debatePrompt = `
+You are in a collaborative debate to find the best answer.
+
+Original question: "${input}"
+Your previous response: "${modelOutputs[i].output}"
+
+Other models provided these responses:
+${otherOutputs.map((o, idx) => `Model ${idx + 1}: "${o.output}"`).join('\n\n')}
+
+Please:
+1. Identify strengths in other responses that your response lacks
+2. Identify any errors or weaknesses in other responses
+3. Provide an improved response that incorporates the best elements from all responses
+4. Rate your confidence in this improved response (0-1)
+
+Improved response:`
+
+        const start = Date.now()
+        const improved = await this.callModel(model, debatePrompt)
+
+        debateOutputs.push({
+          model,
+          output: improved,
+          confidence: this.extractConfidence(improved),
+          executionTime: Date.now() - start
+        })
+      }
+
+      modelOutputs = debateOutputs
+    }
+
+    // Synthesize final consensus
+    const finalSynthesis = await this.synthesizeDebateOutputs(modelOutputs, input, intent)
+
+    // Calculate agreement after debate
+    const agreement = this.calculateAgreementScore(modelOutputs)
+    const confidence = this.calculateOverallConfidence(modelOutputs, agreement)
+
+    console.log(`[Consensus] Debate complete: agreement=${agreement.toFixed(2)}, confidence=${confidence.toFixed(2)}`)
+
+    return {
+      strategy: 'debate_resolution',
+      agreement,
+      synthesizedOutput: finalSynthesis,
+      modelOutputs,
+      dissenting: this.findDissentingPoints(modelOutputs),
+      confidence,
+      metadata: {
+        rounds,
+        executionTime: Date.now() - startTime
+      }
+    }
+  }
+
+  /**
+   * Weighted voting - models vote with different weights based on expertise
+   */
+  private async weightedVoting(
+    input: string,
+    strategy: ConsensusStrategy,
+    intent?: UniversalIntent
+  ): Promise<ConsensusResult> {
+    const startTime = Date.now()
+
+    // Get model outputs
+    const modelOutputs = await Promise.all(
+      strategy.models.map(async model => {
+        const start = Date.now()
+        const output = await this.callModel(model, input)
+        return {
+          model,
+          output,
+          confidence: this.extractConfidence(output),
+          executionTime: Date.now() - start,
+          weight: this.getModelWeight(model, intent)
+        }
+      })
+    )
+
+    // Calculate weighted consensus
+    const weightedVotes = this.calculateWeightedVotes(modelOutputs)
+
+    // Select best output based on weighted voting
+    const bestOutput = this.selectBestByWeight(modelOutputs, weightedVotes)
+
+    // Calculate metrics
+    const agreement = this.calculateWeightedAgreement(modelOutputs)
+    const confidence = this.calculateWeightedConfidence(modelOutputs)
+
+    console.log(`[Consensus] Weighted voting complete: agreement=${agreement.toFixed(2)}, confidence=${confidence.toFixed(2)}`)
+
+    return {
+      strategy: 'weighted_voting',
+      agreement,
+      synthesizedOutput: bestOutput,
+      modelOutputs: modelOutputs.map(({ weight, ...rest }) => rest),
+      dissenting: [],
+      confidence,
+      metadata: {
+        votingResults: weightedVotes,
+        executionTime: Date.now() - startTime
+      }
+    }
+  }
+
+  /**
+   * Build evaluation prompt based on strategy and intent
+   */
+  private buildEvaluationPrompt(
+    input: string,
+    strategy: ConsensusStrategy,
+    intent?: UniversalIntent
+  ): string {
+    let prompt = input
+
+    if (strategy.evaluationCriteria) {
+      prompt += `\n\nEvaluation criteria: ${strategy.evaluationCriteria}`
+    }
+
+    if (intent) {
+      prompt += `\n\nContext: This is a ${intent.domain} task requiring ${intent.taskType}.`
+
+      if (intent.qualityThresholds.factualAccuracy > 0.8) {
+        prompt += ' Factual accuracy is critical.'
+      }
+      if (intent.qualityThresholds.creativityLevel > 0.8) {
+        prompt += ' Creativity and originality are important.'
+      }
+    }
+
+    prompt += '\n\nProvide your response and rate your confidence (0-1) at the end.'
+
+    return prompt
+  }
+
+  /**
+   * Call a specific model
+   */
+  private async callModel(modelId: string, prompt: string): Promise<string> {
+    try {
+      if (modelId.includes('sonar')) {
+        const response = await perplexityClient.chat({
+          model: modelId as 'sonar-pro' | 'sonar',
+          messages: [{ role: 'user', content: prompt }]
+        })
+        return response.choices[0].message.content
+      } else if (modelId.includes('gemini')) {
+        const model = (this.geminiClient as any).getGenerativeModel({ model: modelId })
+        const result = await model.generateContent(prompt)
+        return result.response.text()
+      } else {
+        // Default to Groq
+        const response = await groqClient.chat({
+          model: modelId,
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.7,
+          maxTokens: 1500
+        }) as any
+        return response.choices[0].message.content
+      }
+    } catch (error) {
+      console.error(`[Consensus] Error calling model ${modelId}:`, error)
+      return `Error calling model: ${error}`
+    }
+  }
+
+  /**
+   * Calculate agreement score between model outputs
+   */
+  private calculateAgreementScore(outputs: ModelOutput[]): number {
+    if (outputs.length < 2) return 1.0
+
+    // Use semantic similarity (simplified - in production use embeddings)
+    let totalSimilarity = 0
+    let comparisons = 0
+
+    for (let i = 0; i < outputs.length; i++) {
+      for (let j = i + 1; j < outputs.length; j++) {
+        const similarity = this.calculateTextSimilarity(outputs[i].output, outputs[j].output)
+        totalSimilarity += similarity
+        comparisons++
+      }
+    }
+
+    return comparisons > 0 ? totalSimilarity / comparisons : 0.5
+  }
+
+  /**
+   * Calculate text similarity (simplified)
+   */
+  private calculateTextSimilarity(text1: string, text2: string): number {
+    const words1 = new Set(text1.toLowerCase().split(/\s+/))
+    const words2 = new Set(text2.toLowerCase().split(/\s+/))
+
+    const intersection = new Set([...words1].filter(x => words2.has(x)))
+    const union = new Set([...words1, ...words2])
+
+    const jaccard = intersection.size / union.size
+
+    // Also consider length similarity
+    const lengthRatio = Math.min(text1.length, text2.length) / Math.max(text1.length, text2.length)
+
+    return (jaccard + lengthRatio) / 2
+  }
+
+  /**
+   * Synthesize multiple outputs into one
+   */
+  private async synthesizeOutputs(
+    outputs: ModelOutput[],
+    originalInput: string,
+    intent?: UniversalIntent
+  ): Promise<string> {
+    if (outputs.length === 1) return outputs[0].output
+
+    const synthesisPrompt = `You are a synthesis expert. Multiple AI models have provided responses to the same question.
+
+Original question: "${originalInput}"
+
+Model responses:
+${outputs.map((o, i) => `Model ${i + 1} (${o.model}, confidence: ${o.confidence.toFixed(2)}):
+"${o.output}"`).join('\n\n')}
+
+Your task: Create a single, coherent response that:
+1. Incorporates the BEST elements from all models
+2. Prioritizes information from high-confidence responses
+3. Resolves any contradictions by choosing the most accurate information
+4. Maintains clarity and readability
+
+${intent ? `This is a ${intent.domain} task requiring ${intent.taskType}.` : ''}
+
+Synthesized response:`
+
+    try {
+      const response = await groqClient.chat({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          { role: 'system', content: 'You are an expert at synthesizing multiple perspectives into coherent answers.' },
+          { role: 'user', content: synthesisPrompt }
+        ],
+        temperature: 0.3,
+        maxTokens: 2000
+      }) as any
+
+      return response.choices[0].message.content
+    } catch (error) {
+      console.error('[Consensus] Synthesis error:', error)
+      // Fallback: return highest confidence output
+      return outputs.reduce((best, current) =>
+        current.confidence > best.confidence ? current : best
+      ).output
+    }
+  }
+
+  /**
+   * Find dissenting points between models
+   */
+  private findDissentingPoints(outputs: ModelOutput[]): string[] {
+    if (outputs.length < 2) return []
+
+    const dissenting: string[] = []
+
+    // Extract key statements from each output (simplified)
+    const statements = outputs.map(o => {
+      const sentences = o.output.split(/[.!?]+/).map(s => s.trim()).filter(s => s.length > 20)
+      return new Set(sentences)
+    })
+
+    // Find statements that appear in only one model's output
+    for (let i = 0; i < statements.length; i++) {
+      for (const statement of statements[i]) {
+        let unique = true
+        for (let j = 0; j < statements.length; j++) {
+          if (i !== j && Array.from(statements[j]).some(s =>
+            this.calculateTextSimilarity(s, statement) > 0.7
+          )) {
+            unique = false
+            break
+          }
+        }
+        if (unique && dissenting.length < 5) {
+          dissenting.push(statement)
+        }
+      }
+    }
+
+    return dissenting
+  }
+
+  /**
+   * Extract confidence from model output
+   */
+  private extractConfidence(output: string): number {
+    // Look for explicit confidence statements
+    const confidenceMatch = output.match(/confidence[:\s]+([0-9.]+)/i) ||
+                          output.match(/([0-9.]+)\s*confidence/i) ||
+                          output.match(/confident[:\s]+([0-9]+)%/i)
+
+    if (confidenceMatch) {
+      const value = parseFloat(confidenceMatch[1])
+      return value > 1 ? value / 100 : value
+    }
+
+    // Check for hedging language (indicates lower confidence)
+    const hedgeWords = ['maybe', 'perhaps', 'possibly', 'might', 'could', 'uncertain', 'unclear']
+    const hasHedging = hedgeWords.some(word => output.toLowerCase().includes(word))
+
+    // Check for certainty language (indicates higher confidence)
+    const certainWords = ['definitely', 'certainly', 'clearly', 'obviously', 'undoubtedly']
+    const hasCertainty = certainWords.some(word => output.toLowerCase().includes(word))
+
+    if (hasCertainty) return 0.9
+    if (hasHedging) return 0.6
+    return 0.75  // Default moderate confidence
+  }
+
+  /**
+   * Calculate overall confidence from multiple outputs
+   */
+  private calculateOverallConfidence(outputs: ModelOutput[], agreement: number): number {
+    const avgConfidence = outputs.reduce((sum, o) => sum + o.confidence, 0) / outputs.length
+    // Weight by agreement - higher agreement increases confidence
+    return (avgConfidence * 0.7) + (agreement * 0.3)
+  }
+
+  /**
+   * Calculate progressive improvement in sequential refinement
+   */
+  private calculateProgressiveImprovement(outputs: ModelOutput[]): number {
+    if (outputs.length < 2) return 1.0
+
+    let totalImprovement = 0
+    for (let i = 1; i < outputs.length; i++) {
+      // Compare confidence increase
+      const confidenceImprovement = outputs[i].confidence - outputs[i - 1].confidence
+      // Compare length increase (more comprehensive)
+      const lengthImprovement = (outputs[i].output.length - outputs[i - 1].output.length) / outputs[i - 1].output.length
+
+      totalImprovement += Math.max(0, confidenceImprovement) + Math.min(0.2, Math.max(0, lengthImprovement))
+    }
+
+    return Math.min(1.0, 0.5 + totalImprovement)
+  }
+
+  /**
+   * Synthesize debate outputs with conflict resolution
+   */
+  private async synthesizeDebateOutputs(
+    outputs: ModelOutput[],
+    originalInput: string,
+    intent?: UniversalIntent
+  ): Promise<string> {
+    // After debate, models should have converged
+    // Take the highest confidence output as base and enhance
+    const bestOutput = outputs.reduce((best, current) =>
+      current.confidence > best.confidence ? current : best
+    )
+
+    // If confidence is high enough, return as is
+    if (bestOutput.confidence > 0.9) {
+      return bestOutput.output
+    }
+
+    // Otherwise, do final synthesis
+    return await this.synthesizeOutputs(outputs, originalInput, intent)
+  }
+
+  /**
+   * Get model weight based on domain expertise
+   */
+  private getModelWeight(model: string, intent?: UniversalIntent): number {
+    const capabilities = MODEL_CAPABILITIES[model]
+    if (!capabilities) return 1.0
+
+    let weight = capabilities.weight
+
+    // Adjust weight based on domain match
+    if (intent && capabilities.domains.includes(intent.domain)) {
+      weight *= 1.2
+    }
+
+    // Adjust based on task type
+    if (intent?.taskType === 'generation' && model.includes('versatile')) {
+      weight *= 1.1
+    } else if (intent?.taskType === 'research' && model.includes('sonar')) {
+      weight *= 1.3
+    }
+
+    return weight
+  }
+
+  /**
+   * Calculate weighted votes
+   */
+  private calculateWeightedVotes(outputs: any[]): Record<string, number> {
+    const votes: Record<string, number> = {}
+
+    for (const output of outputs) {
+      votes[output.model] = output.confidence * output.weight
+    }
+
+    return votes
+  }
+
+  /**
+   * Select best output by weighted voting
+   */
+  private selectBestByWeight(outputs: any[], votes: Record<string, number>): string {
+    let bestModel = ''
+    let bestScore = 0
+
+    for (const [model, score] of Object.entries(votes)) {
+      if (score > bestScore) {
+        bestScore = score
+        bestModel = model
+      }
+    }
+
+    const bestOutput = outputs.find(o => o.model === bestModel)
+    return bestOutput?.output || outputs[0].output
+  }
+
+  /**
+   * Calculate weighted agreement
+   */
+  private calculateWeightedAgreement(outputs: any[]): number {
+    let totalWeightedSimilarity = 0
+    let totalWeight = 0
+
+    for (let i = 0; i < outputs.length; i++) {
+      for (let j = i + 1; j < outputs.length; j++) {
+        const similarity = this.calculateTextSimilarity(outputs[i].output, outputs[j].output)
+        const weight = outputs[i].weight * outputs[j].weight
+        totalWeightedSimilarity += similarity * weight
+        totalWeight += weight
+      }
+    }
+
+    return totalWeight > 0 ? totalWeightedSimilarity / totalWeight : 0.5
+  }
+
+  /**
+   * Calculate weighted confidence
+   */
+  private calculateWeightedConfidence(outputs: any[]): number {
+    let totalWeightedConfidence = 0
+    let totalWeight = 0
+
+    for (const output of outputs) {
+      totalWeightedConfidence += output.confidence * output.weight
+      totalWeight += output.weight
+    }
+
+    return totalWeight > 0 ? totalWeightedConfidence / totalWeight : 0.5
+  }
+}
+
+/**
+ * Create consensus strategy based on intent
+ */
+export function createConsensusStrategy(
+  intent: UniversalIntent,
+  preferredStrategy?: ConsensusStrategy['type']
+): ConsensusStrategy {
+  // High-stakes decisions need more validation
+  const needsHighValidation =
+    intent.qualityThresholds.factualAccuracy > 0.9 ||
+    intent.complexity === 'expert' ||
+    intent.domain === 'technical'
+
+  // Creative tasks benefit from debate
+  const needsDebate =
+    intent.domain === 'creative' ||
+    intent.qualityThresholds.creativityLevel > 0.8
+
+  // Select strategy
+  let strategyType: ConsensusStrategy['type'] = preferredStrategy || 'parallel_validation'
+
+  if (!preferredStrategy) {
+    if (needsDebate) {
+      strategyType = 'debate_resolution'
+    } else if (needsHighValidation) {
+      strategyType = 'weighted_voting'
+    } else if (intent.complexity === 'moderate') {
+      strategyType = 'sequential_refinement'
+    }
+  }
+
+  // Select models based on domain
+  const models = selectModelsForConsensus(intent)
+
+  return {
+    type: strategyType,
+    models,
+    votingMechanism: needsHighValidation ? 'weighted' : 'majority',
+    confidenceThreshold: Math.max(0.7, intent.qualityThresholds.factualAccuracy),
+    maxIterations: intent.complexity === 'expert' ? 3 : 2,
+    evaluationCriteria: getEvaluationCriteria(intent)
+  }
+}
+
+/**
+ * Select models for consensus based on intent
+ */
+function selectModelsForConsensus(intent: UniversalIntent): string[] {
+  const models: string[] = []
+
+  // Always include versatile model
+  models.push('llama-3.3-70b-versatile')
+
+  // Add domain-specific models
+  switch (intent.domain) {
+    case 'creative':
+      models.push('gemini-2.0-flash')
+      break
+    case 'analytical':
+      models.push('qwen/qwen3-32b')
+      if (intent.capabilities.needsResearch) {
+        models.push('sonar-pro')
+      }
+      break
+    case 'technical':
+      models.push('openai/gpt-oss-120b')
+      if (intent.complexity === 'expert') {
+        models.push('qwen/qwen3-32b')
+      }
+      break
+    case 'learning':
+      models.push('gemini-2.0-flash')
+      break
+    case 'hybrid':
+      models.push('gemini-2.0-flash')
+      models.push('qwen/qwen3-32b')
+      break
+  }
+
+  // Limit to 3 models for efficiency
+  return [...new Set(models)].slice(0, 3)
+}
+
+/**
+ * Get evaluation criteria based on intent
+ */
+function getEvaluationCriteria(intent: UniversalIntent): string {
+  const criteria: string[] = []
+
+  if (intent.qualityThresholds.factualAccuracy > 0.8) {
+    criteria.push('factual accuracy and correctness')
+  }
+  if (intent.qualityThresholds.creativityLevel > 0.8) {
+    criteria.push('creativity and originality')
+  }
+  if (intent.qualityThresholds.technicalDepth > 0.8) {
+    criteria.push('technical accuracy and depth')
+  }
+  if (intent.qualityThresholds.educationalValue > 0.8) {
+    criteria.push('clarity and educational value')
+  }
+
+  return criteria.length > 0 ?
+    `Focus on: ${criteria.join(', ')}` :
+    'Provide a comprehensive and accurate response'
+}
+
+// Export singleton instance
+export const consensusOrchestrator = new ConsensusOrchestrator()
